@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "checked_rows": 20,
+  "checked_numbers": 60,
+  "maximum_absolute_difference": 0.0,
+  "tolerance": 1e-08
+}

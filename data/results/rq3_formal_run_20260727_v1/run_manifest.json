@@ -1,0 +1,121 @@
+{
+  "attempted_case_n": 267,
+  "budget_gate_waived_at_utc": "2026-07-29T05:31:44.066611+00:00",
+  "case_n": 267,
+  "completed_case_n": 267,
+  "control_case_n": 80,
+  "created_at_utc": "2026-07-27T14:05:53.003490+00:00",
+  "execution_case_limit_for_last_resume": 10,
+  "failed_case_n": 0,
+  "frozen_configuration": {
+    "api_key_env": "ANTHROPIC_AUTH_TOKEN",
+    "authorized_run_budget_usd": null,
+    "automatic_retries": 0,
+    "base_url": "https://api.deepseek.com/anthropic",
+    "budget_fields_frozen": false,
+    "budget_policy": "user_explicitly_waived",
+    "cases": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_formal_plan_20260727_v1/formal_cases.csv",
+      "sha256": "52e20f7879b8ecaf1d33e88abc3c8f49337ee6aac19e415b7b517ae6de7f7219"
+    },
+    "effort": "max",
+    "finding_dependent_retry": false,
+    "implementation": {
+      "formal_runner_sha256": "94b394cf70803b1dadfef661682eb2f8fed37042dac6f78bd0b73bb430cd1e3d",
+      "review_runner_sha256": "22a7f2cd1870b04f93f824247611a80fd09119aa68216ae39e97bb0d07a3235a"
+    },
+    "max_turns": 10,
+    "model": "deepseek-v4-pro[1m]",
+    "order_seed": "rq3-formal-267-v1-20260727",
+    "output_schema": {
+      "path": "<ARTIFACT_ROOT>/config/study/llm_review_output_schema.json",
+      "sha256": "a382bd47424c63b92b5d28c90b1e8ddf98845d56d4c765bc4d9cd3e8406ff844"
+    },
+    "planned_total_cost_envelope_usd": null,
+    "planning_cost_per_review_usd": null,
+    "prompt": {
+      "path": "<ARTIFACT_ROOT>/config/study/claude_code_review_prompt.txt",
+      "sha256": "4ded41c13b692f8ee166fbf5999e4feb911c4ef89131c30bafe09dbf89bee98b"
+    },
+    "provider": "deepseek",
+    "provider_balance_record": null,
+    "provider_side_remaining_budget_usd_at_freeze": null,
+    "references": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_formal_plan_20260727_v1/all_case_reference_alerts.csv",
+      "sha256": "20e793b19972ee03b888de4fef21e972242317472694811ad81e3dc7089cdd77"
+    },
+    "repetitions": 1,
+    "sdk_max_budget_usd": 1.0,
+    "worktrees": {
+      "key_sha256": "4c8ce27d0c56726f731ae3cd3c8599815826a244a9cb0119d9560ef4fa1fa953",
+      "manifest_sha256": "ce4ee31bcf4edec54051e392c3b1210f084fd3ed8967acc378eb6be40ccfcbf9",
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_formal_worktrees_20260727_v1"
+    }
+  },
+  "implementation_migrations": [
+    {
+      "additional_model_call": false,
+      "created_at_utc": "2026-07-27T14:33:33.619047+00:00",
+      "model_or_prompt_changed": false,
+      "new_implementation": {
+        "formal_runner_sha256": "6ab3d73f04bdcbf66694fc8d782f050e22d0bb62c396f30da5550ae0dbbae050",
+        "review_runner_sha256": "2a3951d4b46f3fcb375d89233462b0defc232a81be03d90014727cd943d89e15"
+      },
+      "old_implementation": {
+        "formal_runner_sha256": "417443ebd538015d25ef3e227b34b88000aace731ab6378aa0ebeb4265f355a7",
+        "review_runner_sha256": "c967413be8aa6ff4e5d7f4771960416b367713028ab3da2b392443803aaf660a"
+      },
+      "preflight_logic_changed": false,
+      "reason": "fix post-review identity projection comparison",
+      "recovered_case_id": "case-bd5b217579b468056361"
+    },
+    {
+      "additional_model_call": false,
+      "created_at_utc": "2026-07-27T15:12:06.935447+00:00",
+      "model_or_prompt_changed": false,
+      "new_implementation": {
+        "formal_runner_sha256": "6ab3d73f04bdcbf66694fc8d782f050e22d0bb62c396f30da5550ae0dbbae050",
+        "review_runner_sha256": "2a031acd019e5c8aa45337c82fe644cc1505fc078295971b0ceb0a6540f0b1d4"
+      },
+      "old_implementation": {
+        "formal_runner_sha256": "6ab3d73f04bdcbf66694fc8d782f050e22d0bb62c396f30da5550ae0dbbae050",
+        "review_runner_sha256": "2a3951d4b46f3fcb375d89233462b0defc232a81be03d90014727cd943d89e15"
+      },
+      "preflight_logic_changed": false,
+      "reason": "outside_diff_finding_was_misclassified_as_run_failure",
+      "recovered_case_id": "case-8e3569ec12253aacd7c7",
+      "response_validation_changed": true
+    },
+    {
+      "additional_model_call": false,
+      "created_at_utc": "2026-07-28T03:39:07.500320+00:00",
+      "model_or_prompt_changed": false,
+      "new_implementation": {
+        "formal_runner_sha256": "94b394cf70803b1dadfef661682eb2f8fed37042dac6f78bd0b73bb430cd1e3d",
+        "review_runner_sha256": "22a7f2cd1870b04f93f824247611a80fd09119aa68216ae39e97bb0d07a3235a"
+      },
+      "old_implementation": {
+        "formal_runner_sha256": "6ab3d73f04bdcbf66694fc8d782f050e22d0bb62c396f30da5550ae0dbbae050",
+        "review_runner_sha256": "2a031acd019e5c8aa45337c82fe644cc1505fc078295971b0ceb0a6540f0b1d4"
+      },
+      "reason": "classify response-contract violations as model outcomes",
+      "recorded_case_id": "case-e76cf55d18b0ab58656e",
+      "sample_or_matcher_changed": false
+    }
+  ],
+  "indeterminate_case_ids": [],
+  "indeterminate_case_n": 0,
+  "invalid_model_output_case_n": 1,
+  "invocation_plan_sha256": "2c0ff006edce177024278f1e2ebf799f4efeaf0517c1d602e9ee83473032e4cc",
+  "last_failed_case_id": "case-e76cf55d18b0ab58656e",
+  "last_invalid_model_output_case_id": "case-e76cf55d18b0ab58656e",
+  "last_recovered_case_id": "case-8e3569ec12253aacd7c7",
+  "positive_case_n": 187,
+  "preflight_case_n": 267,
+  "provider_budget_confirmed_at_execution": false,
+  "recovered_case_n": 2,
+  "schema_version": "1.0.0",
+  "status": "execution_complete",
+  "updated_at_utc": "2026-07-29T06:21:50.302139+00:00",
+  "user_waived_budget_gate": true
+}

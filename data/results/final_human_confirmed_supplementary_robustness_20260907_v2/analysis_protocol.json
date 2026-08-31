@@ -1,0 +1,46 @@
+{
+  "status": "post_hoc_exploratory",
+  "draws": 2000,
+  "seed": 20260623,
+  "formula": "introduced_quality_any ~ ai * C(task_type, Treatment(reference='fix')) + log1p_changed_kloc + C(repo_language)",
+  "weights": "unit",
+  "covariance": "robust sandwich",
+  "correlation": "exchangeable; repository clusters",
+  "change_size": "log1p((PR-wide additions + deletions)/1000), unchanged design covariate",
+  "root_filters": [
+    [],
+    [
+      "js/unused-local-variable"
+    ],
+    [
+      "js/unused-local-variable",
+      "py/unused-import"
+    ]
+  ],
+  "cluster_retention": "any nonexcluded alert; frozen assignments; no reclustering",
+  "auxiliary_cluster_retention": "drop every cluster touched by either named unused rule",
+  "top_rule_selection": "pooled final-confirmed Quality alert counts; lexical rule-ID tie break",
+  "rq2_exclusions": {
+    "exclude_top1": [
+      "js/unused-local-variable"
+    ],
+    "exclude_top5": [
+      "js/unused-local-variable",
+      "py/unused-import",
+      "js/automatic-semicolon-insertion",
+      "py/unused-local-variable",
+      "java/deprecated-call"
+    ]
+  },
+  "shared_selection": "repository contains >=1 analyzable AI PR and >=1 human PR; outcome-blind",
+  "standardization": "same pooled PR population as each scenario's fit; paired coefficient draws",
+  "shared_numerical_checks": [
+    "default ctol=1e-6",
+    "default ctol=1e-8",
+    "default ctol=1e-10",
+    "baseline params with Go=-10, ctol=1e-8",
+    "baseline params with Go=-20, ctol=1e-8"
+  ],
+  "inference_policy": "retain failures, suppress invalid fits/covariances; flag zero-event language strata; no silent removal; shared CIs are not validated if numerical checks fail",
+  "scope": "binary Quality outcome only; no manuscript edits; no label/category changes"
+}

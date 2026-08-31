@@ -1,0 +1,195 @@
+family,task_type,rank,rule_id,rule_name,quality_category,introduced_alert_n,affected_pr_n,alert_percent,cumulative_alert_percent
+quality,all,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,704,145,49.6124031007752,49.6124031007752
+quality,all,2,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,180,28,12.684989429175475,62.29739252995067
+quality,all,3,py/unused-import,Unused import,maintainability,153,46,10.782241014799155,73.07963354474983
+quality,all,4,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,40,12,2.818886539816772,75.8985200845666
+quality,all,5,py/unused-local-variable,Unused local variable,maintainability,32,14,2.255109231853418,78.15362931642001
+quality,all,6,java/missing-override-annotation,Missing Override annotation,maintainability,30,2,2.1141649048625792,80.2677942212826
+quality,all,7,js/syntax-error,Syntax error,correctness_reliability,28,2,1.9732205778717407,82.24101479915433
+quality,all,8,java/unused-parameter,Useless parameter,maintainability,27,3,1.9027484143763214,84.14376321353066
+quality,all,9,js/trivial-conditional,Useless conditional,correctness_reliability,21,19,1.4799154334038056,85.62367864693447
+quality,all,10,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,19,9,1.3389711064129668,86.96264975334742
+quality,all,11,js/malformed-html-id,Malformed id attribute,correctness_reliability,18,1,1.2684989429175475,88.23114869626498
+quality,all,12,py/multiple-definition,Variable defined multiple times,maintainability,17,13,1.1980267794221282,89.4291754756871
+quality,all,13,py/cyclic-import,Cyclic import,correctness_reliability,11,4,0.7751937984496124,90.20436927413671
+quality,all,14,py/empty-except,Empty except,correctness_reliability,8,3,0.5637773079633545,90.76814658210007
+quality,all,15,py/not-named-cls,First parameter of a class method is not named 'cls',maintainability,7,1,0.49330514446793516,91.26145172656801
+quality,all,16,js/superfluous-trailing-arguments,Superfluous trailing arguments,correctness_reliability,7,5,0.49330514446793516,91.75475687103594
+quality,all,17,js/unreachable-statement,Unreachable statement,correctness_reliability,7,3,0.49330514446793516,92.24806201550388
+quality,all,18,py/catch-base-exception,Except block handles 'BaseException',correctness_reliability,7,5,0.49330514446793516,92.74136715997182
+quality,all,19,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,7,4,0.49330514446793516,93.23467230443974
+quality,all,20,js/useless-expression,Expression has no effect,maintainability,5,5,0.3523608174770965,93.58703312191685
+quality,all,21,java/unknown-javadoc-parameter,Spurious Javadoc @param tags,maintainability,5,1,0.3523608174770965,93.93939393939394
+quality,all,22,js/unneeded-defensive-code,Unneeded defensive code,maintainability,5,2,0.3523608174770965,94.29175475687103
+quality,all,23,py/unused-global-variable,Unused global variable,maintainability,5,4,0.3523608174770965,94.64411557434813
+quality,all,24,py/file-not-closed,File is not always closed,performance_efficiency,5,4,0.3523608174770965,94.99647639182523
+quality,all,25,py/modification-of-default-value,Modification of parameter with default,correctness_reliability,5,1,0.3523608174770965,95.34883720930233
+quality,all,26,py/call/wrong-named-class-argument,Wrong name for an argument in a class instantiation,correctness_reliability,4,1,0.28188865398167723,95.630725863284
+quality,all,27,py/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,4,3,0.28188865398167723,95.91261451726568
+quality,all,28,py/commented-out-code,Commented-out code,maintainability,4,3,0.28188865398167723,96.19450317124736
+quality,all,29,java/local-variable-is-never-read,Unread local variable,maintainability,4,2,0.28188865398167723,96.47639182522903
+quality,all,30,js/overwritten-property,Overwritten property,correctness_reliability,3,2,0.21141649048625794,96.68780831571529
+quality,all,31,js/missing-variable-declaration,Missing variable declaration,correctness_reliability,3,2,0.21141649048625794,96.89922480620154
+quality,all,32,py/unreachable-statement,Unreachable code,maintainability,3,3,0.21141649048625794,97.1106412966878
+quality,all,33,py/unnecessary-pass,Unnecessary pass,maintainability,3,3,0.21141649048625794,97.32205778717406
+quality,all,34,py/unnecessary-lambda,Unnecessary lambda,maintainability,3,2,0.21141649048625794,97.53347427766032
+quality,all,35,java/useless-tostring-call,Useless toString on String,maintainability,3,1,0.21141649048625794,97.74489076814658
+quality,all,36,py/overwritten-inherited-attribute,Overwriting attribute in super-class or sub-class,correctness_reliability,2,1,0.14094432699083861,97.88583509513742
+quality,all,37,py/test-equals-none,Testing equality to None,performance_efficiency,2,2,0.14094432699083861,98.02677942212826
+quality,all,38,js/comparison-between-incompatible-types,Comparison between inconvertible types,correctness_reliability,2,2,0.14094432699083861,98.1677237491191
+quality,all,39,go/missing-error-check,Missing error check,correctness_reliability,2,1,0.14094432699083861,98.30866807610994
+quality,all,40,py/call/wrong-named-argument,Wrong name for an argument in a call,correctness_reliability,2,2,0.14094432699083861,98.44961240310077
+quality,all,41,py/call/wrong-arguments,Wrong number of arguments in a call,correctness_reliability,2,1,0.14094432699083861,98.59055673009162
+quality,all,42,java/deprecated-call,Deprecated method or constructor invocation,maintainability,2,1,0.14094432699083861,98.73150105708245
+quality,all,43,py/missing-call-to-init,Missing call to superclass `__init__` during object initialization,correctness_reliability,1,1,0.07047216349541931,98.80197322057788
+quality,all,44,java/ignored-error-status-of-call,Ignored error status of call,correctness_reliability,1,1,0.07047216349541931,98.87244538407329
+quality,all,45,js/duplicate-property,Duplicate property,maintainability,1,1,0.07047216349541931,98.94291754756871
+quality,all,46,cpp/nested-loops-with-same-variable,Nested loops with same variable,correctness_reliability,1,1,0.07047216349541931,99.01338971106414
+quality,all,47,py/mixed-returns,Explicit returns mixed with implicit (fall through) returns,correctness_reliability,1,1,0.07047216349541931,99.08386187455955
+quality,all,48,cpp/implicit-function-declaration,Implicit function declaration,correctness_reliability,1,1,0.07047216349541931,99.15433403805497
+quality,all,49,py/redundant-comparison,Redundant comparison,maintainability,1,1,0.07047216349541931,99.2248062015504
+quality,all,50,js/duplicate-switch-case,Duplicate switch case,correctness_reliability,1,1,0.07047216349541931,99.2952783650458
+quality,all,51,cpp/guarded-free,Guarded Free,maintainability,1,1,0.07047216349541931,99.36575052854123
+quality,all,52,py/inheritance/signature-mismatch,Signature mismatch in overriding method,correctness_reliability,1,1,0.07047216349541931,99.43622269203665
+quality,all,53,cpp/missing-header-guard,Missing header guard,maintainability,1,1,0.07047216349541931,99.50669485553206
+quality,all,54,java/unsafe-double-checked-locking-init-order,Race condition in double-checked locking object initialization,correctness_reliability,1,1,0.07047216349541931,99.57716701902748
+quality,all,55,js/useless-assignment-to-property,Useless assignment to property,maintainability,1,1,0.07047216349541931,99.64763918252291
+quality,all,56,py/repeated-import,Module is imported more than once,maintainability,1,1,0.07047216349541931,99.71811134601832
+quality,all,57,js/redundant-operation,Identical operands,correctness_reliability,1,1,0.07047216349541931,99.78858350951374
+quality,all,58,py/procedure-return-value-used,Use of the return value of a procedure,maintainability,1,1,0.07047216349541931,99.85905567300917
+quality,all,59,rb/useless-assignment-to-local,Useless assignment to local variable,maintainability,1,1,0.07047216349541931,99.92952783650458
+quality,all,60,py/print-during-import,Use of a print statement at module level,correctness_reliability,1,1,0.07047216349541931,100.0
+quality,feat,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,577,98,52.26449275362319,52.26449275362319
+quality,feat,2,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,167,20,15.126811594202898,67.3913043478261
+quality,feat,3,py/unused-import,Unused import,maintainability,88,26,7.971014492753623,75.3623188405797
+quality,feat,4,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,34,8,3.079710144927536,78.44202898550725
+quality,feat,5,js/syntax-error,Syntax error,correctness_reliability,28,2,2.536231884057971,80.97826086956522
+quality,feat,6,py/unused-local-variable,Unused local variable,maintainability,27,10,2.4456521739130435,83.42391304347827
+quality,feat,7,java/missing-override-annotation,Missing Override annotation,maintainability,21,1,1.9021739130434783,85.32608695652173
+quality,feat,8,js/malformed-html-id,Malformed id attribute,correctness_reliability,18,1,1.6304347826086956,86.95652173913044
+quality,feat,9,js/trivial-conditional,Useless conditional,correctness_reliability,16,14,1.4492753623188406,88.40579710144928
+quality,feat,10,java/unused-parameter,Useless parameter,maintainability,14,1,1.2681159420289856,89.67391304347827
+quality,feat,11,py/multiple-definition,Variable defined multiple times,maintainability,14,10,1.2681159420289856,90.94202898550725
+quality,feat,12,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,7,4,0.6340579710144928,91.57608695652173
+quality,feat,13,py/empty-except,Empty except,correctness_reliability,7,2,0.6340579710144928,92.21014492753623
+quality,feat,14,py/catch-base-exception,Except block handles 'BaseException',correctness_reliability,7,5,0.6340579710144928,92.84420289855072
+quality,feat,15,js/unreachable-statement,Unreachable statement,correctness_reliability,6,2,0.5434782608695652,93.3876811594203
+quality,feat,16,js/unneeded-defensive-code,Unneeded defensive code,maintainability,5,2,0.4528985507246377,93.84057971014492
+quality,feat,17,py/modification-of-default-value,Modification of parameter with default,correctness_reliability,5,1,0.4528985507246377,94.29347826086956
+quality,feat,18,py/unused-global-variable,Unused global variable,maintainability,4,3,0.36231884057971014,94.65579710144928
+quality,feat,19,py/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,4,3,0.36231884057971014,95.01811594202898
+quality,feat,20,java/local-variable-is-never-read,Unread local variable,maintainability,4,2,0.36231884057971014,95.3804347826087
+quality,feat,21,js/overwritten-property,Overwritten property,correctness_reliability,3,2,0.2717391304347826,95.65217391304348
+quality,feat,22,js/missing-variable-declaration,Missing variable declaration,correctness_reliability,3,2,0.2717391304347826,95.92391304347827
+quality,feat,23,py/unreachable-statement,Unreachable code,maintainability,3,3,0.2717391304347826,96.19565217391305
+quality,feat,24,js/useless-expression,Expression has no effect,maintainability,3,3,0.2717391304347826,96.46739130434783
+quality,feat,25,py/unnecessary-lambda,Unnecessary lambda,maintainability,3,2,0.2717391304347826,96.73913043478261
+quality,feat,26,py/overwritten-inherited-attribute,Overwriting attribute in super-class or sub-class,correctness_reliability,2,1,0.18115942028985507,96.92028985507247
+quality,feat,27,py/test-equals-none,Testing equality to None,performance_efficiency,2,2,0.18115942028985507,97.10144927536231
+quality,feat,28,js/comparison-between-incompatible-types,Comparison between inconvertible types,correctness_reliability,2,2,0.18115942028985507,97.28260869565217
+quality,feat,29,go/missing-error-check,Missing error check,correctness_reliability,2,1,0.18115942028985507,97.46376811594203
+quality,feat,30,py/call/wrong-arguments,Wrong number of arguments in a call,correctness_reliability,2,1,0.18115942028985507,97.64492753623189
+quality,feat,31,py/unnecessary-pass,Unnecessary pass,maintainability,2,2,0.18115942028985507,97.82608695652173
+quality,feat,32,py/cyclic-import,Cyclic import,correctness_reliability,2,1,0.18115942028985507,98.0072463768116
+quality,feat,33,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,2,2,0.18115942028985507,98.18840579710145
+quality,feat,34,js/superfluous-trailing-arguments,Superfluous trailing arguments,correctness_reliability,2,2,0.18115942028985507,98.3695652173913
+quality,feat,35,py/call/wrong-named-argument,Wrong name for an argument in a call,correctness_reliability,1,1,0.09057971014492754,98.46014492753623
+quality,feat,36,py/missing-call-to-init,Missing call to superclass `__init__` during object initialization,correctness_reliability,1,1,0.09057971014492754,98.55072463768116
+quality,feat,37,py/commented-out-code,Commented-out code,maintainability,1,1,0.09057971014492754,98.6413043478261
+quality,feat,38,js/duplicate-property,Duplicate property,maintainability,1,1,0.09057971014492754,98.73188405797102
+quality,feat,39,cpp/nested-loops-with-same-variable,Nested loops with same variable,correctness_reliability,1,1,0.09057971014492754,98.82246376811594
+quality,feat,40,py/mixed-returns,Explicit returns mixed with implicit (fall through) returns,correctness_reliability,1,1,0.09057971014492754,98.91304347826087
+quality,feat,41,py/file-not-closed,File is not always closed,performance_efficiency,1,1,0.09057971014492754,99.0036231884058
+quality,feat,42,cpp/implicit-function-declaration,Implicit function declaration,correctness_reliability,1,1,0.09057971014492754,99.09420289855072
+quality,feat,43,py/redundant-comparison,Redundant comparison,maintainability,1,1,0.09057971014492754,99.18478260869566
+quality,feat,44,js/duplicate-switch-case,Duplicate switch case,correctness_reliability,1,1,0.09057971014492754,99.27536231884058
+quality,feat,45,cpp/guarded-free,Guarded Free,maintainability,1,1,0.09057971014492754,99.3659420289855
+quality,feat,46,py/inheritance/signature-mismatch,Signature mismatch in overriding method,correctness_reliability,1,1,0.09057971014492754,99.45652173913044
+quality,feat,47,java/unsafe-double-checked-locking-init-order,Race condition in double-checked locking object initialization,correctness_reliability,1,1,0.09057971014492754,99.54710144927536
+quality,feat,48,js/useless-assignment-to-property,Useless assignment to property,maintainability,1,1,0.09057971014492754,99.6376811594203
+quality,feat,49,py/repeated-import,Module is imported more than once,maintainability,1,1,0.09057971014492754,99.72826086956522
+quality,feat,50,js/redundant-operation,Identical operands,correctness_reliability,1,1,0.09057971014492754,99.81884057971014
+quality,feat,51,rb/useless-assignment-to-local,Useless assignment to local variable,maintainability,1,1,0.09057971014492754,99.90942028985508
+quality,feat,52,py/print-during-import,Use of a print statement at module level,correctness_reliability,1,1,0.09057971014492754,100.0
+quality,fix,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,95,38,43.57798165137615,43.57798165137615
+quality,fix,2,py/unused-import,Unused import,maintainability,44,15,20.18348623853211,63.76146788990825
+quality,fix,3,java/unused-parameter,Useless parameter,maintainability,13,2,5.963302752293578,69.72477064220183
+quality,fix,4,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,11,7,5.045871559633028,74.77064220183486
+quality,fix,5,java/missing-override-annotation,Missing Override annotation,maintainability,9,1,4.128440366972477,78.89908256880734
+quality,fix,6,py/cyclic-import,Cyclic import,correctness_reliability,6,2,2.7522935779816513,81.65137614678899
+quality,fix,7,py/unused-local-variable,Unused local variable,maintainability,5,4,2.293577981651376,83.94495412844037
+quality,fix,8,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,4,3,1.834862385321101,85.77981651376147
+quality,fix,9,js/trivial-conditional,Useless conditional,correctness_reliability,4,4,1.834862385321101,87.61467889908256
+quality,fix,10,py/file-not-closed,File is not always closed,performance_efficiency,3,2,1.3761467889908257,88.9908256880734
+quality,fix,11,py/commented-out-code,Commented-out code,maintainability,3,2,1.3761467889908257,90.36697247706422
+quality,fix,12,py/multiple-definition,Variable defined multiple times,maintainability,3,3,1.3761467889908257,91.74311926605505
+quality,fix,13,java/useless-tostring-call,Useless toString on String,maintainability,3,1,1.3761467889908257,93.11926605504587
+quality,fix,14,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,2,2,0.9174311926605505,94.03669724770643
+quality,fix,15,java/deprecated-call,Deprecated method or constructor invocation,maintainability,2,1,0.9174311926605505,94.95412844036697
+quality,fix,16,py/empty-except,Empty except,correctness_reliability,1,1,0.45871559633027525,95.41284403669725
+quality,fix,17,js/useless-expression,Expression has no effect,maintainability,1,1,0.45871559633027525,95.87155963302752
+quality,fix,18,java/ignored-error-status-of-call,Ignored error status of call,correctness_reliability,1,1,0.45871559633027525,96.3302752293578
+quality,fix,19,py/unnecessary-pass,Unnecessary pass,maintainability,1,1,0.45871559633027525,96.78899082568807
+quality,fix,20,js/superfluous-trailing-arguments,Superfluous trailing arguments,correctness_reliability,1,1,0.45871559633027525,97.24770642201835
+quality,fix,21,py/call/wrong-named-argument,Wrong name for an argument in a call,correctness_reliability,1,1,0.45871559633027525,97.70642201834862
+quality,fix,22,js/unreachable-statement,Unreachable statement,correctness_reliability,1,1,0.45871559633027525,98.1651376146789
+quality,fix,23,cpp/missing-header-guard,Missing header guard,maintainability,1,1,0.45871559633027525,98.62385321100918
+quality,fix,24,py/unused-global-variable,Unused global variable,maintainability,1,1,0.45871559633027525,99.08256880733946
+quality,fix,25,py/procedure-return-value-used,Use of the return value of a procedure,maintainability,1,1,0.45871559633027525,99.54128440366972
+quality,fix,26,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,1,1,0.45871559633027525,100.0
+quality,refactor,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,32,9,32.98969072164948,32.98969072164948
+quality,refactor,2,py/unused-import,Unused import,maintainability,21,5,21.649484536082475,54.63917525773196
+quality,refactor,3,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,8,2,8.24742268041237,62.88659793814433
+quality,refactor,4,py/not-named-cls,First parameter of a class method is not named 'cls',maintainability,7,1,7.216494845360825,70.10309278350516
+quality,refactor,5,java/unknown-javadoc-parameter,Spurious Javadoc @param tags,maintainability,5,1,5.154639175257732,75.25773195876289
+quality,refactor,6,py/call/wrong-named-class-argument,Wrong name for an argument in a class instantiation,correctness_reliability,4,1,4.123711340206185,79.38144329896907
+quality,refactor,7,js/superfluous-trailing-arguments,Superfluous trailing arguments,correctness_reliability,4,2,4.123711340206185,83.50515463917526
+quality,refactor,8,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,4,2,4.123711340206185,87.62886597938144
+quality,refactor,9,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,4,1,4.123711340206185,91.75257731958763
+quality,refactor,10,py/cyclic-import,Cyclic import,correctness_reliability,3,1,3.0927835051546393,94.84536082474227
+quality,refactor,11,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,2,1,2.0618556701030926,96.90721649484536
+quality,refactor,12,js/trivial-conditional,Useless conditional,correctness_reliability,1,1,1.0309278350515463,97.9381443298969
+quality,refactor,13,js/useless-expression,Expression has no effect,maintainability,1,1,1.0309278350515463,98.96907216494846
+quality,refactor,14,py/file-not-closed,File is not always closed,performance_efficiency,1,1,1.0309278350515463,100.0
+security,all,1,js/polynomial-redos,Polynomial regular expression used on uncontrolled data,,8,2,16.3265306122449,16.3265306122449
+security,all,2,js/log-injection,Log injection,,7,4,14.285714285714286,30.612244897959183
+security,all,3,py/log-injection,Log Injection,,4,1,8.16326530612245,38.775510204081634
+security,all,4,rb/sql-injection,SQL query built from user-controlled sources,,4,2,8.16326530612245,46.93877551020408
+security,all,5,js/file-system-race,Potential file system race condition,,3,2,6.122448979591836,53.06122448979592
+security,all,6,js/insecure-temporary-file,Insecure temporary file,,3,3,6.122448979591836,59.183673469387756
+security,all,7,js/incomplete-url-substring-sanitization,Incomplete URL substring sanitization,,2,2,4.081632653061225,63.265306122448976
+security,all,8,js/incomplete-sanitization,Incomplete string escaping or encoding,,2,1,4.081632653061225,67.34693877551021
+security,all,9,js/http-to-file-access,Network data written to file,,2,1,4.081632653061225,71.42857142857143
+security,all,10,js/tainted-format-string,Use of externally-controlled format string,,2,1,4.081632653061225,75.51020408163265
+security,all,11,java/log-injection,Log Injection,,2,1,4.081632653061225,79.59183673469387
+security,all,12,py/clear-text-logging-sensitive-data,Clear-text logging of sensitive information,,2,1,4.081632653061225,83.6734693877551
+security,all,13,js/missing-origin-check,Missing origin verification in `postMessage` handler,,1,1,2.0408163265306123,85.71428571428571
+security,all,14,py/incomplete-url-substring-sanitization,Incomplete URL substring sanitization,,1,1,2.0408163265306123,87.75510204081633
+security,all,15,js/prototype-pollution-utility,Prototype-polluting function,,1,1,2.0408163265306123,89.79591836734694
+security,all,16,js/indirect-command-line-injection,Indirect uncontrolled command line,,1,1,2.0408163265306123,91.83673469387755
+security,all,17,js/xss-through-dom,DOM text reinterpreted as HTML,,1,1,2.0408163265306123,93.87755102040816
+security,all,18,py/tarslip,Arbitrary file write during tarfile extraction,,1,1,2.0408163265306123,95.91836734693878
+security,all,19,js/regex/missing-regexp-anchor,Missing regular expression anchor,,1,1,2.0408163265306123,97.95918367346938
+security,all,20,py/stack-trace-exposure,Information exposure through an exception,,1,1,2.0408163265306123,100.0
+security,feat,1,js/polynomial-redos,Polynomial regular expression used on uncontrolled data,,7,1,16.666666666666668,16.666666666666668
+security,feat,2,js/log-injection,Log injection,,5,3,11.904761904761905,28.571428571428573
+security,feat,3,py/log-injection,Log Injection,,4,1,9.523809523809524,38.095238095238095
+security,feat,4,rb/sql-injection,SQL query built from user-controlled sources,,4,2,9.523809523809524,47.61904761904762
+security,feat,5,js/file-system-race,Potential file system race condition,,3,2,7.142857142857143,54.76190476190476
+security,feat,6,js/insecure-temporary-file,Insecure temporary file,,3,3,7.142857142857143,61.904761904761905
+security,feat,7,js/incomplete-url-substring-sanitization,Incomplete URL substring sanitization,,2,2,4.761904761904762,66.66666666666667
+security,feat,8,js/incomplete-sanitization,Incomplete string escaping or encoding,,2,1,4.761904761904762,71.42857142857143
+security,feat,9,js/http-to-file-access,Network data written to file,,2,1,4.761904761904762,76.19047619047619
+security,feat,10,js/tainted-format-string,Use of externally-controlled format string,,2,1,4.761904761904762,80.95238095238095
+security,feat,11,java/log-injection,Log Injection,,2,1,4.761904761904762,85.71428571428571
+security,feat,12,py/clear-text-logging-sensitive-data,Clear-text logging of sensitive information,,2,1,4.761904761904762,90.47619047619048
+security,feat,13,js/missing-origin-check,Missing origin verification in `postMessage` handler,,1,1,2.380952380952381,92.85714285714286
+security,feat,14,js/prototype-pollution-utility,Prototype-polluting function,,1,1,2.380952380952381,95.23809523809524
+security,feat,15,js/xss-through-dom,DOM text reinterpreted as HTML,,1,1,2.380952380952381,97.61904761904762
+security,feat,16,py/stack-trace-exposure,Information exposure through an exception,,1,1,2.380952380952381,100.0
+security,fix,1,js/log-injection,Log injection,,2,1,33.333333333333336,33.333333333333336
+security,fix,2,py/incomplete-url-substring-sanitization,Incomplete URL substring sanitization,,1,1,16.666666666666668,50.0
+security,fix,3,py/tarslip,Arbitrary file write during tarfile extraction,,1,1,16.666666666666668,66.66666666666667
+security,fix,4,js/polynomial-redos,Polynomial regular expression used on uncontrolled data,,1,1,16.666666666666668,83.33333333333333
+security,fix,5,js/regex/missing-regexp-anchor,Missing regular expression anchor,,1,1,16.666666666666668,100.0
+security,refactor,1,js/indirect-command-line-injection,Indirect uncontrolled command line,,1,1,100.0,100.0

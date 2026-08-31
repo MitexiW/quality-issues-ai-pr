@@ -1,0 +1,14 @@
+group,failure_stage,comparison_status,retry_excluded,exclusion_reason,pr_n,outcome_handling
+ai,analysis,missing,true,retry_excluded;before_after_not_completed;comparison_missing;family_metadata_missing,10,excluded from outcome denominator; not coded as zero
+ai,database,missing,true,retry_excluded;before_after_not_completed;comparison_missing;family_metadata_missing,8,excluded from outcome denominator; not coded as zero
+ai,database,pending,false,before_after_not_completed;comparison_pending;family_metadata_missing,2,excluded from outcome denominator; not coded as zero
+ai,prepare,missing,true,retry_excluded;before_after_not_completed;comparison_missing;family_metadata_missing,4,excluded from outcome denominator; not coded as zero
+ai,prepare,pending,false,before_after_not_completed;comparison_pending;family_metadata_missing,253,excluded from outcome denominator; not coded as zero
+ai,prepare,pending,false,cross_group_overlap;before_after_not_completed;comparison_pending;family_metadata_missing,3,excluded from outcome denominator; not coded as zero
+human,analysis,missing,true,retry_excluded;before_after_not_completed;comparison_missing;family_metadata_missing,1,excluded from outcome denominator; not coded as zero
+human,analysis,pending,false,before_after_not_completed;comparison_pending;family_metadata_missing,5,excluded from outcome denominator; not coded as zero
+human,database,pending,false,before_after_not_completed;comparison_pending;family_metadata_missing,4,excluded from outcome denominator; not coded as zero
+human,prepare,pending,false,before_after_not_completed;comparison_pending;family_metadata_missing,9,excluded from outcome denominator; not coded as zero
+human,unspecified,missing,true,cross_group_overlap;retry_excluded;before_after_not_completed;comparison_missing;family_metadata_missing,3,excluded from outcome denominator; not coded as zero
+human,unspecified,missing,true,retry_excluded;before_after_not_completed;comparison_missing;family_metadata_missing,98,excluded from outcome denominator; not coded as zero
+human,unspecified,missing,true,retry_excluded;comparison_missing;family_metadata_missing,1,excluded from outcome denominator; not coded as zero

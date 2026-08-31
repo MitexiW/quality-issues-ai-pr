@@ -1,0 +1,25 @@
+family,dimension,stratum,pr_n,zero_changed_kloc_pr_n,changed_kloc_total,introduced_alert_n,alerts_per_changed_kloc,definition
+quality,all,all,3087,2,1154.07,2506,2.171445406257853,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,all,all,3087,2,1154.07,245,0.21229214865649398,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,task_type,feat,1353,0,779.209,1540,1.9763632093571817,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,task_type,feat,1353,0,779.209,160,0.20533643733581108,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,task_type,fix,1427,1,194.247,695,3.5779188352973272,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,task_type,fix,1427,1,194.247,56,0.28829274068582783,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,task_type,refactor,307,1,180.614,271,1.500437396879533,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,task_type,refactor,307,1,180.614,29,0.1605634114741936,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,C,48,0,6.511,245,37.62862847488865,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,C,48,0,6.511,1,0.1535862386730149,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,C++,97,0,52.189,317,6.074076912759394,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,C++,97,0,52.189,3,0.05748337772327502,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,Go,274,0,65.797,0,0.0,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,Go,274,0,65.797,4,0.060793045275620475,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,Java,89,0,35.863,595,16.590915428157153,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,Java,89,0,35.863,39,1.0874717675598806,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,JavaScript,149,0,22.703,65,2.863057745672378,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,JavaScript,149,0,22.703,20,0.8809408448222702,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,Python,750,0,221.493,798,3.602822662567214,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,Python,750,0,221.493,36,0.16253335319852094,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,Ruby,70,0,74.493,33,0.4429946437920342,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,Ruby,70,0,74.493,7,0.09396856080437088,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+quality,repo_language,TypeScript,1610,2,675.021,453,0.6710902327483146,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum
+security,repo_language,TypeScript,1610,2,675.021,135,0.199993777971352,introduced alert total / sum(changed_kloc) across all AI quality-gated PRs in the stratum

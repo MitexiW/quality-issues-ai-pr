@@ -1,0 +1,95 @@
+{
+  "schema_version": "2.0.0",
+  "status": "frozen_before_formal_model_execution",
+  "measurement_target": "CodeQL-detectable reference-alert recovery",
+  "pr_eligibility": {
+    "require_quality_gate_pass": true,
+    "require_enrichment": true,
+    "require_complete_file_list": true,
+    "require_complete_patch": true,
+    "require_exact_worktree_before_execution": true
+  },
+  "common_alert_filters": {
+    "lifecycle": "introduced",
+    "location_classes": [
+      "production"
+    ],
+    "require_changed_file": true,
+    "require_unique_new_side_diff_hunk": true
+  },
+  "quality": {
+    "precision": [
+      "high",
+      "very-high"
+    ],
+    "quality_categories": [
+      "correctness_reliability",
+      "maintainability",
+      "performance_efficiency",
+      "portability",
+      "other_quality"
+    ],
+    "reference_tiers": {
+      "primary": {
+        "exclude_rule_tags": [
+          "useless-code"
+        ],
+        "problem_severity": null
+      },
+      "strict": {
+        "inherit": "primary",
+        "problem_severity": [
+          "warning",
+          "error"
+        ]
+      },
+      "broad": {
+        "exclude_rule_tags": [],
+        "problem_severity": null
+      }
+    }
+  },
+  "security": {
+    "precision": [
+      "medium",
+      "high",
+      "very-high"
+    ],
+    "require_numeric_security_severity": true
+  },
+  "formal_benchmark": {
+    "target_family": "quality",
+    "positive_selection": "all_primary_positive_prs",
+    "expected_positive_prs": {
+      "ai": 95,
+      "human": 92
+    },
+    "control_selection": {
+      "definition": "zero introduced Quality alerts under the frozen RQ1/RQ2 outcome",
+      "target_per_group": {
+        "ai": 40,
+        "human": 40
+      },
+      "exact_match": [
+        "group",
+        "task_type"
+      ],
+      "prefer": [
+        "repository",
+        "codeql_language",
+        "log1p_changed_kloc",
+        "merge_calendar_quarter"
+      ]
+    },
+    "repetitions": 1,
+    "planned_case_n": 267
+  },
+  "notes": [
+    "Quality primary references exclude only rules tagged useless-code; recommendation severity is retained when the precision and other gates pass.",
+    "Strict and broad Quality tiers are sensitivity denominators evaluated against the same model output and never trigger additional model calls.",
+    "Quality is the primary review family and Security is secondary.",
+    "Controls are CodeQL-negative only for introduced Quality under the frozen RQ1/RQ2 outcome and are not described as defect-free.",
+    "Historical packet pilots and paid infrastructure-smoke outputs are not RQ3 performance results.",
+    "The formal frame uses production alerts located in changed files and PRs whose cached API patches account for every changed text line."
+  ]
+}

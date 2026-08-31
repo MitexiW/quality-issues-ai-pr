@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-08-20T02:17:16.057969+00:00",
+  "status": "final",
+  "group": "ai",
+  "eligible_pr_n": 3087,
+  "raw_introduced_alert_n": 2322,
+  "eligible_introduced_alert_n": 854,
+  "excluded_alert_n": 1468,
+  "invalid_family_alert_n": 0,
+  "expected_family_counts": {
+    "quality": 775,
+    "security": 79
+  },
+  "observed_family_counts": {
+    "quality": 775,
+    "security": 79
+  },
+  "count_conservation": {
+    "quality": true,
+    "security": true
+  },
+  "count_conservation_pass": true,
+  "repository_cluster_bootstrap": {
+    "replicates": 2000,
+    "seed": 20260623,
+    "method": "repository-cluster percentile"
+  },
+  "change_size_bands": {
+    "unit": "changed code lines",
+    "le_100": "changed_kloc <= 0.1",
+    "101_1000": "0.1 < changed_kloc <= 1.0",
+    "gt_1000": "changed_kloc > 1.0",
+    "role": "post-outcome descriptive extension; not a threshold-effect analysis"
+  },
+  "inputs": {
+    "alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/validated_alerts.csv",
+      "sha256": "2337ae86906bd41781dd55ccba5ff941223dee01ce08832eef99a8c1159a787e"
+    },
+    "analysis_pr_level": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/analysis_pr_level.csv",
+      "sha256": "e0db4943af3e8c8b08813041737456b7856e91020316e799a9eee12f026883b6"
+    },
+    "location_rules": {
+      "path": "<ARTIFACT_ROOT>/config/study/pr_enrichment_rules.json",
+      "sha256": "b567c060dee938ce90dffd6b87a149523caa89b77b7f33c660793bbbde79296b"
+    }
+  }
+}

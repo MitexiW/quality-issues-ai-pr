@@ -1,0 +1,8 @@
+scenario,root_cause_cluster_id,repo_name,pr_number,root_cause_category,original_alert_n,remaining_alert_n,retained,partially_retained,remaining_rules,excluded_rules
+exclude_js_unused_local,rccluster-4b224d821017ce974aa9,ruvnet/claude-flow,519,interface_or_contract_mismatch,2,1,True,True,js/call-to-non-callable,js/unused-local-variable
+exclude_js_unused_local,rccluster-faa74acf34f8be6123d6,ryokun6/ryos,131,incomplete_change_coordination,2,1,True,True,js/unused-loop-variable,js/unused-local-variable
+exclude_two_unused_rules,rccluster-12ede7e31a3d5818d112,BerriAI/litellm,12551,redundant_or_locally_inconsistent_construction,3,1,True,True,py/import-and-import-from,py/unused-import
+exclude_two_unused_rules,rccluster-f504dbcb0461eb638a80,oraios/serena,286,incomplete_change_coordination,12,4,True,True,py/unused-local-variable,py/unused-import
+exclude_two_unused_rules,rccluster-4b224d821017ce974aa9,ruvnet/claude-flow,519,interface_or_contract_mismatch,2,1,True,True,js/call-to-non-callable,js/unused-local-variable
+exclude_two_unused_rules,rccluster-faa74acf34f8be6123d6,ryokun6/ryos,131,incomplete_change_coordination,2,1,True,True,js/unused-loop-variable,js/unused-local-variable
+exclude_two_unused_rules,rccluster-053a63f808b61bb5bd43,spcl/dace,2019,redundant_or_locally_inconsistent_construction,2,1,True,True,py/import-and-import-from,py/unused-import

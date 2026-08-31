@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0.0",
+  "status": "formal_267_case_preflight_passed_user_waived_budget_gate",
+  "measurement_target": "Recovery of hidden CodeQL-detectable alerts by a blinded local Claude Code review.",
+  "sdk": {
+    "current_name": "Claude Agent SDK",
+    "former_name": "Claude Code SDK",
+    "python_package": "claude-agent-sdk",
+    "python_package_version": "0.2.128",
+    "bundled_claude_code_cli_version": "2.1.220"
+  },
+  "review_surface": {
+    "command": "/code-review",
+    "execution": "local",
+    "input_unit": "one sanitized base-to-head Git worktree per PR",
+    "whole_pr_review": true,
+    "packet_chunk_invocations": false
+  },
+  "formal_benchmark": {
+    "case_n_before_exact_worktree_gate": 267,
+    "quality_positive_case_n": 187,
+    "quality_positive_by_group": {
+      "ai": 95,
+      "human": 92
+    },
+    "quality_control_case_n": 80,
+    "quality_control_by_group": {
+      "ai": 40,
+      "human": 40
+    },
+    "repetitions": 1,
+    "max_turns": 10,
+    "sensitivity_reuses_primary_invocation": true,
+    "case_output_may_not_be_retried_based_on_findings": true
+  },
+  "model_backend": {
+    "provider": "DeepSeek",
+    "api_protocol": "Anthropic-compatible",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "requested_claude_code_model": "deepseek-v4-pro[1m]",
+    "resolved_backend_model": "deepseek-v4-pro",
+    "effort": "max",
+    "api_key_env": "ANTHROPIC_AUTH_TOKEN",
+    "selected_at_utc_date": "2026-07-27",
+    "secret_persisted": false
+  },
+  "provider_pricing_snapshot": {
+    "checked_at_utc_date": "2026-07-27",
+    "source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "requested_model": "deepseek-v4-pro[1m]",
+    "resolved_model": "deepseek-v4-pro",
+    "usd_per_million_cache_hit_input_tokens": 0.003625,
+    "usd_per_million_cache_miss_input_tokens": 0.435,
+    "usd_per_million_output_tokens": 0.87,
+    "context_tokens": 1000000,
+    "maximum_output_tokens": 384000,
+    "one_fully_cache_miss_exchange_theoretical_usd": 0.76908,
+    "pricing_is_not_a_per_review_hard_cap": true
+  },
+  "infrastructure_smoke": {
+    "requested_model": "deepseek-v4-flash",
+    "resolved_backend_model": "deepseek-v4-flash",
+    "purpose": "adapter, artifact, recorder, and matcher validation only",
+    "eligible_for_rq3_performance_estimates": false,
+    "offline_preflight_passed": true,
+    "end_to_end_example_passed": true,
+    "case_id": "case-adf69913b3922491c73f",
+    "review_finding_n": 4,
+    "target_reference_n": 1,
+    "recovered_target_reference_n": 0,
+    "claude_sdk_estimated_cost_usd": 0.9197379999999999,
+    "provider_invoice_cost_available": false,
+    "sdk_requested_max_budget_usd": 0.25
+  },
+  "response_contract": {
+    "mode": "deepseek_native_findings",
+    "provider_constrained_decoding": false,
+    "sdk_output_format_sent": false,
+    "preferred_sdk_field": "assistant_tool_use",
+    "native_tool_name": "ReportFindings",
+    "accepted_response_sources": [
+      "claude_code_report_findings_tool",
+      "result_text_single_fenced_native_json_array"
+    ],
+    "inline_fallback": {
+      "exact_fenced_block_n": 1,
+      "required_fence_label": "json",
+      "payload_type": "array",
+      "local_native_field_validation": true,
+      "absolute_path_normalization": "only_when_below_reviewed_repo"
+    },
+    "json_repair": false,
+    "field_synthesis": false,
+    "arbitrary_markdown_fence_stripping": false,
+    "schema_source": "bundled Claude Code CLI 2.1.220 typed tool",
+    "path_policy": "changed files only; final stored paths are repo-relative"
+  },
+  "prohibited_surfaces": [
+    {
+      "surface": "/review <PR>",
+      "reason": "Requires a GitHub PR identity and can violate benchmark blinding."
+    },
+    {
+      "surface": "/code-review ultra",
+      "reason": "Uses a remote multi-agent review service rather than the frozen local SDK reviewer."
+    },
+    {
+      "surface": "managed Claude Code Review GitHub integration",
+      "reason": "Posts to and reads from a live GitHub PR and does not preserve the isolated benchmark interface."
+    }
+  ],
+  "workspace_policy": {
+    "remote_urls_removed": true,
+    "neutral_single_base_commit": true,
+    "pr_patch_present_as_pending_git_diff": true,
+    "prior_review_comments_absent": true,
+    "codeql_and_reference_alerts_absent": true,
+    "network_tools_disabled": true,
+    "write_and_edit_tools_disabled": true,
+    "raw_sdk_transcript_retained": true
+  },
+  "implementation": {
+    "worktree_builder": "scripts/prepare_claude_review_worktrees.py",
+    "review_runner": "scripts/run_claude_code_review.py",
+    "formal_batch_runner": "scripts/rq3/run_rq3_formal_reviews.py",
+    "formal_first_batch_launcher": "scripts/archive/rq3_intermediate/start_rq3_first_batch.py",
+    "formal_result_summarizer": "scripts/rq3/summarize_rq3_formal_reviews.py",
+    "provider_balance_checker": "scripts/rq3/check_deepseek_balance.py",
+    "launch_readiness_auditor": "scripts/rq3/audit_rq3_launch_readiness.py",
+    "partial_clone_hydrator": "scripts/rq3/hydrate_rq3_git_objects.py",
+    "review_protocol": "config/study/claude_code_review_prompt.txt",
+    "output_schema": "config/study/llm_review_output_schema.json",
+    "real_api_call_requires_explicit_execute_flag": true,
+    "one_case_offline_worktree_smoke_passed": true,
+    "one_case_runner_dry_run_preflight_passed": true,
+    "one_case_deepseek_runner_dry_run_preflight_passed": true,
+    "sdk_streaming_prompt_required_for_permission_callback": true,
+    "cli_schema_compatibility_transform_recorded": true,
+    "deepseek_exact_json_contract_superseded": true,
+    "native_report_tool_contract_frozen": true,
+    "native_report_tool_offline_preflight_passed": true,
+    "deepseek_strict_inline_fallback_frozen": true,
+    "one_case_flash_e2e_recovered_and_summarized": true,
+    "recovered_smoke_eligible_for_performance_estimates": false,
+    "sdk_budget_not_a_hard_deepseek_spend_cap": true,
+    "failed_result_transcript_and_usage_retained": true,
+    "failed_execution_manifest_with_secret_redaction": true,
+    "worktree_builder_per_case_timeout_and_failure_cleanup": true,
+    "worktree_builder_parent_repository_discovery_blocked": true,
+    "invariant_absolute_symlink_neutralization_audited": true,
+    "formal_runner_append_only_single_attempt_ledger": true,
+    "formal_runner_provider_and_run_budget_gates": true,
+    "formal_budget_policy": "user_explicitly_waived",
+    "formal_budget_waiver_requested_by_user": true,
+    "formal_runner_default_new_cases_per_resume": 10,
+    "formal_runner_pause_immediately_after_case_failure": true,
+    "formal_tier_reuse_summarizer_tested": true,
+    "historical_forty_case_design_archived": true,
+    "formal_267_case_worktree_preflight_pending": false,
+    "formal_267_case_worktree_built_n": 267,
+    "formal_267_case_worktree_failed_n": 0,
+    "formal_267_case_technical_preflight_passed_n": 267,
+    "formal_technical_preflight_output": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_run_20260727_v1",
+    "raw_diff_hash_is_audit_only_tree_hashes_are_identity_gate": true,
+    "gitlink_empty_directory_boundary_supported": true
+  },
+  "pending_freeze_fields": []
+}

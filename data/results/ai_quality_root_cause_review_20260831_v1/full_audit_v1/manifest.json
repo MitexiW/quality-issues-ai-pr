@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "status": "complete",
+  "structural_checks": "passed",
+  "cluster_n": 412,
+  "alert_n": 775,
+  "primary_category_n": 5,
+  "high_risk_cluster_n": 32,
+  "reviewed_high_risk_cluster_n": 32,
+  "pending_high_risk_cluster_n": 0,
+  "confidence_counts": {
+    "high": 408,
+    "medium": 4
+  },
+  "insufficient_evidence_cluster_n": 0,
+  "unsupported_mental_state_statement_n": 0,
+  "inter_rater_reliability_claimed": false
+}

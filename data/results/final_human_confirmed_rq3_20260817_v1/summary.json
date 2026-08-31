@@ -1,0 +1,141 @@
+{
+  "schema_version": "1.0.0",
+  "status": "formal_complete",
+  "generated_at": "2026-08-17T10:27:30.183696+00:00",
+  "model_calls_added": 0,
+  "frozen_review_case_n": 267,
+  "strict_validated_positive_case_n": 67,
+  "human_validation_scope": "complete_raw_differential_census",
+  "primary_reference_definition": "final_human_consensus_complete_differential_frame",
+  "strict_reference_negative_reviewed_case_n": 200,
+  "reference_join": {
+    "reference_n": 571,
+    "matched_n": 571,
+    "missing_n": 0,
+    "ambiguous_n": 0
+  },
+  "summaries": {
+    "raw_differential_primary": {
+      "groups": {
+        "ai": {
+          "group": "ai",
+          "positive_pr_n": 95,
+          "reference_n": 224,
+          "recovered_n": 18,
+          "micro_recall": 0.08035714285714286,
+          "micro_ci_low": 0.051432025753556126,
+          "micro_ci_high": 0.12343280800810102,
+          "macro_recall": 0.14035087719298248,
+          "hit_pr_n": 15,
+          "pr_hit_rate": 0.15789473684210525,
+          "hit_ci_low": 0.09808516244102736,
+          "hit_ci_high": 0.24429605313861205,
+          "layer": "raw_differential_primary"
+        },
+        "human": {
+          "group": "human",
+          "positive_pr_n": 92,
+          "reference_n": 196,
+          "recovered_n": 13,
+          "micro_recall": 0.0663265306122449,
+          "micro_ci_low": 0.0391678491925187,
+          "micro_ci_high": 0.1101578162464486,
+          "macro_recall": 0.10809178743961353,
+          "hit_pr_n": 12,
+          "pr_hit_rate": 0.13043478260869565,
+          "hit_ci_low": 0.0762148037069704,
+          "hit_ci_high": 0.2142801361997935,
+          "layer": "raw_differential_primary"
+        }
+      },
+      "differences": {
+        "micro_recall": {
+          "estimate": 0.014030612244897961,
+          "ci_low": -0.046045197740112995,
+          "ci_high": 0.0847554530465811
+        },
+        "macro_recall": {
+          "estimate": 0.03225908975336894,
+          "ci_low": -0.05849939613526568,
+          "ci_high": 0.12480294940249173
+        },
+        "pr_hit_rate": {
+          "estimate": 0.027459954233409606,
+          "ci_low": -0.06967963386727688,
+          "ci_high": 0.13306636155606408
+        }
+      }
+    },
+    "human_confirmed_primary": {
+      "groups": {
+        "ai": {
+          "group": "ai",
+          "positive_pr_n": 31,
+          "reference_n": 57,
+          "recovered_n": 11,
+          "micro_recall": 0.19298245614035087,
+          "micro_ci_low": 0.11132746980050533,
+          "micro_ci_high": 0.3134069024776396,
+          "macro_recall": 0.2903225806451613,
+          "hit_pr_n": 9,
+          "pr_hit_rate": 0.2903225806451613,
+          "hit_ci_low": 0.16095800156300613,
+          "hit_ci_high": 0.4659232933074994,
+          "layer": "human_confirmed_primary"
+        },
+        "human": {
+          "group": "human",
+          "positive_pr_n": 36,
+          "reference_n": 57,
+          "recovered_n": 9,
+          "micro_recall": 0.15789473684210525,
+          "micro_ci_low": 0.08535795970355269,
+          "micro_ci_high": 0.27363176940638023,
+          "macro_recall": 0.17989417989417988,
+          "hit_pr_n": 8,
+          "pr_hit_rate": 0.2222222222222222,
+          "hit_ci_low": 0.11716331975796457,
+          "hit_ci_high": 0.3808470294611819,
+          "layer": "human_confirmed_primary"
+        }
+      },
+      "differences": {
+        "micro_recall": {
+          "estimate": 0.03508771929824561,
+          "ci_low": -0.1272361505577841,
+          "ci_high": 0.2339540101371497
+        },
+        "macro_recall": {
+          "estimate": 0.11042840075098143,
+          "ci_low": -0.08819764464925756,
+          "ci_high": 0.30905977982590915
+        },
+        "pr_hit_rate": {
+          "estimate": 0.0681003584229391,
+          "ci_low": -0.13978494623655913,
+          "ci_high": 0.28046594982078854
+        }
+      }
+    }
+  },
+  "secondary_validated_security": {
+    "reference_n": 17,
+    "recovered_n": 2
+  },
+  "inputs": {
+    "adjudications_sha256": "a7dbe78a7556475f04458a8f80b99391fc2e3bf325d402e9553a928355a358a9",
+    "references_sha256": "b6d0f47767dc07748b2792b2304cab4db9cde253c9ad11acf2c653b4d35c9aa3",
+    "formal_cases_sha256": "52e20f7879b8ecaf1d33e88abc3c8f49337ee6aac19e415b7b517ae6de7f7219",
+    "human_labels_sha256": "5f6b3b2df90f5d2e44733c616cc0dbc543d8756c26d2fd6bf7479cb8868d5b1c"
+  },
+  "outputs": {
+    "reference_adjudication_join.csv": {
+      "sha256": "26c226fd26b28019773810cf721572ce0b5b3a7107432726d80c168439081de7",
+      "size": 3381520
+    },
+    "group_metrics.csv": {
+      "sha256": "376bd5da3219b131497d1d9ce7a06a1589e5325a89e667d3dca5eb922082a774",
+      "size": 865
+    }
+  }
+}

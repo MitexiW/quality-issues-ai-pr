@@ -1,0 +1,175 @@
+{
+  "schema_version": "1.1.0",
+  "generated_at_utc": "2026-07-27T04:12:47.998129+00:00",
+  "status": "final_descriptive_sensitivities",
+  "analysis_policy": {
+    "quality_gated_pr_denominator": 5404,
+    "group_denominators": {
+      "ai": 3087,
+      "human": 2317
+    },
+    "unit_weight_per_pr": 1,
+    "pr_matching": false,
+    "trimming": false,
+    "propensity_score": false,
+    "propensity_weighting": false,
+    "common_support_screening": false,
+    "failed_scan_outcome_imputation": false,
+    "failed_scans_treated_as_zero": false,
+    "outcome_models_fitted": false,
+    "quality_security_reported_separately": true,
+    "ai_kloc_rate_definition": "introduced alert total / sum(changed_kloc) across all AI quality-gated PRs; zero-alert and changed_kloc=0 PRs retained; not a mean of per-PR ratios"
+  },
+  "snapshot_ids": [
+    "study_stars500_final_20260727_v3"
+  ],
+  "alert_count_conservation_pass": true,
+  "top_quality_rule_ids": [
+    "js/unused-local-variable",
+    "js/useless-expression",
+    "js/automatic-semicolon-insertion",
+    "py/unused-import",
+    "java/missing-override-annotation"
+  ],
+  "changed_file_sensitivity": {
+    "available": true,
+    "field": "",
+    "source": "group + repo_name + pr_number + normalized file_path",
+    "detail": "Deterministic exact path join after slash/dot normalization; path case is preserved. Every eligible alert is classifiable. Incomplete file-list PRs may remain in the full denominator only when they have no introduced alerts.",
+    "join_keys": [
+      "group",
+      "repo_name (case-insensitive identity)",
+      "pr_number",
+      "repository-relative path (case-preserving)"
+    ],
+    "path_normalization": "backslash-to-slash; remove leading ./; POSIX dot-segment normalization; reject absolute/parent-relative paths; preserve path case",
+    "coverage_audit": [
+      {
+        "group": "ai",
+        "source": "pr_file_path_join",
+        "denominator_pr_n": 3087,
+        "complete_file_list_pr_n": 3086,
+        "incomplete_file_list_pr_n": 1,
+        "expected_changed_file_n_complete_prs": 20237,
+        "observed_changed_file_n_complete_prs": 20237,
+        "included_pr_file_row_n": 20242,
+        "outside_population_pr_file_row_n": 333,
+        "normalization_collision_n": 0,
+        "incomplete_list_duplicate_file_row_n": 1,
+        "incomplete_list_normalization_collision_n": 0,
+        "complete_list_count_mismatch_pr_n": 0,
+        "eligible_alert_n": 2751,
+        "changed_file_alert_n": 1303,
+        "not_changed_file_alert_n": 1448,
+        "unclassifiable_alert_n": 0
+      },
+      {
+        "group": "human",
+        "source": "pr_file_path_join",
+        "denominator_pr_n": 2317,
+        "complete_file_list_pr_n": 2317,
+        "incomplete_file_list_pr_n": 0,
+        "expected_changed_file_n_complete_prs": 24936,
+        "observed_changed_file_n_complete_prs": 24936,
+        "included_pr_file_row_n": 24936,
+        "outside_population_pr_file_row_n": 5160,
+        "normalization_collision_n": 0,
+        "incomplete_list_duplicate_file_row_n": 0,
+        "incomplete_list_normalization_collision_n": 0,
+        "complete_list_count_mismatch_pr_n": 0,
+        "eligible_alert_n": 4373,
+        "changed_file_alert_n": 3071,
+        "not_changed_file_alert_n": 1302,
+        "unclassifiable_alert_n": 0
+      }
+    ]
+  },
+  "language_support_thresholds": {
+    "min_prs_per_group": 50,
+    "min_positive_prs_per_group": 5
+  },
+  "inputs": {
+    "analysis_pr_level": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq_analysis_final_20260727_v3/analysis_pr_level.csv",
+      "size": 2535497,
+      "sha256": "ff1d42c098a7ba2897f7937739902447394b99f65c3e49f5bf2852a3483847ce"
+    },
+    "ai_introduced_alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_taxonomy_drill/results/introduced_alerts.csv",
+      "size": 4289796,
+      "sha256": "4fafbe2290044fdfd08296583dd2b468c9307012b1a3542c3412265e7d2475d4"
+    },
+    "human_introduced_alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/human/results/introduced_alerts.csv",
+      "size": 3622382,
+      "sha256": "6c1f7038a1514bb011a2ad813b346809016fb51cda455f285953e2b0fb66c429"
+    },
+    "location_rules": {
+      "path": "<ARTIFACT_ROOT>/config/study/pr_enrichment_rules.json",
+      "size": 2828,
+      "sha256": "b567c060dee938ce90dffd6b87a149523caa89b77b7f33c660793bbbde79296b"
+    },
+    "script": {
+      "path": "<ARTIFACT_ROOT>/scripts/run_alert_sensitivities.py",
+      "size": 59083,
+      "sha256": "c70aa9ecc56aa4295788aa3fa06bf48e920bee3481f52185659c192a9764eb9d"
+    },
+    "pr_files": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/pr_enrichment/file_enrichment.csv",
+      "size": 7911286,
+      "sha256": "2fa1bde4b925765070a6219e48eda58b3b0a0492362ef9d9035bcb3a56f2cf41"
+    }
+  },
+  "outputs": [
+    {
+      "path": "sensitivity_summary.csv",
+      "size": 9611,
+      "sha256": "3247ae1d9e37edc5e3523951ea15dea215a0d12c2e3155cbe82c6ac01affa982"
+    },
+    {
+      "path": "top_quality_rules.csv",
+      "size": 8754,
+      "sha256": "c8a4fdddddaf11e40c7b903cdb281c7f4c56fc23313b12a886825178ec04703e"
+    },
+    {
+      "path": "language_strata.csv",
+      "size": 4757,
+      "sha256": "63f11164d179e359e88d0a12fe3394e665aa809b0777e7e9b60a5b38d7e3476a"
+    },
+    {
+      "path": "rq1_ai_alerts_per_changed_kloc.csv",
+      "size": 3792,
+      "sha256": "920bb0ec2f09c14575270a0fa70c0dea5ed0e5a5831b9fbee34a17d08c20ece6"
+    },
+    {
+      "path": "scan_attrition.csv",
+      "size": 775,
+      "sha256": "45ac335c18053adbe0f511b4ed0dbeb575fcaa51bb77d98b3831699ed59fc32c"
+    },
+    {
+      "path": "scan_failure_reasons.csv",
+      "size": 2210,
+      "sha256": "6db3d35e6dab145146b0518dde3985ef24da9b3e72dc528edb53ebabc5927001"
+    },
+    {
+      "path": "alert_input_audit.csv",
+      "size": 329,
+      "sha256": "686597ca2628f7b96b83d41f3707c17ee6f920b85e3ee9c49651e83f8f6fe555"
+    },
+    {
+      "path": "field_availability.csv",
+      "size": 708,
+      "sha256": "e2370e08eb1de7f608cc19dd2133b49ce7a14e5ed92ba4f0a9629a063536d007"
+    },
+    {
+      "path": "changed_file_join_audit.csv",
+      "size": 602,
+      "sha256": "9e835cba913292b58474e5d3a822e1dc2a13b0e15b75a6e789826965ddd1eef6"
+    },
+    {
+      "path": "report.md",
+      "size": 9134,
+      "sha256": "ce600bf3728f0abfcdae00d1d7d76cc06c508e62ef56a9642a7be3875b5990bf"
+    }
+  ]
+}

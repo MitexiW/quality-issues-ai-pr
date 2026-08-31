@@ -1,0 +1,71 @@
+check,scenario,term,estimate,robust_se
+default_1e-6,shared_repositories,Intercept,-3.00909723256668,0.5682472146901507
+default_1e-6,shared_repositories,"C(task_type, Treatment(reference='fix'))[T.feat]",0.47063158659986426,0.12344801679176531
+default_1e-6,shared_repositories,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.45762442782242374,0.2251987628836888
+default_1e-6,shared_repositories,C(repo_language)[T.C++],-1.9399980254816485,1.2054406321584856
+default_1e-6,shared_repositories,C(repo_language)[T.Go],-33.0782317044079,0.6674317960713101
+default_1e-6,shared_repositories,C(repo_language)[T.Java],0.45608772716390056,0.7035818832681352
+default_1e-6,shared_repositories,C(repo_language)[T.JavaScript],0.13506975969003326,1.01940777908253
+default_1e-6,shared_repositories,C(repo_language)[T.Python],0.53938242416089,0.5951503150393674
+default_1e-6,shared_repositories,C(repo_language)[T.Ruby],-0.07370123697925209,0.8836897850369942
+default_1e-6,shared_repositories,C(repo_language)[T.TypeScript],0.29518832952369467,0.5948990494914234
+default_1e-6,shared_repositories,ai,-0.2665314680995298,0.2746180564110938
+default_1e-6,shared_repositories,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.19047465671317496,0.2608930284840268
+default_1e-6,shared_repositories,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.2646987547081167,0.37834943723984754
+default_1e-6,shared_repositories,log1p_changed_kloc,1.0565966586079816,0.1416716758522696
+default_1e-8,default_1e-8,Intercept,-3.0090972325288106,0.5682472162305691
+default_1e-8,default_1e-8,"C(task_type, Treatment(reference='fix'))[T.feat]",0.4706315867118935,0.12344801675658305
+default_1e-8,default_1e-8,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.45762442807117604,0.22519876289049695
+default_1e-8,default_1e-8,C(repo_language)[T.C++],-1.9399980233858727,1.205440632928526
+default_1e-8,default_1e-8,C(repo_language)[T.Go],-36.078231703876824,0.8999903946829447
+default_1e-8,default_1e-8,C(repo_language)[T.Java],0.45608772763622085,0.7035818848953072
+default_1e-8,default_1e-8,C(repo_language)[T.JavaScript],0.13506975645970437,1.0194077810547568
+default_1e-8,default_1e-8,C(repo_language)[T.Python],0.5393824243774208,0.595150316596787
+default_1e-8,default_1e-8,C(repo_language)[T.Ruby],-0.0737012343048802,0.8836897858964099
+default_1e-8,default_1e-8,C(repo_language)[T.TypeScript],0.29518832911950577,0.5948990510760113
+default_1e-8,default_1e-8,ai,-0.2665314677210412,0.2746180564551771
+default_1e-8,default_1e-8,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.1904746562893492,0.26089302846525514
+default_1e-8,default_1e-8,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.2646987545033718,0.37834943720386116
+default_1e-8,default_1e-8,log1p_changed_kloc,1.056596658129812,0.14167167582576817
+default_1e-10,default_1e-10,Intercept,-3.00909723252875,0.568247216232429
+default_1e-10,default_1e-10,"C(task_type, Treatment(reference='fix'))[T.feat]",0.4706315867121154,0.12344801675656049
+default_1e-10,default_1e-10,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.45762442807155274,0.22519876289053387
+default_1e-10,default_1e-10,C(repo_language)[T.C++],-1.9399980233834073,1.2054406329294227
+default_1e-10,default_1e-10,C(repo_language)[T.Go],-38.078231703869854,1.719291445492062
+default_1e-10,default_1e-10,C(repo_language)[T.Java],0.45608772763675565,0.7035818848972429
+default_1e-10,default_1e-10,C(repo_language)[T.JavaScript],0.13506975645550007,1.0194077810572697
+default_1e-10,default_1e-10,C(repo_language)[T.Python],0.5393824243775316,0.5951503165986481
+default_1e-10,default_1e-10,C(repo_language)[T.Ruby],-0.07370123430173328,0.8836897858974397
+default_1e-10,default_1e-10,C(repo_language)[T.TypeScript],0.2951883291187255,0.5948990510779191
+default_1e-10,default_1e-10,ai,-0.26653146772055886,0.2746180564552739
+default_1e-10,default_1e-10,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.1904746562888307,0.26089302846527246
+default_1e-10,default_1e-10,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.26469875450315056,0.37834943720386516
+default_1e-10,default_1e-10,log1p_changed_kloc,1.0565966581291906,0.14167167582572898
+start_Go_minus10,start_Go_minus10,Intercept,-3.009097232528567,0.5682472162325195
+start_Go_minus10,start_Go_minus10,"C(task_type, Treatment(reference='fix'))[T.feat]",0.47063158671205624,0.12344801675631835
+start_Go_minus10,start_Go_minus10,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.45762442807152165,0.22519876289011104
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.C++],-1.9399980233833385,1.205440632929395
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.Go],-23.933702222253892,0.6651965603398997
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.Java],0.4560877276366514,0.7035818848973754
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.JavaScript],0.13506975645538388,1.0194077810572473
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.Python],0.5393824243774592,0.5951503165987371
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.Ruby],-0.0737012343015693,0.8836897858973753
+start_Go_minus10,start_Go_minus10,C(repo_language)[T.TypeScript],0.2951883291188036,0.5948990510779366
+start_Go_minus10,start_Go_minus10,ai,-0.2665314677205567,0.2746180564545606
+start_Go_minus10,start_Go_minus10,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.19047465628882812,0.26089302846444834
+start_Go_minus10,start_Go_minus10,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.26469875450311225,0.37834943720302466
+start_Go_minus10,start_Go_minus10,log1p_changed_kloc,1.056596658129176,0.14167167582419854
+start_Go_minus20,start_Go_minus20,Intercept,-3.009097232528835,0.568247216229701
+start_Go_minus20,start_Go_minus20,"C(task_type, Treatment(reference='fix'))[T.feat]",0.47063158671180216,0.12344801675659915
+start_Go_minus20,start_Go_minus20,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.4576244280710027,0.2251987628904851
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.C++],-1.939998023387151,1.2054406329280998
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.Go],-32.933648551683724,0.6662865030335589
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.Java],0.4560877276359358,0.7035818848943782
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.JavaScript],0.13506975646178024,1.0194077810535411
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.Python],0.539382424377323,0.595150316595901
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.Ruby],-0.0737012343065124,0.883689785895931
+start_Go_minus20,start_Go_minus20,C(repo_language)[T.TypeScript],0.2951883291198301,0.5948990510751118
+start_Go_minus20,start_Go_minus20,ai,-0.2665314677212821,0.274618056455139
+start_Go_minus20,start_Go_minus20,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.1904746562896126,0.26089302846525675
+start_Go_minus20,start_Go_minus20,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.26469875450349106,0.37834943720387076
+start_Go_minus20,start_Go_minus20,log1p_changed_kloc,1.0565966581301167,0.14167167582578694

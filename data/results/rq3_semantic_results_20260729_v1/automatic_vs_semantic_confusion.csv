@@ -1,0 +1,5 @@
+automatic_recovered,semantic_same_issue,finding_n,interpretation
+1,1,26,automatic semantic agreement
+1,0,3,automatic false alignment
+0,1,19,automatic missed semantic recovery
+0,0,968,automatic semantic agreement

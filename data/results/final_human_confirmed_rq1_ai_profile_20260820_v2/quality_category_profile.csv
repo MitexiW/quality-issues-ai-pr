@@ -1,0 +1,4 @@
+family,value,introduced_alert_n,affected_pr_n,alert_percent_within_family
+quality,maintainability,632,219,81.54838709677419
+quality,correctness_reliability,135,54,17.419354838709676
+quality,performance_efficiency,8,4,1.032258064516129

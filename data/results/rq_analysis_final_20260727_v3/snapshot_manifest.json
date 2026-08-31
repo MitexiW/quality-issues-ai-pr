@@ -1,0 +1,162 @@
+{
+  "snapshot_id": "study_stars500_final_20260727_v3",
+  "generated_at_utc": "2026-07-27T03:52:48.763577+00:00",
+  "mode": "final",
+  "status": "final_ready",
+  "rq1_introduced_ready": true,
+  "rq1_ready": true,
+  "rq2_ready": true,
+  "rq3_frame_ready": true,
+  "git_commit": "10affe5a7198a640a7c15c64012dc966a8e57cfc",
+  "python": "3.12.13",
+  "platform": "Linux-7.1.4-1-cachyos-x86_64-with-glibc2.43",
+  "analysis_population": {
+    "ai": {
+      "manifest_pr_n": 3376,
+      "quality_gated_pr_n": 3087,
+      "enriched_quality_gated_pr_n": 3087
+    },
+    "human": {
+      "manifest_pr_n": 2446,
+      "quality_gated_pr_n": 2317,
+      "enriched_quality_gated_pr_n": 2317
+    }
+  },
+  "changed_kloc_definition": "(GitHub REST PR additions + deletions) / 1000",
+  "inputs": [
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/pr_enrichment/pr_enrichment.csv",
+      "size": 2278638,
+      "mtime_ns": 1785121286745976066,
+      "sha256": "19de3056cf4638e1aaa8fa2752b2a28f207a7e541514b96a2af109ea8e9542d9"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/pr_enrichment/snapshot_manifest.json",
+      "size": 2404,
+      "mtime_ns": 1785121290435976244,
+      "sha256": "f7a553e9e6a10df92c70b6aa8316b6110183127a3da092862dde43e7de1124ce"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/scripts/analyze_study_results.py",
+      "size": 43193,
+      "mtime_ns": 1785124050361109091,
+      "sha256": "aafca60ef7454aade9952114bd81a324eb6c3478fe0f95c7e1bec6c217dec588"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/config/study/model_specification.yaml",
+      "size": 9434,
+      "mtime_ns": 1785124173814115033,
+      "sha256": "b522eeff5237bba1ff38fff96b7f80f78d44f017f16eb1b53c6167c71c1d2381"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/config/study/quality_rule_taxonomy.json",
+      "size": 804,
+      "mtime_ns": 1784817647866997606,
+      "sha256": "2dd4657791c00f490f7c23e9fe412757837ef03f533ba4a292483b231585350c"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/config/study/pr_enrichment_rules.json",
+      "size": 2828,
+      "mtime_ns": 1784804626572075604,
+      "sha256": "b567c060dee938ce90dffd6b87a149523caa89b77b7f33c660793bbbde79296b"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/prs.csv",
+      "size": 5829848,
+      "mtime_ns": 1784792656431228031,
+      "sha256": "f1a585e60fcfdd1a6ac320d182a4275d555d0d8392a6f8e4a0be3daf3c1b53ff"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/codeql_jobs.csv",
+      "size": 11086838,
+      "mtime_ns": 1784708656080280195,
+      "sha256": "3ad3f474b48f952b16643d8c214e52f5a2c180630aaaff7982b6f02c0eeb0037"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_taxonomy_drill/results/pr_security_summary.csv",
+      "size": 684890,
+      "mtime_ns": 1784820220430179762,
+      "sha256": "31d6e362ec9a31c897ac14cb635cbfd1e638d1a085eade66593aa42e8ac102d0"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/human/prs.csv",
+      "size": 4403980,
+      "mtime_ns": 1783507714595265355,
+      "sha256": "313b37f90118dd7f2ad74e19d85f6ae0c5808a492a771c1b4c8f9741a389e005"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/human/codeql_jobs.csv",
+      "size": 8117336,
+      "mtime_ns": 1785117563047796828,
+      "sha256": "96d0ff54f14be8f1b4c8e142f233907190dd75333072843263680c57c3b219a7"
+    },
+    {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/human/results/pr_security_summary.csv",
+      "size": 494978,
+      "mtime_ns": 1785117523090794905,
+      "sha256": "3e4ca8a415e6d537c4e4645dcfb831f1b4c9247f206121f620ab67f67b18b29e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "analysis_pr_level.csv",
+      "size": 2535497,
+      "sha256": "ff1d42c098a7ba2897f7937739902447394b99f65c3e49f5bf2852a3483847ce"
+    },
+    {
+      "path": "attrition_funnel.csv",
+      "size": 771,
+      "sha256": "a13d7c192e30537d6cd8a79d480a7f2bd183b2cb26184dee920b8ffe90b5d360"
+    },
+    {
+      "path": "data_quality_checks.csv",
+      "size": 1560,
+      "sha256": "31bf95d67d9a83c915b436d38b1b70ac62940a733e4cbc80e46383cb357990b9"
+    },
+    {
+      "path": "group_overlap_audit.csv",
+      "size": 1582,
+      "sha256": "b712c56f4f712c831142b5ab0a234b18b1cb50e4dab52e39f852b22a5bc52bc4"
+    },
+    {
+      "path": "configuration_compatibility.csv",
+      "size": 870,
+      "sha256": "b77c37752e742b110593b408bb30fc4520e592436db58b68fe3c22133906f905"
+    },
+    {
+      "path": "eligibility_audit.csv",
+      "size": 224,
+      "sha256": "527091ea8a4ce9e712e2af6104691fe96f7a9e75aeaf97fec0bc3743e7ae59bf"
+    },
+    {
+      "path": "common_support_audit.csv",
+      "size": 830,
+      "sha256": "5221d108cab9b79bd0c15840c747a8563334d931278296cdaaf715de26e94aeb"
+    },
+    {
+      "path": "rq1_rq2_descriptive.csv",
+      "size": 3017,
+      "sha256": "bad2bc1a91115c1a650a14b8e13c90b85e5bbbbd187b29e879b49961a9bb5c12"
+    },
+    {
+      "path": "rq1_quality_descriptive.csv",
+      "size": 958,
+      "sha256": "a664ec9c5868362c2cca97ebc94ab3908ee62a5d5f852ab2e716487845fbfae5"
+    },
+    {
+      "path": "rq2_quality_descriptive.csv",
+      "size": 1644,
+      "sha256": "dfd99acf420b8de9f8e432cfdb95d4697b1e639b2d0f70e5bda86a560ec043c2"
+    },
+    {
+      "path": "secondary_security_descriptive.csv",
+      "size": 1657,
+      "sha256": "10c83fb8bb69b87dd039658462e340de12a8502ba203cad11e586b951fc17575"
+    },
+    {
+      "path": "analysis_readiness.md",
+      "size": 1104,
+      "sha256": "774cc68405e59f5801d4236e03d57ba98efeb898d62e100e1db3f7309da36d1c"
+    }
+  ]
+}

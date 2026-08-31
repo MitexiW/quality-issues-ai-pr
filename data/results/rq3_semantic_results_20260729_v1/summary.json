@@ -1,0 +1,136 @@
+{
+  "adjudication_disclosure": "All 1,016 finding-to-CodeQL relation decisions are complete. Codex-authored decisions are LLM-assisted semantic adjudication, not independent human annotation. Only 48 findings have a separate validity judgment, so reviewer precision is not estimated from this artifact.",
+  "automatic_matcher_audit": {
+    "agreement_accuracy": 0.9783464566929134,
+    "f1": 0.7027027027027027,
+    "false_alignment_n": 3,
+    "missed_semantic_alignment_n": 19,
+    "positive_predictive_value": 0.896551724137931,
+    "sensitivity_to_semantic_recoveries": 0.5777777777777777,
+    "true_non_alignment_n": 968,
+    "true_semantic_alignment_n": 26,
+    "warning": "These values audit the deterministic matcher against LLM-assisted semantic adjudication; they are not model precision/recall against independent human ground truth."
+  },
+  "comparisons": {
+    "ai_minus_human_quality_primary_macro_recall": {
+      "bootstrap_95_ci_high": 0.12376684464785154,
+      "bootstrap_95_ci_low": -0.05962369692346807,
+      "estimate": 0.03225908975336894
+    },
+    "ai_minus_human_quality_primary_micro_recall": {
+      "cluster_bootstrap_95_ci_high": 0.08358069188730204,
+      "cluster_bootstrap_95_ci_low": -0.046362146971040435,
+      "estimate": 0.014030612244897961
+    },
+    "ai_minus_human_quality_primary_pr_hit_rate": {
+      "bootstrap_95_ci_high": 0.12459954233409612,
+      "bootstrap_95_ci_low": -0.07002288329519452,
+      "estimate": 0.027459954233409606,
+      "fisher_exact_two_sided_p": 0.6791812390295482
+    }
+  },
+  "control_reporting": {
+    "ai": {
+      "case_n": 40,
+      "case_with_any_reviewer_finding_n": 32,
+      "case_with_any_reviewer_finding_rate": 0.8,
+      "interpretation": "reference-negative control reporting propensity; not a false-positive rate because CodeQL absence is not a defect-free human gold standard",
+      "mean_reviewer_findings_per_case": 3.15,
+      "wilson_95_ci_high": 0.895000102745623,
+      "wilson_95_ci_low": 0.652426936536005
+    },
+    "human": {
+      "case_n": 40,
+      "case_with_any_reviewer_finding_n": 35,
+      "case_with_any_reviewer_finding_rate": 0.875,
+      "interpretation": "reference-negative control reporting propensity; not a false-positive rate because CodeQL absence is not a defect-free human gold standard",
+      "mean_reviewer_findings_per_case": 3.15,
+      "wilson_95_ci_high": 0.945404997490546,
+      "wilson_95_ci_low": 0.738878801611489
+    }
+  },
+  "created_at_utc": "2026-07-29T09:31:58.317719+00:00",
+  "execution": {
+    "completed_case_n": 267,
+    "mean_latency_seconds": 403.5967640449438,
+    "median_latency_seconds": 386.308,
+    "p95_latency_seconds": 654.8473,
+    "provider_invoice_cost_available": false,
+    "response_contract_violation_n": 15,
+    "sdk_reported_mean_cost_usd": 1.37259302247191,
+    "sdk_reported_median_cost_usd": 1.2350160000000001,
+    "sdk_reported_p95_cost_usd": 2.7326840999999997,
+    "sdk_reported_total_cost_usd": 366.482337,
+    "valid_model_output_n": 252,
+    "zero_finding_case_n": 40
+  },
+  "finding_validity_counts": {
+    "not_adjudicated": 968,
+    "valid_introduced": 48
+  },
+  "groups": {
+    "ai": {
+      "group": "ai",
+      "invalid_output_positive_case_n": 5,
+      "positive_case_n": 95,
+      "quality_primary_complete_case_macro_recall": 0.14814814814814817,
+      "quality_primary_complete_case_pr_hit_rate": 0.16666666666666666,
+      "quality_primary_macro_recall": 0.14035087719298248,
+      "quality_primary_micro_recall": 0.08035714285714286,
+      "quality_primary_micro_recall_ci_high": 0.12343280800810101,
+      "quality_primary_micro_recall_ci_low": 0.05143202575355614,
+      "quality_primary_pr_hit_ci_high": 0.24429605313861202,
+      "quality_primary_pr_hit_ci_low": 0.09808516244102737,
+      "quality_primary_pr_hit_n": 15,
+      "quality_primary_pr_hit_rate": 0.15789473684210525,
+      "quality_primary_reference_n": 224,
+      "quality_primary_semantic_recovered_n": 18,
+      "review_finding_n_all_cases": 512,
+      "semantic_no_match_finding_n": 264,
+      "semantic_no_reference_finding_n": 116,
+      "semantic_related_distinct_finding_n": 108,
+      "semantic_same_issue_finding_n": 24,
+      "valid_output_positive_case_n": 90
+    },
+    "human": {
+      "group": "human",
+      "invalid_output_positive_case_n": 6,
+      "positive_case_n": 92,
+      "quality_primary_complete_case_macro_recall": 0.11563307493540052,
+      "quality_primary_complete_case_pr_hit_rate": 0.13953488372093023,
+      "quality_primary_macro_recall": 0.10809178743961353,
+      "quality_primary_micro_recall": 0.0663265306122449,
+      "quality_primary_micro_recall_ci_high": 0.1101578162464486,
+      "quality_primary_micro_recall_ci_low": 0.03916784919251871,
+      "quality_primary_pr_hit_ci_high": 0.21428013619979347,
+      "quality_primary_pr_hit_ci_low": 0.07621480370697037,
+      "quality_primary_pr_hit_n": 12,
+      "quality_primary_pr_hit_rate": 0.13043478260869565,
+      "quality_primary_reference_n": 196,
+      "quality_primary_semantic_recovered_n": 13,
+      "review_finding_n_all_cases": 504,
+      "semantic_no_match_finding_n": 280,
+      "semantic_no_reference_finding_n": 124,
+      "semantic_related_distinct_finding_n": 79,
+      "semantic_same_issue_finding_n": 21,
+      "valid_output_positive_case_n": 86
+    }
+  },
+  "schema_version": "1.0.0",
+  "scope": {
+    "case_n": 267,
+    "codeql_reference_n": 571,
+    "control_case_n": 80,
+    "positive_case_n": 187,
+    "relation_adjudicated_finding_n": 1016,
+    "review_finding_n": 1016,
+    "validity_adjudicated_finding_n": 48
+  },
+  "semantic_relation_counts": {
+    "no_match": 544,
+    "no_reference": 240,
+    "related_distinct": 187,
+    "same_issue": 45
+  },
+  "status": "completed"
+}

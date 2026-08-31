@@ -1,0 +1,8 @@
+-r requirements.txt
+claude-agent-sdk==0.2.128
+datasets>=4.0
+duckdb>=1.0
+huggingface-hub>=0.24
+jsonschema>=4.20
+pyarrow>=18.0
+requests>=2.31

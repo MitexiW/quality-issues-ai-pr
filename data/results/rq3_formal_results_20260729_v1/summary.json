@@ -1,0 +1,44 @@
+{
+  "aggregate": {
+    "ai": {
+      "completed_case_n": 135,
+      "control_case_n": 40,
+      "control_finding_positive_rate": 0.8,
+      "control_mean_unmatched_reports": 3.15,
+      "invalid_model_output_n": 7,
+      "invalid_model_output_rate": 0.05185185185185185,
+      "mean_nonexistent_file_reports": 0.0,
+      "mean_outside_pending_diff_reports": 0.11851851851851852,
+      "positive_case_n": 95,
+      "quality_primary_macro_recovery": 0.06315789473684211,
+      "quality_primary_pr_hit_rate": 0.08421052631578947
+    },
+    "ai_minus_human_quality_primary_macro_recovery": 0.01967963386727689,
+    "human": {
+      "completed_case_n": 132,
+      "control_case_n": 40,
+      "control_finding_positive_rate": 0.875,
+      "control_mean_unmatched_reports": 3.15,
+      "invalid_model_output_n": 8,
+      "invalid_model_output_rate": 0.06060606060606061,
+      "mean_nonexistent_file_reports": 0.007575757575757576,
+      "mean_outside_pending_diff_reports": 0.08333333333333333,
+      "positive_case_n": 92,
+      "quality_primary_macro_recovery": 0.043478260869565216,
+      "quality_primary_pr_hit_rate": 0.06521739130434782
+    }
+  },
+  "case_n": 267,
+  "completed_case_n": 267,
+  "created_at_utc": "2026-07-29T08:32:54.472982+00:00",
+  "inputs": {
+    "cases_sha256": "52e20f7879b8ecaf1d33e88abc3c8f49337ee6aac19e415b7b517ae6de7f7219",
+    "references_sha256": "20e793b19972ee03b888de4fef21e972242317472694811ad81e3dc7089cdd77",
+    "run_manifest_sha256": "7e91b22b7cd4985d2a2b73abc772ce01bc22b214c96d8bb6ff2d1d470218c35b"
+  },
+  "provider_invoice_cost_available": false,
+  "result_use": "formal_rq3",
+  "schema_version": "1.0.0",
+  "status": "completed",
+  "total_sdk_reported_cost_usd": 366.482337
+}

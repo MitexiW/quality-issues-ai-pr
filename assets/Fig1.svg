@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="152mm" height="96mm" viewBox="0 0 1520 960" role="img" aria-labelledby="title desc">
+  <title id="title">Study workflow</title>
+  <desc id="desc">Four-stage workflow in which model-assisted assessment divides 7,124 differential alerts into retained and excluded groups, Reviewers A and B confirm 2,379 alerts across those groups, Reviewer C independently re-reviews the combined confirmations, and consensus resolution yields 2,322 final confirmed issues for three substantive analyses.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#505050"/></marker>
+    <style>
+      .label{font-family:"Times New Roman",Times,serif;fill:#252525;text-anchor:middle}
+      .head{font-size:32px;font-weight:700;fill:#fff}
+      .box{fill:#fff;stroke:#2b2b2b;stroke-width:2}
+      .muted{fill:#f5f5f5;stroke:#2b2b2b;stroke-width:2}
+      .flow{fill:none;stroke:#505050;stroke-width:3;stroke-linejoin:miter;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1520" height="960" fill="#fff"/>
+
+  <!-- Frame and stage lanes -->
+  <rect x="40" y="250" width="240" height="670" fill="#e6e6e8"/>
+  <rect x="320" y="250" width="250" height="670" fill="#e6e6e8"/>
+  <rect x="610" y="250" width="565" height="670" fill="#e6e6e8"/>
+  <rect x="1215" y="250" width="265" height="670" fill="#e6e6e8"/>
+  <rect x="20" y="145" width="1480" height="790" fill="none" stroke="#2b2b2b" stroke-width="2.5"/>
+  <path d="M300 165V920 M590 165V920 M1195 165V920" fill="none" stroke="#2b2b2b" stroke-width="2" stroke-dasharray="8 6"/>
+
+  <!-- Stage headers -->
+  <rect x="40" y="160" width="240" height="90" fill="#4a4a4a" stroke="#2b2b2b" stroke-width="2"/>
+  <text class="label head" x="160" y="198" font-size="29"><tspan x="160">§3.2 Sample</tspan><tspan x="160" dy="32">Selection</tspan></text>
+  <rect x="320" y="160" width="250" height="90" fill="#4a4a4a" stroke="#2b2b2b" stroke-width="2"/>
+  <text class="label head" x="445" y="198" font-size="29"><tspan x="445">§3.3 Paired</tspan><tspan x="445" dy="32">CodeQL Analysis</tspan></text>
+  <rect x="610" y="160" width="565" height="90" fill="#4a4a4a" stroke="#2b2b2b" stroke-width="2"/>
+  <text class="label head" x="892.5" y="215" font-size="30">§3.4 Outcome Validation</text>
+  <rect x="1215" y="160" width="265" height="90" fill="#4a4a4a" stroke="#2b2b2b" stroke-width="2"/>
+  <text class="label head" x="1347.5" y="198" font-size="29"><tspan x="1347.5">§3.5 Substantive</tspan><tspan x="1347.5" dy="32">Analyses</tspan></text>
+
+  <!-- Input and output documents -->
+  <rect x="66" y="47" width="200" height="90" class="box"/>
+  <rect x="58" y="39" width="200" height="90" class="box"/>
+  <rect x="50" y="31" width="200" height="90" class="box"/>
+  <text class="label" x="150" y="66" font-size="27"><tspan x="150" font-weight="700">AIDev + GitHub</tspan><tspan x="150" dy="32">PR data</tspan></text>
+  <rect x="1266" y="47" width="200" height="90" class="box"/>
+  <rect x="1258" y="39" width="200" height="90" class="box"/>
+  <rect x="1250" y="31" width="200" height="90" class="box"/>
+  <text class="label" x="1350" y="66" font-size="27" font-weight="700"><tspan x="1350">Empirical</tspan><tspan x="1350" dy="32">results</tspan></text>
+  <path class="flow" stroke-width="4" d="M158 137V149H160V160"/>
+
+  <!-- Sample selection -->
+  <rect x="60" y="330" width="200" height="105" class="box"/>
+  <path class="flow" stroke-width="4" d="M160 250V330"/>
+  <text class="label" x="160" y="357" font-size="23"><tspan x="160" fill="#666" font-weight="700">§3.2.1</tspan><tspan x="160" dy="27" font-weight="700">Provenance labels</tspan><tspan x="160" dy="27">AI and Human PRs</tspan></text>
+  <path class="flow" d="M160 435V505"/>
+  <rect x="60" y="505" width="200" height="115" class="box"/>
+  <text class="label" x="160" y="533" font-size="24"><tspan x="160" fill="#666" font-weight="700">§3.2.2</tspan><tspan x="160" dy="28" font-weight="700">Eligibility &amp;</tspan><tspan x="160" dy="28">deduplication</tspan></text>
+  <path class="flow" d="M160 620V690"/>
+  <rect x="60" y="690" width="200" height="155" class="box"/>
+  <text class="label" x="160" y="715" font-size="23"><tspan x="160" fill="#666" font-weight="700">§3.2.2</tspan><tspan x="160" dy="27" font-weight="700">Candidate pool</tspan><tspan x="160" dy="27">AI 3,376</tspan><tspan x="160" dy="27">Human 2,446</tspan><tspan x="160" dy="27">5,822 PRs</tspan></text>
+
+  <!-- Paired CodeQL analysis -->
+  <rect x="340" y="300" width="100" height="80" class="box"/><text class="label" x="390" y="350" font-size="28" font-weight="700">Base</text>
+  <rect x="455" y="300" width="100" height="80" class="box"/><text class="label" x="505" y="350" font-size="28" font-weight="700">Head</text>
+  <path class="flow" stroke-width="4" d="M260 770H310V340H340"/>
+  <path class="flow" stroke-width="4" d="M260 770H310V280H505V300"/>
+  <path class="flow" d="M390 380V402H447V425"/><path class="flow" d="M505 380V402H447V425"/>
+  <rect x="340" y="425" width="215" height="115" class="box"/>
+  <text class="label" x="447.5" y="453" font-size="24"><tspan x="447.5" fill="#666" font-weight="700">§3.3.1</tspan><tspan x="447.5" dy="28" font-weight="700">Paired CodeQL</tspan><tspan x="447.5" dy="28">configuration</tspan></text>
+  <path class="flow" d="M447.5 540V575"/>
+  <rect x="340" y="575" width="215" height="115" class="box"/>
+  <text class="label" x="447.5" y="603" font-size="24"><tspan x="447.5" fill="#666" font-weight="700">§3.3.2</tspan><tspan x="447.5" dy="28" font-weight="700">Alert matching</tspan><tspan x="447.5" dy="28">&amp; differencing</tspan></text>
+  <path class="flow" d="M447.5 690V735"/>
+  <rect x="340" y="735" width="215" height="145" class="box"/>
+  <text class="label" x="447.5" y="751" font-size="21"><tspan x="447.5" fill="#666" font-weight="700">§3.3.3</tspan><tspan x="447.5" dy="27" font-weight="700">Quality gates &amp;</tspan><tspan x="447.5" dy="27" font-weight="700">analytic sample</tspan><tspan x="447.5" dy="27">Final: 5,404 PRs</tspan><tspan x="447.5" dy="27" font-weight="700">7,124 alerts</tspan></text>
+
+  <!-- Outcome validation -->
+  <path class="flow" stroke-width="4" d="M555 810H595V310H680"/>
+  <rect x="680" y="275" width="425" height="70" class="box"/>
+  <text class="label" x="892.5" y="302" font-size="26"><tspan x="892.5" fill="#666" font-weight="700">§3.4.1</tspan><tspan x="892.5" dy="30" font-weight="700">Model-assisted assessment</tspan></text>
+  <path class="flow" d="M892.5 345V357.5H757.5V370"/><path class="flow" d="M892.5 345V357.5H1027.5V370"/>
+  <rect x="635" y="370" width="245" height="75" class="box"/>
+  <text class="label" x="757.5" y="397" font-size="28"><tspan x="757.5" font-weight="700">Retained</tspan><tspan x="757.5" dy="31">2,495 alerts</tspan></text>
+  <rect x="905" y="370" width="245" height="75" class="box"/>
+  <text class="label" x="1027.5" y="397" font-size="28"><tspan x="1027.5" font-weight="700">Excluded</tspan><tspan x="1027.5" dy="31">4,629 alerts</tspan></text>
+  <rect x="620" y="460" width="540" height="355" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <rect x="762.5" y="447" width="260" height="28" fill="#e6e6e8"/>
+  <text class="label" x="892.5" y="467" font-size="19" fill="#666" font-weight="700">§3.4.2 Human annotation</text>
+  <path class="flow" d="M757.5 445V485"/><path class="flow" d="M1027.5 445V485"/>
+  <rect x="635" y="485" width="245" height="90" class="box"/>
+  <text class="label" x="757.5" y="520" font-size="28"><tspan x="757.5" font-weight="700">Reviewer A</tspan><tspan x="757.5" dy="33">2,246 confirmed</tspan></text>
+  <rect x="905" y="485" width="245" height="90" class="box"/>
+  <text class="label" x="1027.5" y="520" font-size="28"><tspan x="1027.5" font-weight="700">Reviewer B</tspan><tspan x="1027.5" dy="33">133 confirmed</tspan></text>
+  <path class="flow" d="M757.5 575V590H892.5V610"/><path class="flow" d="M1027.5 575V590H892.5V610"/>
+  <rect x="725" y="610" width="335" height="80" class="box"/>
+  <text class="label" x="892.5" y="642" font-size="28"><tspan x="892.5" font-weight="700">Initial confirmations</tspan><tspan x="892.5" dy="33">A + B: 2,379</tspan></text>
+  <path class="flow" d="M892.5 690V720"/>
+  <rect x="680" y="720" width="425" height="80" class="box"/>
+  <text class="label" x="892.5" y="752" font-size="28"><tspan x="892.5" font-weight="700">Reviewer C</tspan><tspan x="892.5" dy="33">60 disagreements</tspan></text>
+  <path class="flow" d="M892.5 800V830"/>
+  <rect x="680" y="830" width="425" height="85" class="box" stroke-width="3"/>
+  <text class="label" x="892.5" y="850" font-size="25"><tspan x="892.5" fill="#666" font-weight="700">§3.4.3</tspan><tspan x="892.5" dy="29" font-weight="700">Final outcome</tspan><tspan x="892.5" dy="29" font-weight="700">2,322 issues</tspan></text>
+
+  <!-- Substantive analyses -->
+  <path class="flow" d="M1105 872.5H1180V387.5H1235"/>
+  <path class="flow" d="M1105 872.5H1180V602.5H1235"/>
+  <path class="flow" d="M1105 872.5H1180V817.5H1235"/>
+  <rect x="1235" y="325" width="225" height="125" class="box"/>
+  <text class="label" x="1347.5" y="350" font-size="24"><tspan x="1347.5" fill="#666" font-size="20" font-weight="700">§3.5.1</tspan><tspan x="1347.5" dy="28" font-weight="700">RQ1</tspan><tspan x="1347.5" dy="30">AI Quality issues</tspan></text>
+  <rect x="1235" y="540" width="225" height="125" class="box"/>
+  <text class="label" x="1347.5" y="562" font-size="22"><tspan x="1347.5" fill="#666" font-size="20" font-weight="700">§3.5.2</tspan><tspan x="1347.5" dy="26" font-size="23" font-weight="700">RQ2</tspan><tspan x="1347.5" dy="26">AI–Human</tspan><tspan x="1347.5" dy="26">comparison</tspan></text>
+  <rect x="1235" y="755" width="225" height="125" class="box"/>
+  <text class="label" x="1347.5" y="777" font-size="22"><tspan x="1347.5" fill="#666" font-size="20" font-weight="700">§3.5.3</tspan><tspan x="1347.5" dy="26" font-size="23" font-weight="700">RQ3</tspan><tspan x="1347.5" dy="26">LLM-based</tspan><tspan x="1347.5" dy="26">review</tspan></text>
+  <path class="flow" stroke-width="4" d="M1347.5 160V149H1358V137"/>
+</svg>

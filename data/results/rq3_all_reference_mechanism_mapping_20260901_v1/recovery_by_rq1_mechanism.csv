@@ -1,0 +1,16 @@
+group,rq1_mechanism_category,rq1_mechanism_label,reference_n,recovered_n,recall,wilson_95_ci_low,wilson_95_ci_high,case_n
+ai,incomplete_change_coordination,Incomplete change coordination,11,8,0.7272727272727273,0.43435469882387084,0.902539407099751,7
+ai,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,11,1,0.09090909090909091,0.016232172885884855,0.37735843645159567,8
+ai,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",11,2,0.18181818181818182,0.05136768974608513,0.4769805619608442,9
+ai,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",30,6,0.2,0.0950510717728987,0.3730569641314825,11
+ai,interface_or_contract_mismatch,Interface or contract mismatch,7,1,0.14285714285714285,0.02567962434474355,0.5131278292743189,4
+human,incomplete_change_coordination,Incomplete change coordination,52,8,0.15384615384615385,0.08007685016780322,0.2752408517641015,12
+human,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,27,3,0.1111111111111111,0.038520348283098374,0.2805780081827982,20
+human,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",10,3,0.3,0.10779126740630099,0.6032218525388546,10
+human,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",25,4,0.16,0.0640345145667644,0.3465362160717886,11
+human,interface_or_contract_mismatch,Interface or contract mismatch,3,0,0.0,5.551115123125783e-17,0.5614970317550454,3
+all,incomplete_change_coordination,Incomplete change coordination,63,16,0.25396825396825395,0.1628041127332116,0.3734118743660646,19
+all,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,38,4,0.10526315789473684,0.04170257347553526,0.24130521722887316,28
+all,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",21,5,0.23809523809523808,0.10628013022636468,0.4509117368295075,19
+all,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",55,10,0.18181818181818182,0.10187670434449676,0.3033045963663764,22
+all,interface_or_contract_mismatch,Interface or contract mismatch,10,1,0.1,0.017876213095072896,0.4041500267952385,7

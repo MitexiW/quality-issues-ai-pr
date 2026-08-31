@@ -1,0 +1,57 @@
+scenario,term,estimate,robust_se
+baseline,Intercept,-2.870033158021699,0.4390260500938055
+baseline,"C(task_type, Treatment(reference='fix'))[T.feat]",0.4590233508820157,0.1177699812588265
+baseline,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.3715838134097847,0.2164864870277985
+baseline,C(repo_language)[T.C++],-2.8732469021568416,1.2789359444608663
+baseline,C(repo_language)[T.Go],-3.5106462387725177,1.1039693612785746
+baseline,C(repo_language)[T.Java],0.12058241876842647,0.5607644098843837
+baseline,C(repo_language)[T.JavaScript],-0.17972754294824755,0.7316203330854126
+baseline,C(repo_language)[T.Python],0.5252987510200048,0.4532094085425726
+baseline,C(repo_language)[T.Ruby],-0.025726654878869108,0.7247819742832055
+baseline,C(repo_language)[T.TypeScript],0.18302821868981006,0.4522772569138348
+baseline,ai,-0.23115471649532404,0.22908151456758433
+baseline,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.15205581996889597,0.21849098111550866
+baseline,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.27373412208472475,0.3340738169512175
+baseline,log1p_changed_kloc,1.1208979365264469,0.1344410794226818
+exclude_top1,Intercept,-2.9493180536882666,0.4257445019343116
+exclude_top1,"C(task_type, Treatment(reference='fix'))[T.feat]",0.5358451468596699,0.18974203796839492
+exclude_top1,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.6445026005911719,0.2806478464038491
+exclude_top1,C(repo_language)[T.C++],-2.870175252666643,1.224730235501711
+exclude_top1,C(repo_language)[T.Go],-3.529127541225073,1.0835341478005998
+exclude_top1,C(repo_language)[T.Java],0.1406560877574641,0.5281762141319356
+exclude_top1,C(repo_language)[T.JavaScript],-0.8218432974517311,0.8215421710654428
+exclude_top1,C(repo_language)[T.Python],0.5209039919641878,0.42977540156881505
+exclude_top1,C(repo_language)[T.Ruby],-0.1355491325802627,0.7440545517623538
+exclude_top1,C(repo_language)[T.TypeScript],-1.3853830295037115,0.4540131589235158
+exclude_top1,ai,-0.2048449381582481,0.3339212892695698
+exclude_top1,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.05958335905903119,0.32287741713118395
+exclude_top1,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.2488398468834495,0.45103487306110474
+exclude_top1,log1p_changed_kloc,1.0915307284694096,0.11623444383729617
+exclude_top5,Intercept,-3.0183923924840137,0.37628794804418925
+exclude_top5,"C(task_type, Treatment(reference='fix'))[T.feat]",0.6566436175803829,0.22993093105068527
+exclude_top5,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.9145107226340975,0.3088245452625866
+exclude_top5,C(repo_language)[T.C++],-3.031901220387273,1.2394422871246755
+exclude_top5,C(repo_language)[T.Go],-3.745442821930427,1.0757377467922067
+exclude_top5,C(repo_language)[T.Java],0.007483604757022539,0.4700369831628991
+exclude_top5,C(repo_language)[T.JavaScript],-1.313858355124534,0.8805154197368371
+exclude_top5,C(repo_language)[T.Python],-0.24727234086299843,0.39702417161775017
+exclude_top5,C(repo_language)[T.Ruby],-0.574015418759448,0.7651501299165283
+exclude_top5,C(repo_language)[T.TypeScript],-1.8089999220959823,0.4235433962496998
+exclude_top5,ai,-0.44547636578409633,0.3102792645103279
+exclude_top5,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.44250745413373377,0.3448986514347895
+exclude_top5,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.25316319253208824,0.5194637811842566
+exclude_top5,log1p_changed_kloc,1.1589839940437419,0.10855957429635504
+shared_repositories,Intercept,-3.00909723256668,0.5682472146901507
+shared_repositories,"C(task_type, Treatment(reference='fix'))[T.feat]",0.47063158659986426,0.12344801679176531
+shared_repositories,"C(task_type, Treatment(reference='fix'))[T.refactor]",0.45762442782242374,0.2251987628836888
+shared_repositories,C(repo_language)[T.C++],-1.9399980254816485,1.2054406321584856
+shared_repositories,C(repo_language)[T.Go],-33.0782317044079,0.6674317960713101
+shared_repositories,C(repo_language)[T.Java],0.45608772716390056,0.7035818832681352
+shared_repositories,C(repo_language)[T.JavaScript],0.13506975969003326,1.01940777908253
+shared_repositories,C(repo_language)[T.Python],0.53938242416089,0.5951503150393674
+shared_repositories,C(repo_language)[T.Ruby],-0.07370123697925209,0.8836897850369942
+shared_repositories,C(repo_language)[T.TypeScript],0.29518832952369467,0.5948990494914234
+shared_repositories,ai,-0.2665314680995298,0.2746180564110938
+shared_repositories,"ai:C(task_type, Treatment(reference='fix'))[T.feat]",0.19047465671317496,0.2608930284840268
+shared_repositories,"ai:C(task_type, Treatment(reference='fix'))[T.refactor]",0.2646987547081167,0.37834943723984754
+shared_repositories,log1p_changed_kloc,1.0565966586079816,0.1416716758522696

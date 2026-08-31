@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "status": "author_confirmation_complete",
+  "relation_n": 1016,
+  "unique_relation_key_n": 1016,
+  "human_review_status": {
+    "author_confirmed": 1016
+  },
+  "final_decision_source": {
+    "author_manual_review": 1016
+  },
+  "reviewer_role": {
+    "author": 1016
+  },
+  "initial_adjudicator_type_counts": {
+    "deterministic_rule": 240,
+    "LLM_assistant": 776
+  },
+  "final_relation_counts": {
+    "no_reference": 240,
+    "no_match": 544,
+    "related_distinct": 187,
+    "same_issue": 45
+  },
+  "attestation": "One author manually examined every frozen reviewer finding against the within-PR CodeQL references and confirmed the released relation and matched-reference identifiers as the final study decisions.",
+  "recording_limitation": "This retrospective confirmation layer preserves the initial decision provenance but does not reconstruct review timestamps, intermediate edits, or an independent duplicate annotation.",
+  "labels_changed_by_freeze_n": 0
+}

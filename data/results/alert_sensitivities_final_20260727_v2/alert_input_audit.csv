@@ -1,0 +1,5 @@
+group,family,denominator_pr_n,raw_alert_file_row_n,alerts_outside_quality_gated_population_n,expected_introduced_alert_n,observed_introduced_alert_n,count_conservation
+ai,quality,3087,2758,7,2506,2506,true
+ai,security,3087,2758,7,245,245,true
+human,quality,2317,4379,6,4102,4102,true
+human,security,2317,4379,6,271,271,true

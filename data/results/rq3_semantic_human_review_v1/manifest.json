@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "status": "frozen",
+  "source_relations": {
+    "path": "rq3_semantic_results_20260729_v1/semantic_finding_relations.csv",
+    "sha256": "b2a930d04a0d9ea488a11797368424d43eb5dbd11bc23c997c68192ed980a796"
+  },
+  "outputs": {
+    "author_relation_review.csv": {
+      "sha256": "349faed88e67c8f69cf122863945a1651cc43cb94ee40cef9e4923ff28206476",
+      "size": 377549
+    },
+    "summary.json": {
+      "sha256": "6572c3b293d7b51bef586154790151b9b613087f1c8ad55082fd165efe7d1839",
+      "size": 1001
+    }
+  },
+  "row_n": 1016,
+  "unique_key": [
+    "case_id",
+    "model_finding_id"
+  ],
+  "contains_review_timestamps": false,
+  "contains_item_edit_history": false
+}

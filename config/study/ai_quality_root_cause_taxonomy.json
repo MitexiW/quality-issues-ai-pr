@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0.0-final",
+  "construct": "proximate code-change cause / change mechanism",
+  "coding_principle": "Code the observable change and violated relation, not an inferred mental state and not the CodeQL symptom alone.",
+  "reporting_policy": {
+    "primary_category_n": 5,
+    "primary_statistics_level": "root_cause_category",
+    "subcategory_role": "case explanation and audit only",
+    "rule_to_category_mapping_allowed": false,
+    "forced_other_category_allowed": false
+  },
+  "root_cause_categories": [
+    {
+      "id": "incomplete_change_coordination",
+      "label": "Incomplete change coordination",
+      "definition": "The PR changes an implementation or introduces a new element without completely coordinating the code entities that must be removed, connected, or updated together.",
+      "submechanisms": [
+        {
+          "id": "incomplete_cleanup_after_modification",
+          "definition": "Replacement, deletion, or abandonment makes an existing element obsolete, but the element remains in the head revision."
+        },
+        {
+          "id": "unintegrated_element_in_new_code",
+          "definition": "A newly introduced declaration, dependency, state member, or operation is never connected to a consumer or effect."
+        },
+        {
+          "id": "inconsistent_propagation_across_dependent_sites",
+          "definition": "A related change is applied at some dependent sites but not all sites that share the changed relation."
+        }
+      ],
+      "boundary": "Use contract mismatch when the central evidence is disagreement with an explicit API/type contract; use redundant construction when the element merely duplicates an effective operation rather than being left obsolete or unintegrated."
+    },
+    {
+      "id": "interface_or_contract_mismatch",
+      "label": "Interface or contract mismatch",
+      "definition": "Changed code invokes, overrides, exports, documents, or consumes an interface using a contract inconsistent with its observable declaration or supported behavior.",
+      "submechanisms": [
+        {"id": "caller_callee_signature_mismatch", "definition": "Argument names, counts, or callability disagree with the callee."},
+        {"id": "override_or_type_contract_mismatch", "definition": "An override, type, or initialization obligation disagrees with its base contract."},
+        {"id": "export_documentation_or_metadata_mismatch", "definition": "Exports, documentation targets, or annotations refer to a declaration that does not match."},
+        {"id": "api_lifecycle_or_declaration_mismatch", "definition": "Code selects a deprecated API or calls a language/library operation without the required visible declaration."}
+      ],
+      "boundary": "The contract must be evidenced by code or project metadata, not inferred from likely intent."
+    },
+    {
+      "id": "control_state_or_dataflow_miscomposition",
+      "label": "Control-, state-, or data-flow miscomposition",
+      "definition": "The PR composes branches, loops, returns, assignments, expressions, or state transitions so that an anomalous execution or value-flow state follows.",
+      "submechanisms": [
+        {"id": "invalid_or_trivial_control_path", "definition": "Branch/loop/return structure creates an unreachable, trivial, mixed-return, or finally-exit path."},
+        {"id": "state_initialization_or_liveness_gap", "definition": "A value may be read before initialization, or a written state has no effective consumer."},
+        {"id": "invalid_expression_or_value_composition", "definition": "Operands, expressions, null handling, or value composition cannot produce the intended effective state."}
+      ],
+      "boundary": "Use incomplete coordination when the anomaly is principally a leftover or unsynchronized code entity rather than execution/value-flow composition."
+    },
+    {
+      "id": "dependency_error_or_resource_mismanagement",
+      "label": "Dependency, error, or resource mismanagement",
+      "definition": "The PR constructs module dependencies, failure paths, or resource lifecycles in a way that violates an observable structural or cleanup obligation.",
+      "submechanisms": [
+        {"id": "dependency_cycle_or_duplicate_path", "definition": "New or redirected dependency edges create cycles, unsafe initialization order, or duplicate import paths."},
+        {"id": "missing_or_overbroad_failure_handling", "definition": "A required failure is uncaught/ignored or an empty/broad handler defeats the relevant behavior."},
+        {"id": "incomplete_resource_lifecycle", "definition": "A resource is not closed or released on all relevant paths."}
+      ],
+      "boundary": "Ordinary caller/callee disagreement belongs to interface or contract mismatch; this category requires dependency structure, failure handling, or resource-lifecycle evidence."
+    },
+    {
+      "id": "redundant_or_locally_inconsistent_construction",
+      "label": "Redundant or locally inconsistent construction",
+      "definition": "The PR adds or retains a duplicate, effect-free, avoidably inefficient, or locally inconsistent construction whose anomaly follows from comparison with an equivalent operation or an evidenced project convention.",
+      "submechanisms": [
+        {"id": "duplicate_or_redundant_operation", "definition": "Definitions, imports, assignments, expressions, or operands duplicate another effective element."},
+        {"id": "local_syntax_style_or_annotation_inconsistency", "definition": "Syntax, formatting, comments, or annotations violate an observable surrounding convention."},
+        {"id": "inefficient_operation_choice", "definition": "The chosen operation or composition performs avoidable work relative to an evidenced equivalent path."}
+      ],
+      "boundary": "Do not place merely unused new elements here; those are incomplete change coordination unless duplication is the central mechanism."
+    }
+  ],
+  "non_category_dispositions": [
+    {
+      "id": "insufficient_evidence",
+      "definition": "The issue is confirmed, but available diff/context does not support a defensible mechanism beyond the symptom. This is an audit disposition, not a sixth root-cause category."
+    }
+  ],
+  "orthogonal_dimensions": {
+    "change_operation": [
+      "new_code_addition",
+      "modification_or_replacement",
+      "deletion_with_residue",
+      "interface_or_schema_change",
+      "dependency_or_api_migration",
+      "cross_file_propagation",
+      "unknown"
+    ],
+    "violated_relation": [
+      "definition_use",
+      "caller_callee_contract",
+      "override_or_inheritance_contract",
+      "module_dependency",
+      "control_flow",
+      "state_initialization_or_liveness",
+      "exception_or_resource_lifecycle",
+      "documentation_or_annotation_target",
+      "local_syntax_or_style_convention",
+      "operation_efficiency",
+      "other"
+    ],
+    "confidence": ["high", "medium", "low"]
+  }
+}

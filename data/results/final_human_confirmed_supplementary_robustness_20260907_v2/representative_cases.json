@@ -1,0 +1,187 @@
+[
+  {
+    "root_cause_cluster_id": "rccluster-06bf514b4d93be7340e7",
+    "repo_name": "3rdIteration/btcrecover",
+    "pr_number": "599",
+    "cluster_key_within_pr": "base64-conversion-residue",
+    "alert_n": "1",
+    "rule_n": "1",
+    "rules_json": "[\"py/unused-import\"]",
+    "files_json": "[\"btcrecover/addressset.py\"]",
+    "root_cause_category": "incomplete_change_coordination",
+    "mechanism_subcategory": "incomplete_cleanup_after_modification",
+    "disposition": "",
+    "change_operation": "modification_or_replacement",
+    "violated_relation": "definition_use",
+    "cause_statement": "The address conversion changed from base64.b16encode to int.from_bytes but retained the base64 import after its final consumer was removed.",
+    "evidence_summary": "btcrecover/addressset.py:24 and the replacement of the long(base64.b16encode(...)) expression.",
+    "confidence": "high",
+    "rule_id": "py/unused-import",
+    "file_path": "btcrecover/addressset.py",
+    "packet_path": "data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/3rdIteration_btcrecover__pr-599.json",
+    "base_sha": "f1cb82400e45364b0a7e98ffc7375bb310f16f10",
+    "head_sha": "adcc995b4964b0a3694f7e4093eca623452cb622",
+    "patch": "--- a/btcrecover/addressset.py\n+++ b/btcrecover/addressset.py\n@@ -35,35 +35,32 @@\n         b\"\\xbf\\x0c\\x6b\\xbd\":0,    #Dash\n         b\"\\xfb\\xc0\\xb6\\xdb\":1,    #Litecoin, Monacoin, \n         b\"\\xfa\\xbf\\xb5\\xda\":1,    #Vertcoin\n         b\"\\xf7\\xa7\\x7e\\xff\":0,    #Verge\n         b\"\\xc0\\xc0\\xc0\\xc0\":0,    #dogecoin\n         b\"\\xfa\\xc3\\xb6\\xda\":1,    #digibyte\n         b\"\\xf9\\xbe\\xb4\\xd4\":1     #groestlcoin\n         }\n     return switcher.get(magic,-1)\n \n \n def bytes_to_int(bytes_rep):\n-    \"\"\"convert a string of bytes (in big-endian order) to an integer\n+    \"\"\"Convert a sequence of bytes (big-endian) to an integer.\n \n     :param bytes_rep: the raw bytes\n-    :type bytes_rep: str\n+    :type bytes_rep: bytes\n     :return: the unsigned integer\n-    :rtype: int or long\n+    :rtype: int\n     \"\"\"\n-    bytes_len = len(bytes_rep)\n-    if bytes_len <= 4:\n-        return struct.unpack(\">I\", (4-bytes_len)*b\"\\0\" + bytes_rep)[0]\n-    return long(base64.b16encode(bytes_rep), 16)\n+    return int.from_bytes(bytes_rep, \"big\")\n \n \n class AddressSet(object):\n     \"\"\"\n     A set-like collection optimized for testing membership of Bitcoin addresses\n     from their raw hash160 format with support for serializing to/from files\n     \"\"\"\n     VERSION    = 1\n     MAGIC      = b\"seedrecover address database\\r\\n\"  # file magic\n     HEADER_LEN = 65536\n     assert HEADER_LEN % mmap.ALLOCATIONGRANULARITY == 0\n ",
+    "before_excerpts": [
+      {
+        "start_line": 24,
+        "end_line": 24,
+        "text": "import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math"
+      },
+      {
+        "start_line": 53,
+        "end_line": 57,
+        "text": "    \"\"\"\n    bytes_len = len(bytes_rep)\n    if bytes_len <= 4:\n        return struct.unpack(\">I\", (4-bytes_len)*b\"\\0\" + bytes_rep)[0]\n    return long(base64.b16encode(bytes_rep), 16)"
+      }
+    ],
+    "before_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-599__before/btcrecover/addressset.py",
+    "head_excerpts": [
+      {
+        "start_line": 24,
+        "end_line": 24,
+        "text": "import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math"
+      },
+      {
+        "start_line": 50,
+        "end_line": 54,
+        "text": "    :type bytes_rep: bytes\n    :return: the unsigned integer\n    :rtype: int\n    \"\"\"\n    return int.from_bytes(bytes_rep, \"big\")"
+      }
+    ],
+    "head_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-599__after/btcrecover/addressset.py"
+  },
+  {
+    "root_cause_cluster_id": "rccluster-c94fc7a6f91664f23686",
+    "repo_name": "3rdIteration/btcrecover",
+    "pr_number": "611",
+    "cluster_key_within_pr": "duplicate-shamir-import-form",
+    "alert_n": "1",
+    "rule_n": "1",
+    "rules_json": "[\"py/unused-import\"]",
+    "files_json": "[\"btcrecover/btcrseed.py\"]",
+    "root_cause_category": "redundant_or_locally_inconsistent_construction",
+    "mechanism_subcategory": "duplicate_or_redundant_operation",
+    "disposition": "",
+    "change_operation": "modification_or_replacement",
+    "violated_relation": "module_dependency",
+    "cause_statement": "The seed module added a shamir_mnemonic module import even though its direct from-import already performed the availability check and supplied the used names.",
+    "evidence_summary": "btcrecover/btcrseed.py:121 and the adjacent direct import from shamir_mnemonic.",
+    "confidence": "high",
+    "rule_id": "py/unused-import",
+    "file_path": "btcrecover/btcrseed.py",
+    "packet_path": "data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/3rdIteration_btcrecover__pr-611.json",
+    "base_sha": "d43d12ab5386f3836ebdac5026a15b808cd8a8bf",
+    "head_sha": "6aa247cd84426b752e8a89efc6389a4a5117e72e",
+    "patch": "--- a/btcrecover/btcrseed.py\n+++ b/btcrecover/btcrseed.py\n@@ -104,24 +104,33 @@\n \n     bitstring_available = True\n except:\n     pass\n \n eth2_staking_deposit_available = False\n try:\n     from staking_deposit.key_handling.key_derivation.path import mnemonic_and_path_to_key\n     from py_ecc.bls import G2ProofOfPossession as bls\n \n     eth2_staking_deposit_available = True\n except:\n+    pass\n+\n+shamir_mnemonic_available = False\n+slip39_min_words = 20\n+try:\n+    import shamir_mnemonic\n+    from shamir_mnemonic.constants import MIN_MNEMONIC_LENGTH_WORDS as slip39_min_words\n+    shamir_mnemonic_available = True\n+except Exception:\n     pass\n \n \n _T = TypeVar(\"_T\")\n \n # Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation\n # From <https://stackoverflow.com/questions/212358/binary-search-bisection-in-python/2233940#2233940>\n def binary_search(\n         a: Sequence[_T],\n         x: _T,\n         lo: int = 0,\n         hi: Optional[int] = None,  # can't use a to specify default for hi\n@@ -744,24 +753,36 @@\n             else:\n                 off_by = guess_len % 3\n                 if off_by == 0: # If the supplied guess is a valid length, assume that all words have been supplied\n                     expected_len = guess_len\n                 else: # If less words have been supplied, round up to the nearest valid seed length (Assume words are missing by default)\n                     expected_len = guess_len + 3 - off_by\n \n             print(\"Assuming a\", expected_len, \"word mnemonic. (This can be overridden with --mnemonic-length)\")\n \n         global num_inserts, num_deletes\n         num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)\n         num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)\n+        if num_inserts:\n+            print(\n+                \"Seed sentence was too short, inserting {} word{} into each guess.\".format(\n+                    num_inserts, \"s\" if num_inserts > 1 else \"\"\n+                )\n+            )\n+        if num_deletes:\n+            print(\n+                \"Seed sentence was too long, deleting {} word{} from each guess.\".format(\n+                    num_deletes, \"s\" if num_deletes > 1 else \"\"\n+                )\n+            )\n         if num_inserts:\n             print(\"Seed sentence was too short, inserting {} word{} into each guess.\"\n                   .format(num_inserts, \"s\" if num_inserts > 1 else \"\"))\n         if num_deletes:\n             print(\"Seed sentence was too long, deleting {} word{} from each guess.\"\n                   .format(num_deletes, \"s\" if num_deletes > 1 else \"\"))\n \n     # Produces a long stream of differing and incorrect mnemonic_ids guesses (for testing)\n     @staticmethod\n     def performance_iterator():\n         # See WalletBIP39.performance_iterator() for details\n         prefix = tuple(random.randrange(len(WalletElectrum1._words)) for i in range(8))\n@@ -3370,24 +3391,145 @@\n         hash160s = []\n \n         for addr in addresses:\n             try:\n                 pubkey_bytes = StrKey.decode_ed25519_public_key(addr)\n                 hash160s.append(pubkey_bytes)\n             except Exception as e:\n                 print(f\"Warning: Could not decode Stellar address '{addr}': {e}\")\n                 continue\n \n         return hash160s\n \n+############### SLIP39 Seed Share ###############\n+\n+@register_selectable_wallet_class(\"SLIP39 Seed Share\")\n+class WalletSLIP39Seed(WalletBase):\n+    \"\"\"Wallet class used to validate SLIP39 shares.\n+\n+    This class allows :mod:`seedrecover.py` to recover SLIP39 shares with\n+    typographical errors.  It validates guesses using the ``shamir-mnemonic``\n+    library without requiring any address checking.\n+    \"\"\"\n+\n+    _words = None\n+\n+    def __init__(self, path=None, loading=False):\n+        if not shamir_mnemonic_available:\n+            print()\n+            print(\n+                \"ERROR: Cannot import shamir_mnemonic which is required for SLIP39 share recovery, install it via 'pip3 install shamir-mnemonic[cli]'\"\n+            )\n+            exit()\n+        super(WalletSLIP39Seed, self).__init__(loading)\n+\n+    @classmethod\n+    def _load_wordlist(cls):\n+        if not cls._words:\n+            from shamir_mnemonic import wordlist as sw\n+            cls._words = tuple(sw.WORDLIST)\n+            cls._word_to_id = {word: idx for idx, word in enumerate(cls._words)}\n+\n+    @property\n+    def word_ids(self):\n+        return range(len(self._words))\n+\n+    @classmethod\n+    def id_to_word(cls, idx):\n+        return cls._words[idx]\n+\n+    @classmethod\n+    def config_mnemonic(cls, mnemonic_guess=None, closematch_cutoff=0.65, expected_len=None):\n+        \"\"\"Configure globals for SLIP39 share recovery.\"\"\"\n+        if not mnemonic_guess:\n+            init_gui()\n+            if tk_root:\n+                mnemonic_guess = tk.simpledialog.askstring(\n+                    \"SLIP39 share\", \"Please enter your best guess for the SLIP39 share:\")\n+            else:\n+                print(\"No mnemonic guess specified... Exiting...\")\n+                exit()\n+            if not mnemonic_guess:\n+                sys.exit(\"canceled\")\n+\n+        cls._load_wordlist()\n+        mnemonic_guess = str(mnemonic_guess)\n+\n+        global mnemonic_ids_guess, close_mnemonic_ids, num_inserts, num_deletes\n+        mnemonic_ids_guess = ()\n+        close_mnemonic_ids = {}\n+        for word in mnemonic_guess.lower().split():\n+            close_words = difflib.get_close_matches(word, cls._words, sys.maxsize, closematch_cutoff)\n+            if close_words:\n+                if close_words[0] != word:\n+                    print(f\"'{word}' was in your guess, but it's not a valid SLIP39 word;\\n    trying '{close_words[0]}' instead.\")\n+                mnemonic_ids_guess += cls._word_to_id[close_words[0]],\n+                close_mnemonic_ids[mnemonic_ids_guess[-1]] = tuple((cls._word_to_id[w],) for w in close_words[1:])\n+            else:\n+                if word != 'seed_token_placeholder':\n+                    print(f\"'{word}' was in your guess, but there is no similar SLIP39 word;\\n    trying all possible seed words here instead.\")\n+                mnemonic_ids_guess += None,\n+\n+        guess_len = len(mnemonic_ids_guess)\n+        if expected_len is None:\n+            expected_len = max(guess_len, slip39_min_words)\n+            if guess_len > 28:\n+                expected_len = 33\n+            print(\n+                \"Assuming a\",\n+                expected_len,\n+                \"word share. (This can be overridden with --share-length)\",\n+            )\n+\n+        num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)\n+        num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)\n+\n+    @classmethod\n+    def create_from_params(cls, *args, **kwargs):\n+        self = cls(loading=True)\n+        self._load_wordlist()\n+        return self\n+\n+    # Performs basic checks so that clearly invalid mnemonic_ids can be skipped\n+    @staticmethod\n+    def verify_mnemonic_syntax(mnemonic_ids):\n+        return (\n+            len(mnemonic_ids)\n+            == len(mnemonic_ids_guess) + num_inserts - num_deletes\n+            and None not in mnemonic_ids\n+        )\n+\n+    def passwords_per_seconds(self, seconds):\n+        return max(int(seconds * 1000), 1)\n+\n+    def _verify_checksum(self, mnemonic_ids):\n+        from shamir_mnemonic.share import Share\n+        try:\n+            Share.from_mnemonic(\" \".join(self.id_to_word(i) for i in mnemonic_ids))\n+            return True\n+        except Exception:\n+            return False\n+\n+    def return_verified_password_or_false(self, mnemonic_ids_list):\n+        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):\n+            if None not in mnemonic_ids and self._verify_checksum(mnemonic_ids):\n+                return mnemonic_ids, count\n+        return False, count\n+\n+    def performance_iterator(self):\n+        \"\"\"Generate infinite SLIP39 share guesses for performance testing.\"\"\"\n+        length = len(mnemonic_ids_guess) + num_inserts - num_deletes\n+        prefix = tuple(random.randrange(len(self._words)) for _ in range(max(length - 4, 0)))\n+        for guess in itertools.product(range(len(self._words)), repeat=min(length, 4)):\n+            yield prefix + guess\n ################################### Main ###################################\n \n tk_root = None\n def init_gui():\n     # just return and leave tk_root as none if gui force disabled...\n     global no_gui\n     if no_gui:\n         print(\"Warning: GUI disabled, you will need to set some recovery arguments manually\")\n         return\n \n     global disable_security_warnings\n     global tk_root, tk, tkFileDialog, tkSimpleDialog, tkMessageBox\n@@ -3648,24 +3790,26 @@\n         parser.add_argument(\"--min-typos\",   type=int, metavar=\"COUNT\", help=\"enforce a min # of mistakes per guess\")\n         parser.add_argument(\"--close-match\",type=float,metavar=\"CUTOFF\",help=\"try words which are less/more similar for each mistake (0.0 to 1.0, default: 0.65)\")\n         parser.add_argument(\"--passphrase\",  action=\"store_true\",       help=\"the mnemonic is augmented with a known passphrase (BIP39 or Electrum 2.x only)\")\n         parser.add_argument(\"--passphrase-arg\",  metavar=\"PASSPHRASE\", nargs=\"+\", help=\"the mnemonic is augmented with a known passphrase, entered directly as an argument (BIP39 or Electrum 2.x only)\")\n         parser.add_argument(\"--passphrase-list\", metavar=\"FILE\", help=\"Path to a file containing a list of passphrases to test\")\n         parser.add_argument(\"--passphrase-prompt\", action=\"store_true\", help=\"prompt for the mnemonic passphrase via the terminal (default: via the GUI)\")\n         parser.add_argument(\"--mnemonic\",  metavar=\"MNEMONIC\",       help=\"Your best guess of the mnemonic (if not entered, you will be prompted)\")\n         parser.add_argument(\"--mnemonic-prompt\",   action=\"store_true\", help=\"prompt for the mnemonic guess via the terminal (default: via the GUI)\")\n         parser.add_argument(\"--mnemonic-length\", type=int, metavar=\"WORD-COUNT\", help=\"the length of the correct mnemonic (default: auto)\")\n         parser.add_argument(\"--language\",    metavar=\"LANG-CODE\",       help=\"the wordlist language to use (see wordlists/README.md, default: auto)\")\n         parser.add_argument(\"--bip32-path\",  metavar=\"PATH\", nargs=\"+\",           help=\"path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)\")\n         parser.add_argument(\"--substrate-path\",  metavar=\"PATH\", nargs=\"+\",           help=\"Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)\")\n+        parser.add_argument(\"--slip39\", action=\"store_true\", help=\"recover a SLIP39 seed share\")\n+        parser.add_argument(\"--share-length\", type=int, metavar=\"WORD-COUNT\", help=\"the length of the SLIP39 share (default: auto)\")\n         parser.add_argument(\"--checksinglexpubaddress\", action=\"store_true\", help=\"Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC\")\n         parser.add_argument(\"--force-p2sh\",  action=\"store_true\",   help=\"Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')\")\n         parser.add_argument(\"--force-p2tr\",  action=\"store_true\",   help=\"Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')\")\n         parser.add_argument(\"--pathlist\",    metavar=\"FILE\",        help=\"A list of derivation paths to be searched\")\n         parser.add_argument(\"--transform-wordswaps\",   type=int, metavar=\"COUNT\", help=\"Test swapping COUNT pairs of words within the mnemonic\")\n         parser.add_argument(\"--skip\",        type=int, metavar=\"COUNT\", help=\"skip this many initial passwords for continuing an interrupted search\")\n         parser.add_argument(\"--threads\", type=int, metavar=\"COUNT\", help=\"number of worker threads (default: For CPU Processing, logical CPU cores, for GPU, physical CPU cores)\")\n         parser.add_argument(\"--worker\",      metavar=\"ID#(ID#2, ID#3)/TOTAL#\",   help=\"divide the workload between TOTAL# servers, where each has a different ID# between 1 and TOTAL# (You can optionally assign between 1 and TOTAL IDs of work to a server (eg: 1,2/3 will assign both slices 1 and 2 of the 3 to the server...)\")\n         parser.add_argument(\"--max-eta\",     type=int,              help=\"max estimated runtime before refusing to even start (default: 168 hours, i.e. 1 week)\")\n         parser.add_argument(\"--no-eta\",      action=\"store_true\",   help=\"disable calculating the estimated time to completion\")\n         parser.add_argument(\"--no-dupchecks\", \"-d\", action=\"count\", default=0, help=\"disable duplicate guess checking to save memory; specify up to four times for additional effect\")\n         parser.add_argument(\"--no-progress\", action=\"store_true\",   help=\"disable the progress bar\")\n@@ -3743,25 +3887,27 @@\n         if args.savevalidseeds:\n             if args.enable_opencl: exit(\"Error: SaveValidSeeds not a valid option when OpenCL is in use...\")\n             print(\"WARNING: Seeds aren't actually checked when --savevalidseeds argument is used, only generated, checksummed and saved...\")\n             args.addrs = ['1QLSbWFtVNnTFUq5vxDRoCpvvsSqTTS88P']\n             args.addr_limit = 1\n             args.no_eta = True\n             args.no_dupchecks = 4\n             if args.wallet_type:\n                 if args.wallet_type.lower() == \"ethereum\":\n                     args.wallet_type = \"bip39\"\n \n         # Look up the --wallet-type arg in the list of selectable_wallet_classes\n-        if args.wallet_type:\n+        if args.slip39:\n+            wallet_type = WalletSLIP39Seed\n+        elif args.wallet_type:\n             if args.wallet:\n                 print(\"warning: --wallet-type is ignored when a wallet is provided\", file=sys.stderr)\n             else:\n                 args.wallet_type  = args.wallet_type.lower()\n                 wallet_type_names = []\n                 for cls, desc in selectable_wallet_classes:\n                     wallet_type_names.append(cls.__name__.replace(\"Wallet\", \"\", 1).lower())\n                     if wallet_type_names[-1] == args.wallet_type:\n                         wallet_type = cls\n                         break\n                 else:\n                     wallet_type_names.sort()\n@@ -3882,24 +4028,27 @@\n \n             if args.seedlist:\n                 phase[\"passwordlist\"] = args.seedlist\n \n             if args.wallet_type == \"electrum1\":\n                 args.language = None\n \n         if args.language:\n             config_mnemonic_params[\"lang\"] = args.language.lower()\n \n         if args.mnemonic_length is not None:\n             config_mnemonic_params[\"expected_len\"] = args.mnemonic_length\n+\n+        if args.share_length is not None:\n+            config_mnemonic_params[\"expected_len\"] = args.share_length\n \n         if args.bip32_path and not args.pathlist:\n             if args.wallet:\n                 print(\"warning: --bip32-path is ignored when a wallet is provided\", file=sys.stderr)\n             else:\n                 create_from_params[\"path\"] = args.bip32_path\n \n         if args.substrate_path and not args.pathlist:\n             if args.wallet:\n                 print(\"warning: --bip32-path is ignored when a wallet is provided\", file=sys.stderr)\n             else:\n                 create_from_params[\"path\"] = args.substrate_path\n@@ -4251,24 +4400,29 @@\n     \"\"\"may be called *after* main() to display the successful result iff the GUI is in use\n \n     :param mnemonic_sentence: the mnemonic sentence that was found\n     :type mnemonic_sentence: unicode\n     :rtype: None\n     \"\"\"\n     assert tk_root\n     global pause_at_exit\n     padding = 6\n     tk.Label(text=\"WARNING: seed information is sensitive, carefully protect it and do not share\", fg=\"red\") \\\n         .pack(padx=padding, pady=padding)\n     tk.Label(text=\"Seed found:\").pack(padx=padding, pady=padding)\n+    if isinstance(loaded_wallet, WalletSLIP39Seed):\n+        tk.Label(\n+            text=\"NOTE: SLIP39 seed recovery matches checksums, so needs to be manually verified\",\n+            fg=\"red\",\n+        ).pack(padx=padding, pady=padding)\n \n     entry = tk.Entry(width=120, readonlybackground=\"white\")\n     entry.insert(0, mnemonic_sentence)\n     entry.config(state=\"readonly\")\n     entry.select_range(0, tk.END)\n     entry.pack(fill=tk.X, expand=True, padx=padding, pady=padding)\n \n     tk.Label(text=\"If this tool helped you to recover funds, please consider donating 1% of what you recovered, in your crypto of choice to:\") \\\n         .pack(padx=padding, pady=padding)\n \n     donation = tk.Listbox(tk_root)\n     donation.insert(1, \"BTC: 37N7B7sdHahCXTcMJgEnHz7YmiR4bEqCrS \")",
+    "before_excerpts": [
+      {
+        "start_line": 116,
+        "end_line": 124,
+        "text": "    pass\n\n\n_T = TypeVar(\"_T\")\n\n# Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation\n# From <https://stackoverflow.com/questions/212358/binary-search-bisection-in-python/2233940#2233940>\ndef binary_search(\n        a: Sequence[_T],"
+      }
+    ],
+    "before_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-611__before/btcrecover/btcrseed.py",
+    "head_excerpts": [
+      {
+        "start_line": 119,
+        "end_line": 125,
+        "text": "slip39_min_words = 20\ntry:\n    import shamir_mnemonic\n    from shamir_mnemonic.constants import MIN_MNEMONIC_LENGTH_WORDS as slip39_min_words\n    shamir_mnemonic_available = True\nexcept Exception:\n    pass"
+      }
+    ],
+    "head_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-611__after/btcrecover/btcrseed.py"
+  },
+  {
+    "root_cause_cluster_id": "rccluster-f1e7d6862a094a041bce",
+    "repo_name": "patched-codes/patchwork",
+    "pr_number": "1192",
+    "cluster_key_within_pr": "removed-modified-files-type-residue",
+    "alert_n": "1",
+    "rule_n": "1",
+    "rules_json": "[\"py/unused-import\"]",
+    "files_json": "[\"patchwork/steps/FixIssue/typed.py\"]",
+    "root_cause_category": "incomplete_change_coordination",
+    "mechanism_subcategory": "incomplete_cleanup_after_modification",
+    "disposition": "",
+    "change_operation": "deletion_with_residue",
+    "violated_relation": "definition_use",
+    "cause_statement": "The typed FixIssue model removed its List[Dict] modified_files annotation but retained Dict in the typing_extensions import.",
+    "evidence_summary": "patchwork/steps/FixIssue/typed.py:1 and the deleted modified_files annotation.",
+    "confidence": "high",
+    "rule_id": "py/unused-import",
+    "file_path": "patchwork/steps/FixIssue/typed.py",
+    "packet_path": "data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/patched-codes_patchwork__pr-1192.json",
+    "base_sha": "3e81f255dd71c646b084e7a175d6bdde11cfbe42",
+    "head_sha": "7535fccc8f1c2b9ca4e254346457908ac6a59e96",
+    "patch": "--- a/patchwork/steps/FixIssue/typed.py\n+++ b/patchwork/steps/FixIssue/typed.py\n@@ -26,14 +26,30 @@\n Please login at: \"{TOKEN_URL}\"\n Please go to the Integration's tab and generate an API key.\n Please copy the access token that is generated, and add `--patched_api_key=<token>` to the command line.\n \n If you are using a OpenAI API Key, please set `--openai_api_key=<token>`.\"\"\",\n         ),\n     ]\n     google_api_key: Annotated[\n         str, StepTypeConfig(is_config=True, or_op=[\"patched_api_key\", \"openai_api_key\", \"anthropic_api_key\"])\n     ]\n \n \n+class ModifiedFile(TypedDict):\n+    \"\"\"Represents a file that has been modified by the FixIssue step.\n+    \n+    Attributes:\n+        path: The relative path to the modified file from the repository root\n+        diff: A unified diff string showing the changes made to the file.\n+              Generated using Python's difflib to compare the original and\n+              modified file contents in memory.\n+    \n+    Note:\n+        The diff is generated by comparing file contents before and after\n+        modifications, without relying on version control systems.\n+    \"\"\"\n+    path: str\n+    diff: str\n+\n class FixIssueOutputs(TypedDict):\n-    modified_files: List[Dict]\n+    modified_files: List[ModifiedFile]",
+    "before_excerpts": [
+      {
+        "start_line": 1,
+        "end_line": 1,
+        "text": "from typing_extensions import Annotated, Dict, List, TypedDict"
+      },
+      {
+        "start_line": 36,
+        "end_line": 39,
+        "text": "\n\nclass FixIssueOutputs(TypedDict):\n    modified_files: List[Dict]"
+      }
+    ],
+    "before_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__before/patchwork/steps/FixIssue/typed.py",
+    "head_excerpts": [
+      {
+        "start_line": 1,
+        "end_line": 1,
+        "text": "from typing_extensions import Annotated, Dict, List, TypedDict"
+      },
+      {
+        "start_line": 52,
+        "end_line": 55,
+        "text": "    diff: str\n\nclass FixIssueOutputs(TypedDict):\n    modified_files: List[ModifiedFile]"
+      }
+    ],
+    "head_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__after/patchwork/steps/FixIssue/typed.py"
+  },
+  {
+    "root_cause_cluster_id": "rccluster-29785c65ab76c6dd715b",
+    "repo_name": "patched-codes/patchwork",
+    "pr_number": "1192",
+    "cluster_key_within_pr": "unintegrated-difflib-import",
+    "alert_n": "1",
+    "rule_n": "1",
+    "rules_json": "[\"py/unused-import\"]",
+    "files_json": "[\"patchwork/steps/FixIssue/FixIssue.py\"]",
+    "root_cause_category": "incomplete_change_coordination",
+    "mechanism_subcategory": "unintegrated_element_in_new_code",
+    "disposition": "",
+    "change_operation": "modification_or_replacement",
+    "violated_relation": "definition_use",
+    "cause_statement": "The FixIssue step added difflib without implementing a diff operation.",
+    "evidence_summary": "patchwork/steps/FixIssue/FixIssue.py:1 and the head step implementation.",
+    "confidence": "high",
+    "rule_id": "py/unused-import",
+    "file_path": "patchwork/steps/FixIssue/FixIssue.py",
+    "packet_path": "data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/patched-codes_patchwork__pr-1192.json",
+    "base_sha": "3e81f255dd71c646b084e7a175d6bdde11cfbe42",
+    "head_sha": "7535fccc8f1c2b9ca4e254346457908ac6a59e96",
+    "patch": "--- a/patchwork/steps/FixIssue/FixIssue.py\n+++ b/patchwork/steps/FixIssue/FixIssue.py\n@@ -1,17 +1,19 @@\n+import difflib\n import re\n from pathlib import Path\n from typing import Any, Optional\n \n-from git import Repo\n+from git import Repo, InvalidGitRepositoryError\n+from patchwork.logger import logger\n from openai.types.chat import ChatCompletionMessageParam\n \n from patchwork.common.client.llm.aio import AioLlmClient\n from patchwork.common.client.llm.protocol import LlmClient\n from patchwork.common.constants import TOKEN_URL\n from patchwork.common.multiturn_strategy.analyze_implement import (\n     STAGE,\n     AnalyzeImplementStrategy,\n )\n from patchwork.common.tools import CodeEditTool, Tool\n from patchwork.step import Step\n from patchwork.steps.FixIssue.typed import FixIssueInputs, FixIssueOutputs\n@@ -88,44 +90,94 @@\n             sections[section] = section_match.group(1).strip() if section_match else \"\"\n         return sections\n \n     def is_stop(self, messages: list[ChatCompletionMessageParam]) -> bool:\n         if self._stage != STAGE.IMPLEMENT:\n             return False\n         last_message = messages[-1]\n         return \"</DONE>\" in last_message.get(\"content\")\n \n \n class FixIssue(Step, input_class=FixIssueInputs, output_class=FixIssueOutputs):\n     def __init__(self, inputs):\n+        \"\"\"Initialize the FixIssue step.\n+        \n+        Args:\n+            inputs: Dictionary containing input parameters including:\n+                - base_path: Optional path to the repository root\n+                - Other LLM-related parameters\n+        \"\"\"\n         super().__init__(inputs)\n-        self.base_path = inputs.get(\"base_path\")\n-        if self.base_path is None:\n-            repo = Repo(Path.cwd(), search_parent_directories=True)\n-            self.base_path = repo.working_tree_dir\n+        cwd = str(Path.cwd())\n+        original_base_path = inputs.get(\"base_path\")\n+\n+        if original_base_path is not None:\n+            original_base_path = str(Path(str(original_base_path)).resolve())\n+\n+        # Check if we're in a git repository\n+        try:\n+            self.repo = Repo(original_base_path or cwd, search_parent_directories=True)\n+        except (InvalidGitRepositoryError, Exception):\n+            self.repo = None\n+\n+        repo_working_dir = None\n+        if self.repo is not None:\n+            repo_working_dir = self.repo.working_dir\n+\n+        self.base_path = original_base_path or repo_working_dir or cwd\n \n         llm_client = AioLlmClient.create_aio_client(inputs)\n         if llm_client is None:\n             raise ValueError(\n                 f\"Model API key not found.\\n\"\n                 f'Please login at: \"{TOKEN_URL}\",\\n'\n                 \"Please go to the Integration's tab and generate an API key.\\n\"\n                 \"Please copy the access token that is generated, \"\n                 \"and add `--patched_api_key=<token>` to the command line.\\n\"\n                 \"\\n\"\n                 \"If you are using an OpenAI API Key, please set `--openai_api_key=<token>`.\\n\"\n             )\n \n         self.multiturn_llm_call = _ResolveIssue(\n             repo_path=self.base_path,\n             llm_client=llm_client,\n             issue_description=inputs[\"issue_description\"],\n         )\n \n     def run(self):\n+        \"\"\"Execute the FixIssue step.\n+        \n+        This method:\n+        1. Executes the multi-turn LLM conversation to analyze and fix the issue\n+        2. Tracks file modifications made by the CodeEditTool\n+        3. Generates in-memory diffs for all modified files\n+        \n+        Returns:\n+            dict: Dictionary containing list of modified files with their diffs\n+        \"\"\"\n         self.multiturn_llm_call.execute(limit=100)\n+\n+        modified_files = []\n+        cwd = Path.cwd()\n         for tool in self.multiturn_llm_call.tool_set.values():\n-            if isinstance(tool, CodeEditTool):\n-                cwd = Path.cwd()\n-                modified_files = [file_path.relative_to(cwd) for file_path in tool.tool_records[\"modified_files\"]]\n-                return dict(modified_files=[{\"path\": str(file)} for file in modified_files])\n-        return dict()\n+            if not isinstance(tool, CodeEditTool):\n+                continue\n+            tool_modified_files = [\n+                dict(path=str(file_path.relative_to(cwd)), diff=\"\")\n+                for file_path in tool.tool_records[\"modified_files\"]\n+            ]\n+            modified_files.extend(tool_modified_files)\n+\n+        # Generate diffs for modified files\n+        # Only try to generate git diff if we're in a git repository\n+        if self.repo is not None:\n+            for modified_file in modified_files:\n+                file = modified_file[\"path\"]\n+                try:\n+                    # Try to get the diff using git\n+                    diff = self.repo.git.diff('HEAD', file)\n+                    modified_file[\"diff\"] = diff or \"\"\n+                except Exception as e:\n+                    # Git-specific errors (untracked files, etc) - keep empty diff\n+                    logger.warning(f\"Could not get git diff for {file}: {str(e)}\")\n+\n+        return dict(modified_files=modified_files)",
+    "before_excerpts": [
+      {
+        "start_line": 1,
+        "end_line": 5,
+        "text": "import re\nfrom pathlib import Path\nfrom typing import Any, Optional\n\nfrom git import Repo"
+      }
+    ],
+    "before_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__before/patchwork/steps/FixIssue/FixIssue.py",
+    "head_excerpts": [
+      {
+        "start_line": 1,
+        "end_line": 5,
+        "text": "import difflib\nimport re\nfrom pathlib import Path\nfrom typing import Any, Optional\n"
+      },
+      {
+        "start_line": 174,
+        "end_line": 179,
+        "text": "                file = modified_file[\"path\"]\n                try:\n                    # Try to get the diff using git\n                    diff = self.repo.git.diff('HEAD', file)\n                    modified_file[\"diff\"] = diff or \"\"\n                except Exception as e:"
+      }
+    ],
+    "head_source_path": "data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__after/patchwork/steps/FixIssue/FixIssue.py"
+  }
+]

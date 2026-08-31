@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "taxonomy_version": "codeql-rule-tags-v1.0.0",
+  "source": "Official CodeQL rule metadata exported in SARIF properties.tags",
+  "description": "Priority-ordered software-quality categories. Rule names and alert messages are never used for classification.",
+  "categories": [
+    {
+      "category": "performance_efficiency",
+      "any_tags": ["performance"]
+    },
+    {
+      "category": "portability",
+      "any_tags": ["portability"]
+    },
+    {
+      "category": "correctness_reliability",
+      "any_tags": ["correctness", "reliability"]
+    },
+    {
+      "category": "maintainability",
+      "any_tags": [
+        "maintainability",
+        "readability",
+        "complexity",
+        "useless-code"
+      ]
+    }
+  ],
+  "fallback_category": "other_quality"
+}

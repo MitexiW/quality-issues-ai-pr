@@ -1,0 +1,3 @@
+group,source,denominator_pr_n,complete_file_list_pr_n,incomplete_file_list_pr_n,expected_changed_file_n_complete_prs,observed_changed_file_n_complete_prs,included_pr_file_row_n,outside_population_pr_file_row_n,normalization_collision_n,incomplete_list_duplicate_file_row_n,incomplete_list_normalization_collision_n,complete_list_count_mismatch_pr_n,eligible_alert_n,changed_file_alert_n,not_changed_file_alert_n,unclassifiable_alert_n
+ai,pr_file_path_join,3087,3086,1,20237,20237,20242,333,0,1,0,0,2751,1303,1448,0
+human,pr_file_path_join,2317,2317,0,24936,24936,24936,5160,0,0,0,0,4373,3071,1302,0

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "status": "frozen_author_confirmed",
+  "reference_n": 187,
+  "strict_author_confirmed_reference_n": 114,
+  "additional_ai_frozen_rq1_reference_n": 13,
+  "additional_human_author_confirmed_reference_n": 60,
+  "group_n": {
+    "ai": 70,
+    "human": 117
+  },
+  "recovered_n": 36,
+  "category_n": {
+    "redundant_or_locally_inconsistent_construction": 38,
+    "dependency_error_or_resource_mismanagement": 55,
+    "incomplete_change_coordination": 63,
+    "interface_or_contract_mismatch": 10,
+    "control_state_or_dataflow_miscomposition": 21
+  },
+  "per_item_review_timestamps_recorded": false,
+  "human_extra_author_confirmation": {
+    "confirmed": true,
+    "reference_n": 60,
+    "accepted_category_change_n": 0
+  },
+  "inputs": {
+    "references": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_rq3_20260817_v1/reference_adjudication_join.csv",
+    "strict_mapping": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_reference_mechanism_mapping_20260901_v1/reference_mechanism_mapping.csv",
+    "strict_manifest": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_reference_mechanism_mapping_20260901_v1/manifest.json",
+    "alert_links": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_compiled_v1/alert_cluster_links.csv",
+    "clusters": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_compiled_v1/root_cause_clusters.csv"
+  }
+}

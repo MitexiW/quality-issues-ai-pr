@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "status": "compiled_complete_partition",
+  "generated_at": "2026-09-01T01:31:29.731136+00:00",
+  "scope_pr_n": 251,
+  "alert_n": 775,
+  "root_cause_cluster_n": 412,
+  "initial_pr_rule_n": 316,
+  "split_pr_rule_n": 56,
+  "cross_rule_cluster_n": 12,
+  "singleton_alert_cluster_n": 271,
+  "median_alerts_per_cluster": 1.0,
+  "max_alerts_per_cluster": 66,
+  "category_counts": {
+    "incomplete_change_coordination": 257,
+    "redundant_or_locally_inconsistent_construction": 70,
+    "interface_or_contract_mismatch": 16,
+    "control_state_or_dataflow_miscomposition": 44,
+    "dependency_error_or_resource_mismanagement": 25
+  },
+  "inputs": {
+    "scope_sha256": "58a03832c6029e138b75e60f6292b39609bc324f1695787e1e4b0c952dd8c1a1",
+    "decisions": [
+      {
+        "path": "<ARTIFACT_ROOT>/config/study/root_cause_decision.json",
+        "sha256": "497902f23151fcd5ec9026ea203d608dfafc6acb080a1d0d7b486526ba754a5a"
+      }
+    ],
+    "taxonomy_sha256": "8e6f1886a88e97c4fd834d864cbf31ab06711c2d0a30d09e5df175aa66830613"
+  }
+}

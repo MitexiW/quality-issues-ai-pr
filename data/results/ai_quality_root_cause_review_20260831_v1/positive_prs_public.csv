@@ -1,0 +1,252 @@
+repo_name,pr_number,language,task_type,alert_n,rule_n,rules_json,source_status
+3rdIteration/btcrecover,599,Python,fix,1,1,"[""py/unused-import""]",available
+3rdIteration/btcrecover,611,Python,feat,1,1,"[""py/unused-import""]",available
+567-labs/instructor,1555,Python,feat,2,1,"[""py/unused-local-variable""]",available
+567-labs/instructor,1677,Python,fix,2,1,"[""py/unused-local-variable""]",available
+AgentOps-AI/agentops,1179,Python,feat,1,1,"[""py/repeated-import""]",available
+AgentOps-AI/agentops,650,Python,feat,2,1,"[""py/unused-import""]",available
+AgentOps-AI/agentops,729,Python,fix,5,2,"[""py/undefined-export"", ""py/unused-import""]",available
+Azure/azure-sdk-for-python,41852,Python,fix,1,1,"[""py/unused-import""]",available
+BeehiveInnovations/zen-mcp-server,95,Python,feat,10,4,"[""py/inheritance/signature-mismatch"", ""py/multiple-definition"", ""py/repeated-import"", ""py/unused-local-variable""]",available
+BerriAI/litellm,12551,Python,feat,4,2,"[""py/import-and-import-from"", ""py/unused-import""]",available
+CapSoftware/Cap,561,TypeScript,fix,4,1,"[""js/unused-local-variable""]",available
+CapSoftware/Cap,567,TypeScript,feat,36,1,"[""js/unused-local-variable""]",available
+CapSoftware/Cap,571,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+CapSoftware/Cap,574,TypeScript,feat,4,1,"[""js/unused-local-variable""]",available
+CapSoftware/Cap,575,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+CapSoftware/Cap,605,TypeScript,refactor,1,1,"[""js/unused-local-variable""]",available
+Codehagen/Badget,294,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+Codehagen/Badget,295,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+DeepLabCut/DeepLabCut,3045,Python,fix,1,1,"[""py/unreachable-statement""]",available
+Deepractice/PromptX,130,JavaScript,fix,4,1,"[""js/unused-local-variable""]",available
+Helicone/helicone,3882,TypeScript,refactor,1,1,"[""js/unused-local-variable""]",available
+HumanSignal/label-studio-ml-backend,782,Python,feat,5,3,"[""py/file-not-closed"", ""py/unnecessary-pass"", ""py/unused-import""]",available
+Kanaries/pygwalker,700,Python,feat,2,1,"[""py/unused-import""]",available
+Kiln-AI/Kiln,358,Python,fix,1,1,"[""py/unused-import""]",available
+Kiln-AI/Kiln,361,Python,feat,11,4,"[""py/call/wrong-named-argument"", ""py/test-equals-none"", ""py/unused-import"", ""py/unused-local-variable""]",available
+Kiln-AI/Kiln,365,Python,refactor,2,1,"[""py/unused-import""]",available
+LeagueAkari/LeagueAkari,254,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+MervinPraison/PraisonAI,1021,Python,feat,3,2,"[""py/unused-import"", ""py/unused-local-variable""]",available
+Netflix/metaflow,2467,Python,refactor,5,3,"[""py/commented-out-code"", ""py/mixed-returns"", ""py/uninitialized-local-variable""]",available
+NewFuture/DDNS,495,Python,fix,1,1,"[""py/imprecise-assert""]",available
+NewFuture/DDNS,498,Python,feat,2,1,"[""py/imprecise-assert""]",available
+OHIF/Viewers,4998,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+OneKeyHQ/app-monorepo,6756,TypeScript,feat,12,1,"[""js/unused-local-variable""]",available
+OpenHFT/Chronicle-Wire,1058,Java,refactor,2,1,"[""java/unknown-javadoc-parameter""]",available
+OpenHFT/Chronicle-Wire,1061,Java,refactor,6,1,"[""java/unknown-javadoc-parameter""]",available
+OpenPipe/ART,153,Python,fix,1,1,"[""py/empty-except""]",available
+OpenPipe/ART,161,Python,feat,5,1,"[""py/unused-import""]",available
+OpenPipe/ART,162,Python,feat,1,1,"[""py/unused-import""]",available
+PrefectHQ/marvin,1162,Python,feat,1,1,"[""py/unused-global-variable""]",available
+PythonNest/PyNest,107,Python,feat,6,2,"[""py/inheritance/signature-mismatch"", ""py/unused-import""]",available
+RAGEN-AI/RAGEN,112,Python,feat,1,1,"[""py/unused-import""]",available
+Shelf-nu/shelf.nu,1905,TypeScript,feat,1,1,"[""js/trivial-conditional""]",available
+Shopify/roast,76,Ruby,feat,1,1,"[""rb/uninitialized-local-variable""]",available
+Significant-Gravitas/AutoGPT,10340,Python,feat,2,2,"[""py/import-and-import-from"", ""py/unnecessary-pass""]",available
+SimonHalvdansson/Harmonic-HN,216,Java,feat,1,1,"[""java/dereferenced-value-may-be-null""]",available
+SimonHalvdansson/Harmonic-HN,220,Java,feat,2,1,"[""java/uncaught-number-format-exception""]",available
+Skyvern-AI/skyvern,2435,Python,feat,9,2,"[""py/cyclic-import"", ""py/unsafe-cyclic-import""]",available
+TobikoData/sqlmesh,4667,Python,feat,1,1,"[""py/empty-except""]",available
+Voxelum/x-minecraft-launcher,1025,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+abi/screenshot-to-code,512,Python,refactor,1,1,"[""py/unused-import""]",available
+abi/screenshot-to-code,513,Python,feat,1,1,"[""py/unused-import""]",available
+actions/toolkit,2100,TypeScript,fix,3,1,"[""js/unused-local-variable""]",available
+airbytehq/airbyte,52591,Python,feat,3,1,"[""py/unused-import""]",available
+airbytehq/airbyte,52663,Python,feat,1,1,"[""py/file-not-closed""]",available
+airbytehq/airbyte,54164,Python,refactor,1,1,"[""py/side-effect-in-assert""]",available
+airbytehq/airbyte,55005,Python,feat,1,1,"[""py/commented-out-code""]",available
+airbytehq/airbyte,56389,Python,feat,3,2,"[""py/file-not-closed"", ""py/unused-import""]",available
+airbytehq/airbyte,56432,Python,feat,10,2,"[""py/call/wrong-arguments"", ""py/unused-import""]",available
+airbytehq/airbyte,62455,Python,fix,9,2,"[""py/unused-import"", ""py/unused-local-variable""]",available
+analogdotnow/Analog,129,TypeScript,feat,3,2,"[""js/trivial-conditional"", ""js/unused-local-variable""]",available
+analogdotnow/Analog,225,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+antiwork/gumroad,615,Ruby,feat,1,1,"[""rb/uninitialized-local-variable""]",available
+apache/pinot,16030,Java,fix,2,1,"[""java/uncaught-number-format-exception""]",available
+apache/pulsar,24542,Java,fix,3,3,"[""java/dereferenced-value-may-be-null"", ""java/local-variable-is-never-read"", ""java/unused-parameter""]",available
+axinc-ai/ailia-models,1704,Python,feat,10,4,"[""py/redundant-assignment"", ""py/unreachable-statement"", ""py/unused-import"", ""py/unused-local-variable""]",available
+blefnk/relivator-nextjs-template,59,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+browser-use/browser-use,2348,Python,feat,1,1,"[""py/unused-local-variable""]",available
+bytebot-ai/bytebot,35,TypeScript,feat,1,1,"[""js/useless-assignment-to-local""]",available
+bytebot-ai/bytebot,40,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+bytebot-ai/bytebot,51,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+calcom/cal.com,20580,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+calcom/cal.com,20672,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+calcom/cal.com,21590,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+calcom/cal.com,21652,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+calcom/cal.com,22034,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+calcom/cal.com,22311,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+camunda/camunda,34932,Java,feat,1,1,"[""java/unused-parameter""]",available
+cartography-cncf/cartography,1614,Python,feat,1,1,"[""py/import-and-import-from""]",available
+cartography-cncf/cartography,1619,Python,refactor,1,1,"[""py/import-and-import-from""]",available
+colinhacks/zod,4865,TypeScript,feat,1,1,"[""js/useless-expression""]",available
+colinhacks/zod,4915,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+crewAIInc/crewAI,1818,Python,fix,4,1,"[""py/unused-import""]",available
+crewAIInc/crewAI,1820,Python,fix,3,1,"[""py/unused-import""]",available
+crewAIInc/crewAI,1892,Python,feat,10,3,"[""py/unreachable-statement"", ""py/unused-global-variable"", ""py/unused-import""]",available
+crewAIInc/crewAI,1937,Python,fix,2,1,"[""py/unused-local-variable""]",available
+crewAIInc/crewAI,2277,Python,feat,5,2,"[""py/mixed-returns"", ""py/unused-import""]",available
+crewAIInc/crewAI,2335,Python,fix,1,1,"[""py/unused-import""]",available
+crewAIInc/crewAI,2352,Python,fix,2,1,"[""py/unused-import""]",available
+crewAIInc/crewAI,2476,Python,fix,1,1,"[""py/unused-local-variable""]",available
+crewAIInc/crewAI,2552,Python,fix,1,1,"[""py/unused-import""]",available
+crewAIInc/crewAI,2594,Python,fix,2,1,"[""py/unused-import""]",available
+crewAIInc/crewAI,2994,Python,fix,1,1,"[""py/unsafe-cyclic-import""]",available
+crewAIInc/crewAI-tools,162,Python,fix,1,1,"[""py/unused-import""]",available
+dagster-io/dagster,30864,Python,fix,6,4,"[""py/import-and-import-from"", ""py/multiple-definition"", ""py/unused-import"", ""py/unused-local-variable""]",available
+dailydotdev/apps,4632,TypeScript,fix,1,1,"[""js/trivial-conditional""]",available
+datopian/portaljs,1396,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+different-ai/note-companion,297,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+different-ai/note-companion,299,TypeScript,feat,1,1,"[""js/useless-assignment-to-local""]",available
+different-ai/note-companion,300,TypeScript,feat,5,1,"[""js/unused-local-variable""]",available
+different-ai/note-companion,308,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+different-ai/note-companion,326,TypeScript,refactor,1,1,"[""js/unused-local-variable""]",available
+different-ai/note-companion,331,TypeScript,feat,15,1,"[""js/unused-local-variable""]",available
+different-ai/note-companion,343,TypeScript,feat,5,1,"[""js/unused-local-variable""]",available
+docling-project/docling,1928,Python,fix,1,1,"[""py/empty-except""]",available
+dust-tt/dust,10572,TypeScript,refactor,10,3,"[""js/missing-space-in-concatenation"", ""js/trivial-conditional"", ""js/unused-local-variable""]",available
+elie222/inbox-zero,494,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+elizaOS/eliza,2549,TypeScript,feat,4,1,"[""js/unused-local-variable""]",available
+elizaOS/eliza,4686,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+elizaOS/eliza,4935,TypeScript,fix,1,1,"[""js/unused-local-variable""]",partial_context_only
+elizaOS/eliza,5490,TypeScript,fix,1,1,"[""js/unused-local-variable""]",partial_context_only
+elizaOS/eliza,5565,TypeScript,feat,7,1,"[""js/unused-local-variable""]",available
+featureform/enrichmcp,63,Python,fix,2,1,"[""py/unused-local-variable""]",available
+formbricks/formbricks,5819,TypeScript,fix,4,1,"[""js/unused-local-variable""]",available
+getsentry/sentry,93304,Python,feat,5,1,"[""py/cyclic-import""]",available
+getsentry/sentry,93709,Python,feat,4,2,"[""py/cyclic-import"", ""py/uninitialized-local-variable""]",available
+getsentry/sentry,94888,Python,feat,1,1,"[""py/redundant-else""]",available
+getsentry/sentry,95658,Python,refactor,1,1,"[""py/cyclic-import""]",available
+getsentry/sentry,95801,Python,refactor,2,1,"[""py/cyclic-import""]",available
+github-copilot-resources/copilot-metrics-viewer,226,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+goat-sdk/goat,174,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+goat-sdk/goat,178,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+hasanharman/form-builder,79,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+hasanharman/form-builder,80,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+haydenbleasel/kibo,165,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+haydenbleasel/kibo,168,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+ibelick/zola,185,TypeScript,feat,1,1,"[""js/trivial-conditional""]",available
+ikamensh/flynt,231,Python,feat,1,1,"[""py/unused-local-variable""]",available
+imbhargav5/rooks,1798,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+imbhargav5/rooks,1801,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+imbhargav5/rooks,1833,TypeScript,feat,2,1,"[""js/react/unused-or-undefined-state-property""]",available
+imbhargav5/rooks,1840,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+iterative/datachain,1215,Python,feat,1,1,"[""py/import-and-import-from""]",available
+jina-ai/node-DeepResearch,2,TypeScript,refactor,1,1,"[""js/automatic-semicolon-insertion""]",available
+jina-ai/node-DeepResearch,4,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+jlowin/fastmcp,870,Python,feat,5,1,"[""py/unsafe-cyclic-import""]",available
+jnsahaj/tweakcn,98,TypeScript,feat,5,1,"[""js/unused-local-variable""]",available
+jxxghp/MoviePilot,4566,Python,feat,5,1,"[""py/unused-import""]",available
+jxxghp/MoviePilot,4577,Python,feat,12,3,"[""py/catch-base-exception"", ""py/empty-except"", ""py/unused-import""]",available
+keephq/keep,5015,Python,feat,3,1,"[""py/unused-import""]",available
+keephq/keep,5074,Python,feat,2,1,"[""py/inheritance/signature-mismatch""]",available
+keephq/keep,5101,Python,fix,4,1,"[""py/unused-local-variable""]",available
+kortix-ai/suna,1013,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+langbot-app/LangBot,1418,Python,feat,4,3,"[""py/commented-out-code"", ""py/missing-call-to-init"", ""py/unreachable-statement""]",available
+langflow-ai/langflow,8870,Python,feat,6,2,"[""py/call/wrong-named-argument"", ""py/unused-local-variable""]",available
+liam-hq/liam,1163,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+liam-hq/liam,1296,TypeScript,feat,4,1,"[""js/unused-local-variable""]",available
+liam-hq/liam,1880,TypeScript,feat,1,1,"[""js/trivial-conditional""]",available
+liam-hq/liam,2099,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+lingodotdev/lingo.dev,700,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+lingodotdev/lingo.dev,708,TypeScript,feat,4,1,"[""js/unused-local-variable""]",available
+lingodotdev/lingo.dev,739,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+linux-do/cdk,58,TypeScript,feat,1,1,"[""js/useless-assignment-to-local""]",available
+lostintangent/gistpad,389,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+maybe-finance/maybe,2389,Ruby,feat,8,2,"[""rb/uninitialized-local-variable"", ""rb/useless-assignment-to-local""]",available
+mendableai/firecrawl,1413,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+mendableai/firecrawl,1557,TypeScript,fix,2,2,"[""js/automatic-semicolon-insertion"", ""js/unused-local-variable""]",available
+mendableai/firecrawl,1676,TypeScript,feat,1,1,"[""js/unreachable-statement""]",available
+mendableai/firecrawl,1714,TypeScript,fix,2,2,"[""js/unused-local-variable"", ""js/useless-assignment-to-local""]",available
+mendableai/firecrawl,1735,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+mendableai/firecrawl,1851,TypeScript,feat,5,2,"[""js/automatic-semicolon-insertion"", ""js/useless-assignment-to-local""]",available
+mendableai/firecrawl,1877,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+mendableai/firecrawl,1893,TypeScript,fix,4,1,"[""js/unused-local-variable""]",available
+mfts/papermark,1762,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+microsoft/ApplicationInsights-JS,2583,TypeScript,refactor,4,1,"[""js/unused-local-variable""]",available
+microsoft/ApplicationInsights-JS,2595,TypeScript,fix,3,2,"[""js/automatic-semicolon-insertion"", ""js/unused-local-variable""]",available
+microsoft/RD-Agent,975,Python,fix,10,3,"[""py/commented-out-code"", ""py/inheritance/signature-mismatch"", ""py/unused-local-variable""]",available
+microsoft/azure-devops-mcp,248,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+microsoft/genaiscript,1773,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+microsoft/typespec,7426,Java,feat,74,5,"[""java/deprecated-call"", ""java/ignored-error-status-of-call"", ""java/missing-override-annotation"", ""java/unused-parameter"", ""java/useless-tostring-call""]",available
+microsoft/vscode,250646,TypeScript,fix,1,1,"[""js/trivial-conditional""]",available
+microsoft/vscode,250672,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+miurla/morphic,531,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+module-federation/core,3883,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+module-federation/core,3916,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+mrwadams/stride-gpt,72,Python,feat,3,1,"[""py/multiple-definition""]",available
+novuhq/novu,8305,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8313,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8335,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8339,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8363,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8396,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8562,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8563,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+novuhq/novu,8584,TypeScript,fix,2,1,"[""js/unused-local-variable""]",available
+nrwl/nx,31621,TypeScript,feat,15,2,"[""js/unused-local-variable"", ""js/useless-assignment-to-local""]",available
+onetimesecret/onetimesecret,1538,Ruby,refactor,6,1,"[""rb/useless-assignment-to-local""]",available
+onetimesecret/onetimesecret,1577,Ruby,feat,1,1,"[""rb/useless-assignment-to-local""]",available
+onlook-dev/onlook,1305,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+onlook-dev/onlook,1386,TypeScript,feat,4,1,"[""js/unused-local-variable""]",available
+onlook-dev/onlook,1411,TypeScript,refactor,1,1,"[""js/unused-local-variable""]",available
+onlook-dev/onlook,2088,TypeScript,fix,9,1,"[""js/unused-local-variable""]",available
+onlook-dev/onlook,2093,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+onlook-dev/onlook,2169,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+openai/openai-agents-python,729,Python,feat,7,2,"[""py/cyclic-import"", ""py/unsafe-cyclic-import""]",available
+openai/openai-agents-python,886,Python,refactor,1,1,"[""py/unnecessary-pass""]",available
+oraios/serena,286,Python,refactor,12,2,"[""py/unused-import"", ""py/unused-local-variable""]",available
+patched-codes/patchwork,1192,Python,feat,2,1,"[""py/unused-import""]",available
+pdfme/pdfme,1059,TypeScript,refactor,10,5,"[""js/automatic-semicolon-insertion"", ""js/redundant-assignment"", ""js/redundant-operation"", ""js/trivial-conditional"", ""js/useless-assignment-to-local""]",available
+pdfme/pdfme,761,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+pdfme/pdfme,764,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+pdfme/pdfme,765,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+pdfme/pdfme,766,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+pdfme/pdfme,802,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+pdfme/pdfme,810,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+prebid/Prebid.js,13160,JavaScript,fix,3,1,"[""js/trivial-conditional""]",available
+prebid/Prebid.js,13167,JavaScript,refactor,1,1,"[""js/automatic-semicolon-insertion""]",available
+prebid/Prebid.js,13243,JavaScript,fix,1,1,"[""js/unused-local-variable""]",available
+prebid/Prebid.js,13320,JavaScript,refactor,2,1,"[""js/automatic-semicolon-insertion""]",available
+prebid/Prebid.js,13322,JavaScript,fix,2,1,"[""js/automatic-semicolon-insertion""]",available
+promptfoo/promptfoo,2709,TypeScript,feat,1,1,"[""js/useless-assignment-to-local""]",available
+reflex-dev/reflex,5555,Python,refactor,1,1,"[""py/empty-except""]",available
+robinkarlberg/transfer.zip-web,35,JavaScript,feat,1,1,"[""js/unused-local-variable""]",available
+robinkarlberg/transfer.zip-web,36,JavaScript,feat,1,1,"[""js/automatic-semicolon-insertion""]",available
+robinkarlberg/transfer.zip-web,39,JavaScript,feat,6,1,"[""js/unused-local-variable""]",available
+rsyslog/rsyslog,5665,C,feat,4,1,"[""cpp/implicit-function-declaration""]",available
+rsyslog/rsyslog,5754,C,feat,2,1,"[""cpp/implicit-function-declaration""]",available
+ruvnet/claude-flow,519,TypeScript,fix,3,2,"[""js/call-to-non-callable"", ""js/unused-local-variable""]",available
+ryokun6/ryos,131,TypeScript,refactor,2,2,"[""js/unused-local-variable"", ""js/unused-loop-variable""]",available
+ryokun6/ryos,195,TypeScript,fix,1,1,"[""js/unused-local-variable""]",partial_context_only
+ryokun6/ryos,66,TypeScript,refactor,4,1,"[""js/unused-local-variable""]",available
+ryokun6/ryos,95,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+sam-goodwin/alchemy,251,TypeScript,feat,6,2,"[""js/trivial-conditional"", ""js/useless-expression""]",available
+sdorra/content-collections,612,TypeScript,fix,1,1,"[""js/unused-local-variable""]",available
+spcl/dace,2019,Python,feat,3,2,"[""py/import-and-import-from"", ""py/unused-import""]",available
+spcl/dace,2077,Python,feat,1,1,"[""py/unused-import""]",available
+stack-auth/stack-auth,465,TypeScript,refactor,1,1,"[""js/unused-local-variable""]",available
+stack-auth/stack-auth,506,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+stanford-crfm/levanter,1015,Python,feat,3,1,"[""py/multiple-definition""]",available
+stanford-crfm/levanter,1018,Python,fix,1,1,"[""py/multiple-definition""]",available
+stanford-crfm/levanter,1023,Python,fix,2,1,"[""py/unused-local-variable""]",available
+stanford-crfm/levanter,1098,Python,refactor,2,1,"[""py/unused-local-variable""]",available
+streamich/memfs,1124,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+tegnike/aituber-kit,331,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+tegnike/aituber-kit,332,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+thirdweb-dev/js,7532,TypeScript,feat,1,1,"[""js/useless-assignment-to-local""]",available
+trycompai/comp,98,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+ucbepic/docetl,377,Python,refactor,1,1,"[""py/unused-import""]",available
+ucbepic/docetl,378,Python,refactor,1,1,"[""py/unused-import""]",available
+unclecode/crawl4ai,1152,Python,fix,3,3,"[""py/exit-from-finally"", ""py/mixed-returns"", ""py/unused-local-variable""]",available
+unsend-dev/unsend,164,TypeScript,feat,16,1,"[""js/unused-local-variable""]",available
+useautumn/autumn,95,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+vgmtrans/vgmtrans,612,C++,refactor,1,1,"[""cpp/commented-out-code""]",available
+vlm-run/vlmrun-hub,123,Python,feat,1,1,"[""py/unused-import""]",available
+vlm-run/vlmrun-hub,60,Python,feat,2,1,"[""py/unused-import""]",available
+willccbb/verifiers,124,Python,fix,1,1,"[""py/unused-local-variable""]",available
+willccbb/verifiers,161,Python,feat,2,2,"[""py/catch-base-exception"", ""py/empty-except""]",available
+willccbb/verifiers,166,Python,feat,5,1,"[""py/empty-except""]",available
+wizarrrr/wizarr,579,Python,feat,2,2,"[""py/return-or-yield-outside-function"", ""py/unreachable-statement""]",available
+yamadashy/repomix,574,TypeScript,feat,1,1,"[""js/unused-local-variable""]",available
+yamadashy/repomix,590,TypeScript,feat,2,1,"[""js/unused-local-variable""]",available
+yysun/apprun,148,TypeScript,feat,3,1,"[""js/unused-local-variable""]",available

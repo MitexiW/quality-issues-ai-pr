@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this artifact, please cite the accompanying paper."
+title: "Quality Issues in AI-Authored Pull Requests: A Repository-Scale Empirical Study — Code and Data Artifact"
+type: dataset
+authors:
+  - family-names: Wan
+    given-names: Qihang
+    email: wanqihang24s@ict.ac.cn
+    affiliation: "SKLP, Institute of Computing Technology, Chinese Academy of Sciences; University of Chinese Academy of Sciences"
+  - family-names: Lu
+    given-names: Jie
+    email: lujie@ict.ac.cn
+    affiliation: "SKLP, Institute of Computing Technology, Chinese Academy of Sciences"
+  - family-names: Li
+    given-names: Haofeng
+    email: lihaofeng@ict.ac.cn
+    affiliation: "SKLP, Institute of Computing Technology, Chinese Academy of Sciences"
+  - family-names: Li
+    given-names: Lian
+    email: lianli@ict.ac.cn
+    affiliation: "SKLP, Institute of Computing Technology, Chinese Academy of Sciences; University of Chinese Academy of Sciences"
+version: 1.0.0
+date-released: 2026-09-02
+repository-code: "https://github.com/MitexiW/quality-issues-ai-pr"
+url: "https://github.com/MitexiW/quality-issues-ai-pr"

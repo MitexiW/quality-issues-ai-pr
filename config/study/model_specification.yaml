@@ -1,0 +1,196 @@
+{
+  "schema_version": "1.3.4",
+  "specification_id": "study_stars500-introduced-quality-first-full-sample-no-time-2026-08-14",
+  "frozen_at": "2026-07-27",
+  "status": "amended_full_sample_no_time_and_rq3_267_case_design",
+  "registration_statement": {
+    "is_preregistered": false,
+    "disclosure": "The protocol was frozen and then amended while the Human scan was incomplete and after partial pipeline outputs existed. The amendments followed advisor feedback: first making Quality primary and then restricting formal outcomes to alerts introduced by a PR. These amendments were not selected on final AI-Human effects. The protocol must not be described as a fully prospective preregistration.",
+    "result_blinding": "No partial AI-Human effect estimate may be used to select models, outcomes, strata, thresholds, or sensitivity analyses."
+  },
+  "estimand": {
+    "unit": "pull_request",
+    "exposure": {
+      "name": "authorship_group",
+      "levels": ["ai", "human"],
+      "ai_definition": "PR included by the frozen AIDev-derived agent evidence and study eligibility rules.",
+      "human_definition": "PR included by the frozen Human sampling procedure and study eligibility rules.",
+      "overlap_policy": "Exclude the same repo_name + pr_number from both groups in the primary analysis."
+    },
+    "target_population": "All 5,404 quality-gated PRs with complete model covariates in the final snapshot: 3,087 AI and 2,317 Human PRs.",
+    "interpretation": "Adjusted observational association, not a causal effect of AI authorship."
+  },
+  "eligibility": {
+    "languages": ["C", "C++", "Go", "Java", "JavaScript", "Python", "Ruby", "TypeScript"],
+    "language_definition": "The frozen repository language used to configure the CodeQL job and build its single-language database. Changed-file language is not a separate analysis variable.",
+    "task_types": ["fix", "feat", "refactor"],
+    "requires_before_after_comparison": true,
+    "requires_configuration_compatibility": true,
+    "scan_failure_as_zero": false,
+    "kotlin_policy": "Exclude from the eight-language primary analysis.",
+    "duplicate_policy": "One row per group + repo_name + pr_number before cross-group overlap exclusion."
+  },
+  "outcome_families": {
+    "security": {
+      "definition": "CodeQL result whose rule has a parseable numeric security-severity.",
+      "role": "secondary_RQ1_RQ2",
+      "secondary": [
+        "introduced_security_any",
+        "introduced_security_count"
+      ]
+    },
+    "quality": {
+      "definition": "CodeQL result without a parseable numeric security-severity.",
+      "role": "primary_RQ1_RQ2",
+      "taxonomy": "config/study/quality_rule_taxonomy.json",
+      "primary": ["introduced_quality_any"],
+      "secondary": [
+        "introduced_quality_count"
+      ]
+    }
+  },
+  "confirmatory_family": {
+    "outcomes": ["introduced_quality_any"],
+    "multiplicity": "Not applicable to the single confirmatory outcome",
+    "alpha": 0.05
+  },
+  "rq3": {
+    "measurement_target": "Recovery of hidden CodeQL-detectable alerts by a blinded local Claude Code review of sanitized base-to-head Git worktrees.",
+    "reviewer": "Claude Agent SDK local /code-review with a frozen full model identifier, SDK version, bundled Claude Code CLI version, effort, and budget.",
+    "prohibited_surfaces": ["GitHub /review <PR>", "/code-review ultra", "managed GitHub Code Review"],
+    "reference_set": "Introduced CodeQL alerts in changed production files with high/very-high precision and a unique visible new-side diff location; the primary Quality tier excludes rules tagged useless-code.",
+    "primary_family": "quality",
+    "secondary_family": "security",
+    "pooling_policy": "Never pool Quality and Security into a single recovery estimate.",
+    "formal_sample": {
+      "positive": "All 187 primary-tier Quality-positive PRs in the frozen frame: 95 AI and 92 Human.",
+      "control": "80 Quality-negative controls: 40 AI and 40 Human, selected before model output using group/task exact matching and repository, CodeQL language, Changed KLOC, and merge-quarter proximity.",
+      "planned_case_n": 267,
+      "repetitions": 1,
+      "case_weighting": "Equal PR weight; alert-level micro recovery is secondary."
+    },
+    "quality_sensitivities": {
+      "strict": "warning/error primary-tier references (39 AI and 39 Human positive PRs in the pre-worktree frame)",
+      "broad": "all high/very-high Quality references including useless-code",
+      "execution": "Both sensitivity tiers reuse the same whole-PR model output; no additional model calls."
+    },
+    "primary_metrics": [
+      "quality_macro_per_pr_reference_recovery_rate",
+      "quality_positive_pr_hit_rate",
+      "quality_localization_rate",
+      "quality_ai_human_recovery_difference"
+    ],
+    "secondary_metrics": [
+      "security_reference_alert_recovery_rate",
+      "security_positive_pr_hit_rate",
+      "security_localization_rate",
+      "security_ai_human_recovery_difference",
+      "unmatched_reports_per_pr",
+      "control_finding_positive_rate",
+      "operational_completion_rate",
+      "token_latency_cost"
+    ]
+  },
+  "design": {
+    "primary": {
+      "name": "unweighted_full_sample",
+      "repository_policy": "AI and Human PRs may come from different repositories. Repository is used for clustered uncertainty, not exact matching.",
+      "task_policy": "Adjust for fix, feat, and refactor in the outcome models.",
+      "target_task_distribution": "All eligible complete-covariate PRs.",
+      "common_support": "Do not match PRs, trim observations, estimate propensity scores, apply propensity weights, or perform common-support screening. This legacy schema key records that all 5,404 complete-covariate PRs are retained with unit weight."
+    },
+    "secondary": {
+      "name": "descriptive_unadjusted",
+      "use_when": "Report raw group rates and counts alongside the covariate-adjusted outcome model.",
+      "weighting": "None"
+    },
+    "covariate_diagnostics": {
+      "purpose": "Describe the composition of the complete AI and Human cohorts; diagnostics never remove PRs or change their unit weights.",
+      "report": [
+        "task_type",
+        "repository_language",
+        "log1p_changed_kloc",
+        "repository_stars_log1p"
+      ]
+    }
+  },
+  "covariates": {
+    "all_outcomes": [
+      "task_type",
+      "log1p_changed_kloc",
+      "repository_language"
+    ],
+    "supplementary": [
+      "repository_stars_log1p",
+      "production_file_share",
+      "test_file_share",
+      "generated_vendor_build_file_share"
+    ],
+    "refactor_diagnostic": ["renamed_file_share"]
+  },
+  "models": {
+    "binary": {
+      "primary": "Unweighted logistic GEE with exchangeable working correlation and repository clusters.",
+      "effects": ["marginal_probability_ai", "marginal_probability_human", "risk_difference", "risk_ratio", "odds_ratio"],
+      "confidence_level": 0.95
+    },
+    "count": {
+      "primary": "Unweighted Negative Binomial GEE with exchangeable working correlation and repository clusters.",
+      "poisson_condition": "Only when variance/mean and residual diagnostics show no material overdispersion.",
+      "zero_inflated_condition": "Sensitivity analysis only when a defensible structural-zero mechanism and diagnostics support it.",
+      "effects": ["incidence_rate_ratio"],
+      "confidence_level": 0.95
+    },
+    "task_heterogeneity": {
+      "interaction": "authorship_group * task_type",
+      "test": "Joint two-degree-of-freedom interaction test.",
+      "report": "Marginal AI-Human effects within fix, feat, and refactor; beta_group alone is not the overall effect."
+    },
+    "language_heterogeneity": {
+      "status": "secondary",
+      "run_condition": "Adequate events in both authorship groups and numerically stable estimates in every reported language stratum."
+    }
+  },
+  "uncertainty": {
+    "cluster": "repository",
+    "descriptive_bootstrap_replicates": 2000,
+    "bootstrap_method": "repository-cluster percentile; BCa as sensitivity when estimable",
+    "random_seed": 20260623
+  },
+  "multiple_testing": {
+    "confirmatory": "No multiplicity adjustment for the single primary overall Quality binary outcome.",
+    "rule_cwe_category": "Benjamini-Hochberg FDR within each declared outcome family.",
+    "secondary": "Report effect estimates and confidence intervals; label count, Security, interaction, task, and language analyses as secondary."
+  },
+  "missing_data": {
+    "outcome": "Never impute scan failures as zero.",
+    "github_metadata": "Retry transient collection failures and report structured missingness.",
+    "covariates": "Report missingness by group; use complete-case primary analysis when small, with multiple-imputation sensitivity analysis when assumptions and missingness warrant it.",
+    "selection_bias": "Model successful-scan probability only as a sensitivity analysis."
+  },
+  "sensitivity_analyses": [
+    "unadjusted descriptive versus covariate-adjusted unweighted models",
+    "Changed KLOC as log1p covariate versus log offset for Changed KLOC > 0",
+    "complete-case versus multiple-imputation covariates when applicable",
+    "Quality outcomes after removing Top-1 and Top-5 frequent rules",
+    "Quality outcomes restricted to high/very-high CodeQL precision where metadata permit",
+    "Quality outcomes restricted by problem severity",
+    "production-only versus all-path outcomes",
+    "changed-file-only and changed-hunk-only attribution",
+    "Security results under the dedicated security suite where feasible",
+    "fingerprint fallback and ambiguity exclusions",
+    "refactor results excluding rename-associated fingerprint artifacts",
+    "successful-versus-failed scan selection diagnostics without reweighting the outcome analysis",
+    "overlap PRs excluded versus uniquely assigned by auditable evidence"
+  ],
+  "reporting_invariants": [
+    "Security and Quality are never summed into a composite outcome.",
+    "Only alerts introduced by a PR are formal study outcomes; base-only and matched alerts are retained only for before-after matching.",
+    "Quality is the primary outcome family in RQ1 and RQ2; introduced Security alerts are a secondary contrast within the same questions.",
+    "In RQ3, Quality recovery is primary and Security recovery is secondary; family-specific recovery estimates are never pooled.",
+    "Every estimate reports numerator, denominator, effect size, and 95% interval where applicable.",
+    "Every task stratum reports PR count, repository count, event count, and zero count.",
+    "Unsupported or sparse strata remain descriptive and are not extrapolated.",
+    "Model selection must not depend on final statistical significance."
+  ]
+}

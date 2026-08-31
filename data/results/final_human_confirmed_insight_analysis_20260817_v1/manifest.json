@@ -1,0 +1,69 @@
+{
+  "status": "completed",
+  "analysis_name": "cross_rq_paper_insights",
+  "scope": {
+    "pr_n": 5404,
+    "repository_n": 640,
+    "ai_pr_n": 3087,
+    "human_pr_n": 2317,
+    "quality_alert_n": 2194,
+    "rq3_primary_quality_reference_n": 114
+  },
+  "parameters": {
+    "folds": 10,
+    "bootstrap_draws": 2000,
+    "seed": 20260623,
+    "min_language_prs_per_group": 20,
+    "context_formula": "1 + C(task_type) + log1p_changed_kloc + C(repo_language)",
+    "provenance_formula": "1 + C(task_type) + log1p_changed_kloc + C(repo_language) + ai",
+    "cv_group": "repo_name"
+  },
+  "inputs": {
+    "analysis_pr_level": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/analysis_pr_level.csv",
+      "sha256": "e0db4943af3e8c8b08813041737456b7856e91020316e799a9eee12f026883b6"
+    },
+    "ai_alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/validated_alerts.csv",
+      "sha256": "2337ae86906bd41781dd55ccba5ff941223dee01ce08832eef99a8c1159a787e"
+    },
+    "human_alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/validated_alerts.csv",
+      "sha256": "2337ae86906bd41781dd55ccba5ff941223dee01ce08832eef99a8c1159a787e"
+    },
+    "rq3_reference_recovery": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_rq3_20260817_v1/reference_adjudication_join.csv",
+      "sha256": "26c226fd26b28019773810cf721572ce0b5b3a7107432726d80c168439081de7"
+    },
+    "rq3_finding_relations": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_semantic_results_20260729_v1/semantic_finding_relations.csv",
+      "sha256": "b2a930d04a0d9ea488a11797368424d43eb5dbd11bc23c997c68192ed980a796"
+    },
+    "rq3_summary": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq3_semantic_results_20260729_v1/summary.json",
+      "sha256": "2d9be5de1614d395ffcc262a478c2346bfead302e2095fb2a73c376b2a490bbb"
+    }
+  },
+  "outputs": [
+    "concentration_curve.csv",
+    "concentration_metrics.csv",
+    "issue_profile_similarity.csv",
+    "manifest.json",
+    "predictive_calibration.csv",
+    "predictive_fold_diagnostics.csv",
+    "predictive_incremental_value.csv",
+    "predictive_model_metrics.csv",
+    "predictive_out_of_fold_predictions.csv",
+    "quality_category_pr_profile.csv",
+    "report.md",
+    "rq3_finding_relation_profile.csv",
+    "rq3_recovery_by_category.csv",
+    "within_language_rule_similarity.csv"
+  ],
+  "interpretation_limits": [
+    "predictive comparison is not a causal effect estimate",
+    "CodeQL alerts are tool-defined outcomes rather than runtime defects",
+    "within-language rule similarity is descriptive",
+    "RQ3 recovery uses manually reviewed same-root-cause relations"
+  ]
+}

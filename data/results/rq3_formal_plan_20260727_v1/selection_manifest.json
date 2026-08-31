@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at_utc": "2026-07-27T11:10:16.219850+00:00",
+  "split": "formal",
+  "alert_family": "quality",
+  "positive_target": "all",
+  "controls_per_positive": 1,
+  "control_target_per_group": 40,
+  "seed": 20260623,
+  "selector_sha256": "088654a5a81897a5417fd4ff008bb6c94b37a647150629e02bbd2f62a95d1f1c",
+  "case_n": 267,
+  "positive_case_n": 187,
+  "control_case_n": 80,
+  "selected_reference_alert_n": 420,
+  "all_case_reference_alert_n": 571,
+  "off_target_reference_alert_n": 36,
+  "inputs": {
+    "pr_pool": {
+      "path": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_frame_20260727_v1/pr_pool.csv",
+      "sha256": "6efbbd1883d448b683d89a4a731f7993b8aa2f8681ef0e587718f814e81f4432"
+    },
+    "silver_findings": {
+      "path": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_frame_20260727_v1/quality_primary_reference_alerts.csv",
+      "sha256": "adefcb7e945641581a27cbb1259205e43cf71d54d5996b8983622897cdd55008"
+    },
+    "all_family_findings": {
+      "path": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_frame_20260727_v1/reference_alerts.csv",
+      "sha256": "458d056b489bebe0a6b56e7f1ce7a2ad550193dbd87623f54be706afe5656074"
+    }
+  },
+  "outputs": {
+    "cases": {
+      "path": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_plan_20260727_v1/formal_cases.csv",
+      "sha256": "52e20f7879b8ecaf1d33e88abc3c8f49337ee6aac19e415b7b517ae6de7f7219"
+    },
+    "selected_reference_alerts": {
+      "path": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_plan_20260727_v1/selected_reference_alerts.csv",
+      "sha256": "bd3e3d9afbb5d578c746cd60e4352f4dc1fa6587b3170ff415ff32033afad75a"
+    },
+    "all_case_reference_alerts": {
+      "path": "data/experiments/security-and-quality/study_stars500/reports/rq3_formal_plan_20260727_v1/all_case_reference_alerts.csv",
+      "sha256": "20e793b19972ee03b888de4fef21e972242317472694811ad81e3dc7089cdd77"
+    }
+  }
+}

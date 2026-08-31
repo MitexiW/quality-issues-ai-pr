@@ -1,0 +1,181 @@
+family,task_type,rank,rule_id,rule_name,quality_category,introduced_alert_n,affected_pr_n,alert_percent,cumulative_alert_percent
+quality,all,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,303,119,39.096774193548384,39.096774193548384
+quality,all,2,py/unused-import,Unused import,maintainability,112,44,14.451612903225806,53.54838709677419
+quality,all,3,java/deprecated-call,Deprecated method or constructor invocation,maintainability,66,1,8.516129032258064,62.064516129032256
+quality,all,4,py/unused-local-variable,Unused local variable,maintainability,44,21,5.67741935483871,67.74193548387096
+quality,all,5,js/trivial-conditional,Useless conditional,correctness_reliability,22,10,2.838709677419355,70.58064516129032
+quality,all,6,py/cyclic-import,Cyclic import,correctness_reliability,18,6,2.3225806451612905,72.90322580645162
+quality,all,7,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,16,9,2.064516129032258,74.96774193548387
+quality,all,8,py/empty-except,Empty except,correctness_reliability,14,7,1.8064516129032258,76.7741935483871
+quality,all,9,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,13,4,1.6774193548387097,78.45161290322581
+quality,all,10,rb/useless-assignment-to-local,Useless assignment to local variable,maintainability,13,3,1.6774193548387097,80.12903225806451
+quality,all,11,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,10,9,1.2903225806451613,81.41935483870968
+quality,all,12,py/multiple-definition,Variable defined multiple times,maintainability,10,5,1.2903225806451613,82.70967741935483
+quality,all,13,py/call/wrong-named-argument,Wrong name for an argument in a call,correctness_reliability,9,2,1.1612903225806452,83.87096774193549
+quality,all,14,java/unknown-javadoc-parameter,Spurious Javadoc @param tags,maintainability,8,2,1.032258064516129,84.90322580645162
+quality,all,15,py/repeated-import,Module is imported more than once,maintainability,7,2,0.9032258064516129,85.80645161290323
+quality,all,16,py/catch-base-exception,Except block handles 'BaseException',correctness_reliability,7,2,0.9032258064516129,86.70967741935483
+quality,all,17,py/inheritance/signature-mismatch,Signature mismatch in overriding method,correctness_reliability,7,4,0.9032258064516129,87.61290322580645
+quality,all,18,py/commented-out-code,Commented-out code,maintainability,7,4,0.9032258064516129,88.51612903225806
+quality,all,19,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,7,7,0.9032258064516129,89.41935483870968
+quality,all,20,cpp/implicit-function-declaration,Implicit function declaration,correctness_reliability,6,2,0.7741935483870968,90.19354838709677
+quality,all,21,py/unreachable-statement,Unreachable code,maintainability,5,5,0.6451612903225806,90.83870967741936
+quality,all,22,py/test-equals-none,Testing equality to None,performance_efficiency,4,1,0.5161290322580645,91.35483870967742
+quality,all,23,java/unused-parameter,Useless parameter,maintainability,4,3,0.5161290322580645,91.87096774193549
+quality,all,24,py/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,4,2,0.5161290322580645,92.38709677419355
+quality,all,25,rb/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,4,3,0.5161290322580645,92.90322580645162
+quality,all,26,py/mixed-returns,Explicit returns mixed with implicit (fall through) returns,correctness_reliability,4,3,0.5161290322580645,93.41935483870968
+quality,all,27,py/file-not-closed,File is not always closed,performance_efficiency,4,3,0.5161290322580645,93.93548387096774
+quality,all,28,java/uncaught-number-format-exception,Missing catch of NumberFormatException,correctness_reliability,4,2,0.5161290322580645,94.45161290322581
+quality,all,29,java/useless-tostring-call,Useless toString on String,maintainability,3,1,0.3870967741935484,94.83870967741936
+quality,all,30,py/unused-global-variable,Unused global variable,maintainability,3,2,0.3870967741935484,95.2258064516129
+quality,all,31,py/imprecise-assert,Imprecise assert,maintainability,3,2,0.3870967741935484,95.61290322580645
+quality,all,32,py/redundant-assignment,Redundant assignment,correctness_reliability,3,1,0.3870967741935484,96.0
+quality,all,33,js/redundant-operation,Identical operands,correctness_reliability,3,1,0.3870967741935484,96.38709677419355
+quality,all,34,py/unnecessary-pass,Unnecessary pass,maintainability,3,3,0.3870967741935484,96.7741935483871
+quality,all,35,js/react/unused-or-undefined-state-property,Unused or undefined state property,correctness_reliability,2,1,0.25806451612903225,97.03225806451613
+quality,all,36,js/useless-expression,Expression has no effect,maintainability,2,2,0.25806451612903225,97.29032258064517
+quality,all,37,py/missing-call-to-init,Missing call to superclass `__init__` during object initialization,correctness_reliability,2,1,0.25806451612903225,97.54838709677419
+quality,all,38,js/missing-space-in-concatenation,Missing space in string concatenation,maintainability,2,1,0.25806451612903225,97.80645161290323
+quality,all,39,java/ignored-error-status-of-call,Ignored error status of call,correctness_reliability,2,1,0.25806451612903225,98.06451612903226
+quality,all,40,java/dereferenced-value-may-be-null,Dereferenced variable may be null,correctness_reliability,2,2,0.25806451612903225,98.3225806451613
+quality,all,41,py/undefined-export,Explicit export is not defined,correctness_reliability,1,1,0.12903225806451613,98.45161290322581
+quality,all,42,py/return-or-yield-outside-function,Use of 'return' or 'yield' outside a function,correctness_reliability,1,1,0.12903225806451613,98.58064516129032
+quality,all,43,js/call-to-non-callable,Invocation of non-function,correctness_reliability,1,1,0.12903225806451613,98.70967741935483
+quality,all,44,py/call/wrong-arguments,Wrong number of arguments in a call,correctness_reliability,1,1,0.12903225806451613,98.83870967741936
+quality,all,45,cpp/commented-out-code,Commented-out code,maintainability,1,1,0.12903225806451613,98.96774193548387
+quality,all,46,java/missing-override-annotation,Missing Override annotation,maintainability,1,1,0.12903225806451613,99.09677419354838
+quality,all,47,py/exit-from-finally,'break' or 'return' statement in finally,correctness_reliability,1,1,0.12903225806451613,99.2258064516129
+quality,all,48,py/redundant-else,Unnecessary 'else' clause in loop,maintainability,1,1,0.12903225806451613,99.35483870967742
+quality,all,49,java/local-variable-is-never-read,Unread local variable,maintainability,1,1,0.12903225806451613,99.48387096774194
+quality,all,50,py/side-effect-in-assert,An assert statement has a side-effect,correctness_reliability,1,1,0.12903225806451613,99.61290322580645
+quality,all,51,js/unused-loop-variable,Unused loop iteration variable,correctness_reliability,1,1,0.12903225806451613,99.74193548387096
+quality,all,52,js/redundant-assignment,Self assignment,correctness_reliability,1,1,0.12903225806451613,99.87096774193549
+quality,all,53,js/unreachable-statement,Unreachable statement,correctness_reliability,1,1,0.12903225806451613,100.0
+quality,feat,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,227,75,41.72794117647059,41.72794117647059
+quality,feat,2,py/unused-import,Unused import,maintainability,73,26,13.419117647058824,55.14705882352941
+quality,feat,3,java/deprecated-call,Deprecated method or constructor invocation,maintainability,66,1,12.132352941176471,67.27941176470588
+quality,feat,4,py/cyclic-import,Cyclic import,correctness_reliability,15,4,2.7573529411764706,70.03676470588235
+quality,feat,5,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,12,3,2.2058823529411766,72.24264705882354
+quality,feat,6,py/unused-local-variable,Unused local variable,maintainability,11,8,2.0220588235294117,74.26470588235294
+quality,feat,7,py/empty-except,Empty except,correctness_reliability,11,4,2.0220588235294117,76.28676470588235
+quality,feat,8,js/trivial-conditional,Useless conditional,correctness_reliability,10,5,1.838235294117647,78.125
+quality,feat,9,py/call/wrong-named-argument,Wrong name for an argument in a call,correctness_reliability,9,2,1.6544117647058822,79.77941176470588
+quality,feat,10,py/multiple-definition,Variable defined multiple times,maintainability,8,3,1.4705882352941178,81.25
+quality,feat,11,py/repeated-import,Module is imported more than once,maintainability,7,2,1.286764705882353,82.53676470588235
+quality,feat,12,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,7,7,1.286764705882353,83.82352941176471
+quality,feat,13,rb/useless-assignment-to-local,Useless assignment to local variable,maintainability,7,2,1.286764705882353,85.11029411764706
+quality,feat,14,py/catch-base-exception,Except block handles 'BaseException',correctness_reliability,7,2,1.286764705882353,86.3970588235294
+quality,feat,15,cpp/implicit-function-declaration,Implicit function declaration,correctness_reliability,6,2,1.1029411764705883,87.5
+quality,feat,16,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,5,2,0.9191176470588235,88.41911764705883
+quality,feat,17,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,5,5,0.9191176470588235,89.33823529411765
+quality,feat,18,py/test-equals-none,Testing equality to None,performance_efficiency,4,1,0.7352941176470589,90.07352941176471
+quality,feat,19,py/inheritance/signature-mismatch,Signature mismatch in overriding method,correctness_reliability,4,3,0.7352941176470589,90.80882352941177
+quality,feat,20,rb/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,4,3,0.7352941176470589,91.54411764705883
+quality,feat,21,py/file-not-closed,File is not always closed,performance_efficiency,4,3,0.7352941176470589,92.27941176470588
+quality,feat,22,py/unreachable-statement,Unreachable code,maintainability,4,4,0.7352941176470589,93.01470588235294
+quality,feat,23,java/useless-tostring-call,Useless toString on String,maintainability,3,1,0.5514705882352942,93.56617647058823
+quality,feat,24,py/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,3,1,0.5514705882352942,94.11764705882354
+quality,feat,25,py/unused-global-variable,Unused global variable,maintainability,3,2,0.5514705882352942,94.66911764705883
+quality,feat,26,py/redundant-assignment,Redundant assignment,correctness_reliability,3,1,0.5514705882352942,95.22058823529412
+quality,feat,27,java/unused-parameter,Useless parameter,maintainability,3,2,0.5514705882352942,95.7720588235294
+quality,feat,28,js/react/unused-or-undefined-state-property,Unused or undefined state property,correctness_reliability,2,1,0.36764705882352944,96.13970588235294
+quality,feat,29,js/useless-expression,Expression has no effect,maintainability,2,2,0.36764705882352944,96.50735294117646
+quality,feat,30,py/missing-call-to-init,Missing call to superclass `__init__` during object initialization,correctness_reliability,2,1,0.36764705882352944,96.875
+quality,feat,31,java/ignored-error-status-of-call,Ignored error status of call,correctness_reliability,2,1,0.36764705882352944,97.24264705882354
+quality,feat,32,py/commented-out-code,Commented-out code,maintainability,2,2,0.36764705882352944,97.61029411764706
+quality,feat,33,java/uncaught-number-format-exception,Missing catch of NumberFormatException,correctness_reliability,2,1,0.36764705882352944,97.9779411764706
+quality,feat,34,py/imprecise-assert,Imprecise assert,maintainability,2,1,0.36764705882352944,98.34558823529412
+quality,feat,35,py/unnecessary-pass,Unnecessary pass,maintainability,2,2,0.36764705882352944,98.71323529411765
+quality,feat,36,py/mixed-returns,Explicit returns mixed with implicit (fall through) returns,correctness_reliability,1,1,0.18382352941176472,98.8970588235294
+quality,feat,37,py/return-or-yield-outside-function,Use of 'return' or 'yield' outside a function,correctness_reliability,1,1,0.18382352941176472,99.08088235294117
+quality,feat,38,py/call/wrong-arguments,Wrong number of arguments in a call,correctness_reliability,1,1,0.18382352941176472,99.26470588235294
+quality,feat,39,java/missing-override-annotation,Missing Override annotation,maintainability,1,1,0.18382352941176472,99.44852941176471
+quality,feat,40,py/redundant-else,Unnecessary 'else' clause in loop,maintainability,1,1,0.18382352941176472,99.63235294117646
+quality,feat,41,js/unreachable-statement,Unreachable statement,correctness_reliability,1,1,0.18382352941176472,99.81617647058823
+quality,feat,42,java/dereferenced-value-may-be-null,Dereferenced variable may be null,correctness_reliability,1,1,0.18382352941176472,100.0
+quality,fix,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,60,35,41.0958904109589,41.0958904109589
+quality,fix,2,py/unused-local-variable,Unused local variable,maintainability,27,11,18.493150684931507,59.58904109589041
+quality,fix,3,py/unused-import,Unused import,maintainability,26,13,17.80821917808219,77.3972602739726
+quality,fix,4,js/trivial-conditional,Useless conditional,correctness_reliability,5,3,3.4246575342465753,80.82191780821918
+quality,fix,5,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,4,3,2.73972602739726,83.56164383561644
+quality,fix,6,py/inheritance/signature-mismatch,Signature mismatch in overriding method,correctness_reliability,3,1,2.0547945205479454,85.61643835616438
+quality,fix,7,py/commented-out-code,Commented-out code,maintainability,3,1,2.0547945205479454,87.67123287671232
+quality,fix,8,java/uncaught-number-format-exception,Missing catch of NumberFormatException,correctness_reliability,2,1,1.36986301369863,89.04109589041096
+quality,fix,9,py/multiple-definition,Variable defined multiple times,maintainability,2,2,1.36986301369863,90.41095890410959
+quality,fix,10,py/empty-except,Empty except,correctness_reliability,2,2,1.36986301369863,91.78082191780823
+quality,fix,11,java/unused-parameter,Useless parameter,maintainability,1,1,0.684931506849315,92.46575342465754
+quality,fix,12,py/unreachable-statement,Unreachable code,maintainability,1,1,0.684931506849315,93.15068493150685
+quality,fix,13,py/undefined-export,Explicit export is not defined,correctness_reliability,1,1,0.684931506849315,93.83561643835617
+quality,fix,14,py/imprecise-assert,Imprecise assert,maintainability,1,1,0.684931506849315,94.52054794520548
+quality,fix,15,js/call-to-non-callable,Invocation of non-function,correctness_reliability,1,1,0.684931506849315,95.20547945205479
+quality,fix,16,py/exit-from-finally,'break' or 'return' statement in finally,correctness_reliability,1,1,0.684931506849315,95.89041095890411
+quality,fix,17,java/local-variable-is-never-read,Unread local variable,maintainability,1,1,0.684931506849315,96.57534246575342
+quality,fix,18,py/mixed-returns,Explicit returns mixed with implicit (fall through) returns,correctness_reliability,1,1,0.684931506849315,97.26027397260275
+quality,fix,19,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,1,1,0.684931506849315,97.94520547945206
+quality,fix,20,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,1,1,0.684931506849315,98.63013698630137
+quality,fix,21,py/unsafe-cyclic-import,Module-level cyclic import,correctness_reliability,1,1,0.684931506849315,99.31506849315069
+quality,fix,22,java/dereferenced-value-may-be-null,Dereferenced variable may be null,correctness_reliability,1,1,0.684931506849315,100.0
+quality,refactor,1,js/unused-local-variable,"Unused variable, import, function or class",maintainability,16,9,18.823529411764707,18.823529411764707
+quality,refactor,2,py/unused-import,Unused import,maintainability,13,5,15.294117647058824,34.11764705882353
+quality,refactor,3,java/unknown-javadoc-parameter,Spurious Javadoc @param tags,maintainability,8,2,9.411764705882353,43.529411764705884
+quality,refactor,4,js/automatic-semicolon-insertion,Semicolon insertion,maintainability,7,4,8.235294117647058,51.76470588235294
+quality,refactor,5,js/trivial-conditional,Useless conditional,correctness_reliability,7,2,8.235294117647058,60.0
+quality,refactor,6,rb/useless-assignment-to-local,Useless assignment to local variable,maintainability,6,1,7.0588235294117645,67.05882352941177
+quality,refactor,7,py/unused-local-variable,Unused local variable,maintainability,6,2,7.0588235294117645,74.11764705882354
+quality,refactor,8,py/cyclic-import,Cyclic import,correctness_reliability,3,2,3.5294117647058822,77.6470588235294
+quality,refactor,9,js/redundant-operation,Identical operands,correctness_reliability,3,1,3.5294117647058822,81.17647058823529
+quality,refactor,10,js/useless-assignment-to-local,Useless assignment to local variable,maintainability,2,1,2.3529411764705883,83.52941176470588
+quality,refactor,11,py/commented-out-code,Commented-out code,maintainability,2,1,2.3529411764705883,85.88235294117646
+quality,refactor,12,py/mixed-returns,Explicit returns mixed with implicit (fall through) returns,correctness_reliability,2,1,2.3529411764705883,88.23529411764706
+quality,refactor,13,js/missing-space-in-concatenation,Missing space in string concatenation,maintainability,2,1,2.3529411764705883,90.58823529411765
+quality,refactor,14,cpp/commented-out-code,Commented-out code,maintainability,1,1,1.1764705882352942,91.76470588235294
+quality,refactor,15,py/side-effect-in-assert,An assert statement has a side-effect,correctness_reliability,1,1,1.1764705882352942,92.94117647058823
+quality,refactor,16,js/unused-loop-variable,Unused loop iteration variable,correctness_reliability,1,1,1.1764705882352942,94.11764705882354
+quality,refactor,17,py/import-and-import-from,Module is imported with 'import' and 'import from',maintainability,1,1,1.1764705882352942,95.29411764705883
+quality,refactor,18,js/redundant-assignment,Self assignment,correctness_reliability,1,1,1.1764705882352942,96.47058823529412
+quality,refactor,19,py/empty-except,Empty except,correctness_reliability,1,1,1.1764705882352942,97.6470588235294
+quality,refactor,20,py/uninitialized-local-variable,Potentially uninitialized local variable,correctness_reliability,1,1,1.1764705882352942,98.82352941176471
+quality,refactor,21,py/unnecessary-pass,Unnecessary pass,maintainability,1,1,1.1764705882352942,100.0
+security,all,1,js/log-injection,Log injection,,26,7,32.91139240506329,32.91139240506329
+security,all,2,py/log-injection,Log Injection,,12,1,15.189873417721518,48.10126582278481
+security,all,3,js/tainted-format-string,Use of externally-controlled format string,,8,4,10.126582278481013,58.22784810126582
+security,all,4,js/indirect-command-line-injection,Indirect uncontrolled command line,,5,3,6.329113924050633,64.55696202531645
+security,all,5,js/path-injection,Uncontrolled data used in path expression,,4,2,5.063291139240507,69.62025316455696
+security,all,6,js/insecure-temporary-file,Insecure temporary file,,4,1,5.063291139240507,74.68354430379746
+security,all,7,js/double-escaping,Double escaping or unescaping,,3,3,3.7974683544303796,78.48101265822785
+security,all,8,js/shell-command-constructed-from-input,Unsafe shell command constructed from library input,,3,3,3.7974683544303796,82.27848101265823
+security,all,9,js/file-system-race,Potential file system race condition,,2,2,2.5316455696202533,84.81012658227849
+security,all,10,js/command-line-injection,Uncontrolled command line,,2,2,2.5316455696202533,87.34177215189874
+security,all,11,js/reflected-xss,Reflected cross-site scripting,,2,2,2.5316455696202533,89.87341772151899
+security,all,12,js/useless-regexp-character-escape,Useless regular-expression character escape,,2,1,2.5316455696202533,92.40506329113924
+security,all,13,js/missing-rate-limiting,Missing rate limiting,,1,1,1.2658227848101267,93.67088607594937
+security,all,14,py/insecure-temporary-file,Insecure temporary file,,1,1,1.2658227848101267,94.9367088607595
+security,all,15,js/biased-cryptographic-random,Creating biased random numbers from a cryptographically secure source,,1,1,1.2658227848101267,96.20253164556962
+security,all,16,cpp/integer-multiplication-cast-to-long,Multiplication result converted to larger type,,1,1,1.2658227848101267,97.46835443037975
+security,all,17,rb/csrf-protection-disabled,CSRF protection weakened or disabled,,1,1,1.2658227848101267,98.73417721518987
+security,all,18,js/incomplete-sanitization,Incomplete string escaping or encoding,,1,1,1.2658227848101267,100.0
+security,feat,1,js/log-injection,Log injection,,26,7,44.067796610169495,44.067796610169495
+security,feat,2,py/log-injection,Log Injection,,12,1,20.338983050847457,64.40677966101696
+security,feat,3,js/tainted-format-string,Use of externally-controlled format string,,7,3,11.864406779661017,76.27118644067797
+security,feat,4,js/double-escaping,Double escaping or unescaping,,2,2,3.389830508474576,79.66101694915254
+security,feat,5,js/reflected-xss,Reflected cross-site scripting,,2,2,3.389830508474576,83.05084745762711
+security,feat,6,js/useless-regexp-character-escape,Useless regular-expression character escape,,2,1,3.389830508474576,86.44067796610169
+security,feat,7,js/missing-rate-limiting,Missing rate limiting,,1,1,1.694915254237288,88.13559322033899
+security,feat,8,js/command-line-injection,Uncontrolled command line,,1,1,1.694915254237288,89.83050847457628
+security,feat,9,js/path-injection,Uncontrolled data used in path expression,,1,1,1.694915254237288,91.52542372881356
+security,feat,10,js/biased-cryptographic-random,Creating biased random numbers from a cryptographically secure source,,1,1,1.694915254237288,93.22033898305085
+security,feat,11,js/file-system-race,Potential file system race condition,,1,1,1.694915254237288,94.91525423728814
+security,feat,12,cpp/integer-multiplication-cast-to-long,Multiplication result converted to larger type,,1,1,1.694915254237288,96.61016949152543
+security,feat,13,js/shell-command-constructed-from-input,Unsafe shell command constructed from library input,,1,1,1.694915254237288,98.30508474576271
+security,feat,14,rb/csrf-protection-disabled,CSRF protection weakened or disabled,,1,1,1.694915254237288,100.0
+security,fix,1,js/indirect-command-line-injection,Indirect uncontrolled command line,,5,3,31.25,31.25
+security,fix,2,js/insecure-temporary-file,Insecure temporary file,,4,1,25.0,56.25
+security,fix,3,js/shell-command-constructed-from-input,Unsafe shell command constructed from library input,,2,2,12.5,68.75
+security,fix,4,py/insecure-temporary-file,Insecure temporary file,,1,1,6.25,75.0
+security,fix,5,js/double-escaping,Double escaping or unescaping,,1,1,6.25,81.25
+security,fix,6,js/command-line-injection,Uncontrolled command line,,1,1,6.25,87.5
+security,fix,7,js/tainted-format-string,Use of externally-controlled format string,,1,1,6.25,93.75
+security,fix,8,js/incomplete-sanitization,Incomplete string escaping or encoding,,1,1,6.25,100.0
+security,refactor,1,js/path-injection,Uncontrolled data used in path expression,,3,1,75.0,75.0
+security,refactor,2,js/file-system-race,Potential file system race condition,,1,1,25.0,100.0

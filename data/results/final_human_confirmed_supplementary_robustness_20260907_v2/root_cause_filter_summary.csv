@@ -1,0 +1,21 @@
+scenario,root_cause_category,category_label,cluster_n,alert_n,pr_n,cluster_share,total_cluster_n,total_alert_n
+baseline,incomplete_change_coordination,Incomplete change coordination,257,421,167,0.6237864077669902,412,775
+baseline,interface_or_contract_mismatch,Interface or contract mismatch,16,105,14,0.038834951456310676,412,775
+baseline,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",44,67,39,0.10679611650485436,412,775
+baseline,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",25,63,22,0.06067961165048544,412,775
+baseline,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,70,119,58,0.16990291262135923,412,775
+exclude_js_unused_local,incomplete_change_coordination,Incomplete change coordination,80,135,56,0.35714285714285715,224,472
+exclude_js_unused_local,interface_or_contract_mismatch,Interface or contract mismatch,16,104,14,0.07142857142857142,224,472
+exclude_js_unused_local,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",44,67,39,0.19642857142857142,224,472
+exclude_js_unused_local,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",25,63,22,0.11160714285714286,224,472
+exclude_js_unused_local,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,59,103,47,0.26339285714285715,224,472
+exclude_two_unused_rules,incomplete_change_coordination,Incomplete change coordination,19,28,17,0.11801242236024845,161,360
+exclude_two_unused_rules,interface_or_contract_mismatch,Interface or contract mismatch,16,104,14,0.09937888198757763,161,360
+exclude_two_unused_rules,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",44,67,39,0.2732919254658385,161,360
+exclude_two_unused_rules,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",25,63,22,0.15527950310559005,161,360
+exclude_two_unused_rules,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,57,98,45,0.35403726708074534,161,360
+exclude_two_unused_drop_touched_auxiliary,incomplete_change_coordination,Incomplete change coordination,17,23,15,0.10897435897435898,156,352
+exclude_two_unused_drop_touched_auxiliary,interface_or_contract_mismatch,Interface or contract mismatch,15,103,13,0.09615384615384616,156,352
+exclude_two_unused_drop_touched_auxiliary,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",44,67,39,0.28205128205128205,156,352
+exclude_two_unused_drop_touched_auxiliary,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",25,63,22,0.16025641025641027,156,352
+exclude_two_unused_drop_touched_auxiliary,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,55,96,43,0.3525641025641026,156,352

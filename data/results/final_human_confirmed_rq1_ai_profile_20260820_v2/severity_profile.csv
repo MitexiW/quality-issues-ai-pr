@@ -1,0 +1,6 @@
+family,value,introduced_alert_n,affected_pr_n,alert_percent_within_family
+quality,recommendation,639,216,82.45161290322581
+quality,warning,95,48,12.258064516129032
+quality,error,41,19,5.290322580645161
+security,error,52,16,65.82278481012658
+security,warning,27,17,34.177215189873415

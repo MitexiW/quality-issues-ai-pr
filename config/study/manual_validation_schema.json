@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Manual CodeQL alert validation label",
+  "type": "object",
+  "required": [
+    "sample_id",
+    "coder_id",
+    "semantic_valid",
+    "pr_attributable",
+    "fingerprint_artifact",
+    "changed_line_related",
+    "location_type",
+    "mechanism",
+    "reviewer_confidence"
+  ],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "coder_id": {"type": "string", "minLength": 1},
+    "semantic_valid": {"enum": ["yes", "no", "uncertain"]},
+    "pr_attributable": {"enum": ["yes", "no", "uncertain"]},
+    "fingerprint_artifact": {"enum": ["yes", "no", "uncertain"]},
+    "changed_line_related": {
+      "enum": ["yes_direct", "yes_causal", "no", "uncertain"]
+    },
+    "location_type": {
+      "enum": [
+        "production", "test", "docs", "example", "generated", "vendor",
+        "build", "uncertain"
+      ]
+    },
+    "mechanism": {
+      "enum": [
+        "validation_or_sanitization", "authorization_or_access_control",
+        "dataflow_or_taint", "resource_lifetime_or_memory", "error_handling",
+        "concurrency_or_state", "api_contract_or_type",
+        "configuration_or_dependency", "dead_or_unreachable_code",
+        "rename_move_or_refactor", "generated_or_vendor_change",
+        "test_only_change", "other", "uncertain"
+      ]
+    },
+    "reviewer_confidence": {"enum": ["high", "medium", "low"]},
+    "evidence": {"type": "string"},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": true
+}

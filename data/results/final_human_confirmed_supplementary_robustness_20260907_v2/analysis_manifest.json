@@ -1,0 +1,261 @@
+{
+  "generated_at": "2026-09-07T06:17:16.179463+00:00",
+  "status": "completed",
+  "protocol": {
+    "status": "post_hoc_exploratory",
+    "draws": 2000,
+    "seed": 20260623,
+    "formula": "introduced_quality_any ~ ai * C(task_type, Treatment(reference='fix')) + log1p_changed_kloc + C(repo_language)",
+    "weights": "unit",
+    "covariance": "robust sandwich",
+    "correlation": "exchangeable; repository clusters",
+    "change_size": "log1p((PR-wide additions + deletions)/1000), unchanged design covariate",
+    "root_filters": [
+      [],
+      [
+        "js/unused-local-variable"
+      ],
+      [
+        "js/unused-local-variable",
+        "py/unused-import"
+      ]
+    ],
+    "cluster_retention": "any nonexcluded alert; frozen assignments; no reclustering",
+    "auxiliary_cluster_retention": "drop every cluster touched by either named unused rule",
+    "top_rule_selection": "pooled final-confirmed Quality alert counts; lexical rule-ID tie break",
+    "rq2_exclusions": {
+      "exclude_top1": [
+        "js/unused-local-variable"
+      ],
+      "exclude_top5": [
+        "js/unused-local-variable",
+        "py/unused-import",
+        "js/automatic-semicolon-insertion",
+        "py/unused-local-variable",
+        "java/deprecated-call"
+      ]
+    },
+    "shared_selection": "repository contains >=1 analyzable AI PR and >=1 human PR; outcome-blind",
+    "standardization": "same pooled PR population as each scenario's fit; paired coefficient draws",
+    "shared_numerical_checks": [
+      "default ctol=1e-6",
+      "default ctol=1e-8",
+      "default ctol=1e-10",
+      "baseline params with Go=-10, ctol=1e-8",
+      "baseline params with Go=-20, ctol=1e-8"
+    ],
+    "inference_policy": "retain failures, suppress invalid fits/covariances; flag zero-event language strata; no silent removal; shared CIs are not validated if numerical checks fail",
+    "scope": "binary Quality outcome only; no manuscript edits; no label/category changes"
+  },
+  "baseline_reproduction": {
+    "passed": true,
+    "checked_rows": 20,
+    "checked_numbers": 60,
+    "maximum_absolute_difference": 0.0,
+    "tolerance": 1e-08
+  },
+  "shared_inference_assessment": {
+    "scenario": "shared_repositories",
+    "check_n": 5,
+    "failed_checks": [
+      "default_1e-8",
+      "default_1e-10"
+    ],
+    "status": "inference_not_validated",
+    "supports_robustness_claim": false,
+    "point_estimate_min": -0.010271238031172206,
+    "point_estimate_max": -0.010271238021429943,
+    "reason": "All-zero Go stratum; stricter fits produced invalid robust covariance. Do not promote the default-fit CI to validated robustness evidence."
+  },
+  "inputs": {
+    "analysis": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/analysis_pr_level.csv",
+      "sha256": "e0db4943af3e8c8b08813041737456b7856e91020316e799a9eee12f026883b6"
+    },
+    "alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/validated_alerts.csv",
+      "sha256": "2337ae86906bd41781dd55ccba5ff941223dee01ce08832eef99a8c1159a787e"
+    },
+    "snapshot_manifest": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/snapshot_manifest.json",
+      "sha256": "d90aabeec330f767eb04daed02e62546898383d1ba99946e260544283806c072"
+    },
+    "design": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq2_design_unweighted_final_20260727_v3/design_weights.csv",
+      "sha256": "d315c3d28b1d5758e1e21384edb6928445171371fddeb8280d3f41e2eeed453e"
+    },
+    "design_manifest": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq2_design_unweighted_final_20260727_v3/design_manifest.json",
+      "sha256": "45f33480ecb0a5b6fa7f9cc716f9a33ccbd24cd4b4f816f0e3098c3c39ad81ba"
+    },
+    "clusters": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_compiled_v1/root_cause_clusters.csv",
+      "sha256": "8ee46de97a90535d7b5562990b8ef20263fc683ea02cacab4d4181aa8a45a273"
+    },
+    "links": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_compiled_v1/alert_cluster_links.csv",
+      "sha256": "9d4a7c6a73c72fc69d14c285114877ebe8504d37b9a21546453d397f24917680"
+    },
+    "existing_crosswalk": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_audit_v1/rule_category_crosstab.csv",
+      "sha256": "a72e3c905a2b780647fa1eefd39513c4c3638b6ba043789a144a9595c69fc0a4"
+    },
+    "taxonomy": {
+      "path": "<ARTIFACT_ROOT>/config/study/ai_quality_root_cause_taxonomy.json",
+      "sha256": "8e6f1886a88e97c4fd834d864cbf31ab06711c2d0a30d09e5df175aa66830613"
+    },
+    "decisions": {
+      "path": "<ARTIFACT_ROOT>/config/study/root_cause_decision.json",
+      "sha256": "497902f23151fcd5ec9026ea203d608dfafc6acb080a1d0d7b486526ba754a5a"
+    },
+    "reference_effects": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_rq2_models_20260817_v1/standardized_effects.csv",
+      "sha256": "fa7eba8425303306ef0010b77a330c64ecd64e74f67a4c3b01336063e75c2382"
+    },
+    "reference_manifest": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_rq2_models_20260817_v1/model_manifest.json",
+      "sha256": "523939c810a6d0bd64c2ddf774bc64dbce8f1e4891147489913302d381c182d8"
+    },
+    "primary_script": {
+      "path": "<ARTIFACT_ROOT>/scripts/analysis/fit_rq2_models.py",
+      "sha256": "61c10114f7e5035ba05c4de60a475c4baf3118bb5a67333b3545e1f38226f2e6"
+    },
+    "script": {
+      "path": "<ARTIFACT_ROOT>/scripts/analysis/analyze_final_label_robustness.py",
+      "sha256": "378bdef287348a79c59a65da0808ad925a7a8168ab9f0defdb5814d00e3cfd57"
+    },
+    "case_packet_3rdIteration_btcrecover_599": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/3rdIteration_btcrecover__pr-599.json",
+      "sha256": "0d7b1dd65c1d54753d1e6006d2876117b1b90e8175e237f0e5143f2765db2c4c"
+    },
+    "case_source_base64-conversion-residue_before": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-599__before/btcrecover/addressset.py",
+      "sha256": "703f94f577bfdde1207fee4c774d3f4a7ef3aee1f138ed39656dc6c611e968eb"
+    },
+    "case_source_base64-conversion-residue_head": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-599__after/btcrecover/addressset.py",
+      "sha256": "ab2c36fe68c9711584de086a55f37c213557b21e165ccd2f7fb6fe1936e5ca7c"
+    },
+    "case_packet_3rdIteration_btcrecover_611": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/3rdIteration_btcrecover__pr-611.json",
+      "sha256": "cdf4d313d8d81aca85a80d0b1205ee640fa2de29191da5ef6662697838af4484"
+    },
+    "case_source_duplicate-shamir-import-form_before": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-611__before/btcrecover/btcrseed.py",
+      "sha256": "ace9afe3fb65be0bd4987169f59c37be273f87ca9f3bf33f0149cca293b40057"
+    },
+    "case_source_duplicate-shamir-import-form_head": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/3rdIteration_btcrecover/3rdIteration_btcrecover__pr-611__after/btcrecover/btcrseed.py",
+      "sha256": "903384bce0b7b23dfb8058b67b4552d8c356672f44cd9ee1a67baf818334bf2c"
+    },
+    "case_packet_patched-codes_patchwork_1192": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/review_packets/patched-codes_patchwork__pr-1192.json",
+      "sha256": "0ff954da81c0cf101476abf7850eb739829de5a52ec1b8ad1d072287c126170f"
+    },
+    "case_source_removed-modified-files-type-residue_before": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__before/patchwork/steps/FixIssue/typed.py",
+      "sha256": "35f337a99a979c5d5d79ea5279874c7ad0809c066310df827107f350fd53ce98"
+    },
+    "case_source_removed-modified-files-type-residue_head": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__after/patchwork/steps/FixIssue/typed.py",
+      "sha256": "6ad8cc3161bf8fe083ac93b6a238479418d0e9720e1c4d954feb3f2a970e76bd"
+    },
+    "case_source_unintegrated-difflib-import_before": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__before/patchwork/steps/FixIssue/FixIssue.py",
+      "sha256": "8fff582ba4dacdd36485a1d789940f27754c598b161fe214faaeb6c75c84bbb4"
+    },
+    "case_source_unintegrated-difflib-import_head": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/ai/repos/patched-codes_patchwork/patched-codes_patchwork__pr-1192__after/patchwork/steps/FixIssue/FixIssue.py",
+      "sha256": "3dfd0b0069fd3f5900c45a9e786fdbc29a59f2557849f64b2cc950c8ab1d9236"
+    }
+  },
+  "paper_unchanged": true,
+  "paper_file_sha256": {
+    "paper/overleaf/.git": "dfeab0a6444ba0819daa715072e9601d8b42f5d6efaa0f06488ee940bb5234cd",
+    "paper/overleaf/.gitignore": "bdfe26f040feb1d4350e97e1500acd1c9bdb0438ea21ba58e3ac082531848bec",
+    "paper/overleaf/DATA_SOURCES.md": "1b99268567a270f581f0c1bbf950ff65d5e79a16c25cc2fc9ca1a5f7bf5cfea2",
+    "paper/overleaf/ESM_1.aux": "60c2c205c1cc93e9d63953c35e7d58cd6954c48a2ff114e6604be9ce0b94c3e3",
+    "paper/overleaf/ESM_1.fdb_latexmk": "da7a7609c50d9d9876c50bd6130412603f427656adf3f42c76e3c5089ddf8313",
+    "paper/overleaf/ESM_1.fls": "70c17ece6d3aede668d4642d53f317d15a97029325dfece935cbc98f60162a41",
+    "paper/overleaf/ESM_1.log": "fc89b9b6905bee7fef3a418ba0aecf3da12a15abfee05b2626d91d56acf8476f",
+    "paper/overleaf/ESM_1.out": "f64bca433e1ef52d9d31d4f81219ec0a0288ec4136b1fe74332a36c9b81963bf",
+    "paper/overleaf/ESM_1.pdf": "cedd8c36c90f8485d75cf533ab4e742dfe8b2a938693b9c38fd8c7ab61687cc6",
+    "paper/overleaf/ESM_1.tex": "2ec6152d3d162241f23b250531317da2b90f0367e27ce201a18e36020da2eb5e",
+    "paper/overleaf/Fig1.drawio": "79a95bdb26fb3871132a34349fc08cd79ebb85c361680c27f2b75a9d15146325",
+    "paper/overleaf/Fig1.pdf": "2bf6ef44eabf397c549df89926f2e0f90fe25e285a0b7fc814b365accaa3ab50",
+    "paper/overleaf/Fig1.svg": "7fae5c029c210f9a883e5c66b585cf6f35118b5abfe20f9be9b058f2a9b07d1c",
+    "paper/overleaf/Fig2.pdf": "e76fb76ad4c1cc5f54f8481bb3c4c695616b7ff86a4941a0a45b8d92d40ecf2a",
+    "paper/overleaf/Fig3.pdf": "50de37aa79ea46fdd151b91b5c341ab51d6a959948995c961780affd864e3a7e",
+    "paper/overleaf/Fig4.pdf": "2702b9dc8860648760aab8263c3cd76a3cb44097ef711ceac4f5b4b02e7ed1ab",
+    "paper/overleaf/Fig5.pdf": "9d7c5e0fd006b8391c65acb52a84872d1f6d144862016f995f502978993a7628",
+    "paper/overleaf/cohort_characteristics.tex": "d47f75bdb9ec76ce24c1d6317e78ebb89117ad4a34118dbb77cf682b2bd9baa6",
+    "paper/overleaf/cohort_profile.tex": "4166f46f8ae84e045bb9a4cf394313733a107521705caa53b2a9c16473e3f32d",
+    "paper/overleaf/cohort_sample.tex": "7d4f964c55eb204091f733d0bc3214f1bea51f3d579b9c11d9919ee74de1ba64",
+    "paper/overleaf/main.aux": "81b08b86ad8621ed295dfe715321703e02f028e711776d6eb559840030fbd012",
+    "paper/overleaf/main.bbl": "0a83f539b4e9245f66a8751f3b6d9a9c48c9708f344cdcdee257a7c7b107a829",
+    "paper/overleaf/main.blg": "e4ecc5f02a2f456d7d755024946ef9ed06d48aa538630baddf017e6ad10eab6d",
+    "paper/overleaf/main.fdb_latexmk": "09696ce5c76f4b7ae309a4e437ddbf52124286c64875527cf88745c4c410b8fb",
+    "paper/overleaf/main.fls": "594a7ecb50b59707b6fa650669df2e3ed85a99239832fc95431508e08806af83",
+    "paper/overleaf/main.log": "9670cc30d8548640c34411d943bd5c7578ff852b7d2c00a6855f9aca153ea507",
+    "paper/overleaf/main.out": "d4090b434b3aa09be80a1cb78b36fcd25f15c201c8774936852b2ec033c13a61",
+    "paper/overleaf/main.pdf": "30c44bf7140313c18dd39b01254cdb75366f13d2979f22419f7e7a5019e73dcc",
+    "paper/overleaf/main.tex": "ce53f466dd23f4526280e158b85ee34781d6db3bfd6421de918f1fec766d4456",
+    "paper/overleaf/model_screening_prompt.txt": "31d417757cf0f8c0a7471d22d6ada839e921b4bd25dda4b2326f7a91aea1b35b",
+    "paper/overleaf/model_screening_schema.json": "9db2aa1bc0482346044dd3e3c60d4e040e7229501ce132ae01d72d767662f7e2",
+    "paper/overleaf/outcome_definitions.tex": "eb7cdd065b4a82c732848ac69700e506918847c4b90e7474404d1fdbf836a07a",
+    "paper/overleaf/outcome_validation_alert_sensitivities.tex": "033df7b2f4b9debbfc4fe2197f4a1b2126d87c205c4b55851ec93e0b3945fa2b",
+    "paper/overleaf/outcome_validation_confirmation_strata.tex": "7f5c6ec39a324a556c8a6bb4bb07aa7cca95837629c150dea82c19f8b37b11c5",
+    "paper/overleaf/outcome_validation_dispositions.tex": "6da1ad06ba94ed15d38425f824b141896bf98cf329088965e5dbed274ee44a53",
+    "paper/overleaf/outcome_validation_domains.tex": "63963b153dbcd53d43c0bf57ae2f74ca55e27a369161a56a2728980f6badac6d",
+    "paper/overleaf/outcome_validation_excluded_audit_details.tex": "0c7918b2806ac7a961fc56cd3b56d6e6df9980a4bc6ee879084dae44ee61d0ff",
+    "paper/overleaf/outcome_validation_funnel.tex": "7f3d47019cfe480c4597362e746bdaebc2e205fd000ca843cb11ef08e2640e34",
+    "paper/overleaf/outcome_validation_rule_confirmation.tex": "e40767d0fc63a6c0da033e82b532e2665c526bb2c77fe2a562f6393557997788",
+    "paper/overleaf/outcome_validation_sensitivity.tex": "a41b3c547b67a01389a34830d5aa9938e422cbcf4c5d2df44b406b4e1b1321fa",
+    "paper/overleaf/rq1_alert_concentration_sensitivity.tex": "aef3f4407632218a52165c50f33bef80308081a4ca3e7c0834f07cd242779da7",
+    "paper/overleaf/rq1_change_size_sensitivity.tex": "ef5bf050250c707daf64034f1c84d8abc7a88786758f6e04d46ef1e0b88e5c27",
+    "paper/overleaf/rq1_language.tex": "81c6d0f27773db338e41174a331d93bf0fe1e59f61459629640505929eaf5c4d",
+    "paper/overleaf/rq1_overall.tex": "38dfb58d318cb4e1886cc1ed6fa6188592217ab856d235abec27cb973241b83a",
+    "paper/overleaf/rq1_profile.tex": "1145750da7f5f43115ccffee8f544429dafd8d86d5bd88a29f104437085cd01d",
+    "paper/overleaf/rq1_rule_census.tex": "86ea33f8363de564fc9f2be2c1a569b3a791a0b2b828630a8fb28a382606ce9a",
+    "paper/overleaf/rq1_task.tex": "286d1dd05a7c7441affe260feddf22fe2e954fea89966848c4d011a509422928",
+    "paper/overleaf/rq2_adjusted_effects.tex": "b94fdebd92ebdb7430dbd1d12802cc632547741ff5e9dde89414d62631d41c17",
+    "paper/overleaf/rq2_concentration.tex": "7abe8b3fdfa827e85f88d3565848af5d18883a3ea4d0640db66173dce5ba5a11",
+    "paper/overleaf/rq2_unadjusted_tasks.tex": "b3b8d581a5a269705e45a2b30f0ca6114083e5bf8f5e3b82ad8b4edb34aebd6d",
+    "paper/overleaf/rq3_review_audit.tex": "c66b80a84aace80a8ee649da235ec0e7232989c6b3ca7361ad7a8619413cbdec",
+    "paper/overleaf/rq3_review_categories.tex": "802a07b55571286b2676ead194f3298a11261ba2cf55193e3fc416121186ddde",
+    "paper/overleaf/rq3_review_recovery.tex": "3dc67c462938ec779e676d4387eb6c0e6dd0e6f2b36d306fb05fec31a0f64f4f",
+    "paper/overleaf/sn-basic.bst": "4b368414cc5593169907933b417aacfdb0ce905866a39bdf55d21aad65e9d46c",
+    "paper/overleaf/sn-bibliography.bib": "555eb8b41ad3ff3576051111be79299277ecf79b04720b67e4fcb1fe3657f38c",
+    "paper/overleaf/sn-jnl.cls": "afdd709e43a76c1452c8696429d428b1c35a9339de050c7ca8a9b6f32c180556"
+  },
+  "packages": {
+    "python": "3.12.13 (main, May 10 2026, 19:30:01) [Clang 22.1.3 ]",
+    "numpy": "2.5.1",
+    "pandas": "3.0.3",
+    "scipy": "1.18.0",
+    "statsmodels": "0.14.6"
+  },
+  "outputs_sha256": {
+    "analysis_protocol.json": "f72b3443a18965057fd3a07d568a9a5794146113725e16d731b7e3d7f8354674",
+    "baseline_reproduction.json": "c1d1e7f21bc8a3922d70cb440e5441d91edfe8a88baf1ad795488f4c69d993ae",
+    "model_coefficients.csv": "6a28459286f51d79eb94991008513d3694d91579d177850d2d3bb9ac0c74ca09",
+    "model_diagnostics.csv": "f69403147ce36c1fc34ef30acefbb905cd29c5d513880b312a9b33322a57435b",
+    "partially_retained_clusters.csv": "ba6778a93972dde8326e02f2048cb088c7e394d0841ee127bc1c3a0895bef5dc",
+    "pooled_rule_ranking.csv": "694ada5d3733d0ccf9299e24be6004931acd9047b252740792b8e10496c007d6",
+    "report.md": "700eab1e8f9ae414411c8a32e6d999b38c0d37c03e5581544f4721428e03e66d",
+    "representative_cases.json": "383914c6d4dae2c3cc7c075f13ec25bd0e6fa798d2f98913b8043abe4db73018",
+    "root_cause_filter_membership.csv": "7512a6d3bb61e13c6baab6439ffdd85f5f02e2f359a040c52fbe7f4403d37db9",
+    "root_cause_filter_summary.csv": "ba1ec1529d25ff8cbf09b6b3cfa3c7c99580f935e37f4dcaf67eb9ffe4e794e0",
+    "rule_category_crosstab.csv": "a72e3c905a2b780647fa1eefd39513c4c3638b6ba043789a144a9595c69fc0a4",
+    "rule_heterogeneity.csv": "02e3f03ae70e601b0adf73610df795f06e0aca45bcebce79a628037783ffac8f",
+    "rule_mechanism_crosstab.csv": "e9f4593528ff744c23161e8d33b8d8d2e7680420bce2d6a5573732eae32b7330",
+    "sample_profiles.csv": "4512722ce31b9b462cafe87557156421db0d792ca46f6cbbee46c1e8e483c4d9",
+    "scenario_pr_outcomes.csv": "831bc26c6ca18cb58b17d72afed2830e796a57565d508725b13d5b5ecb30ddbf",
+    "shared_inference_assessment.json": "28b4df37e829ea8512e6537474b67fe90f09c3dac84631be9147a086ccd23527",
+    "shared_numerical_stability.csv": "6c9ef0d0ef3e8fec670e591e78de32209081d0bc4d847aac0f88e658c4d2f27b",
+    "shared_repository_eligibility.csv": "36aa3e21790ea5f3a65863f55766b875fe8ce54e2489e41b3f99354ff783cf59",
+    "shared_stability_coefficients.csv": "ee068ee6ec122f84e6d90843bbaca6632c63ba7a08e2015841aa487b4883bbfa",
+    "shared_stability_effects.csv": "27eb9940a059a8488d86e2c4215f1055713f061a01e6782744d4f90ffc191f03",
+    "standardized_effects.csv": "7d90a5b2fa5af1cc5e872345ee557cb163427280e10b66b1307b57de04a5c9b6"
+  }
+}

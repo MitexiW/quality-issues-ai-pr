@@ -1,0 +1,10 @@
+{
+  "outputs": {
+    "case_metrics.csv": "3be9edf639f77524cc358d7bf3884d410f57638cecfaed394481859c40ddc55e",
+    "finding_matches.csv": "08b823cbbc8ecc9fa33535fbfb57d0dfa1262e7687962f240a49e3d5d2d5e36d",
+    "reference_recovery.csv": "7f5dc186ebaaaf4407d455310867cad45ffa28fb830aff447bb0007406a8badb",
+    "summary.json": "ff933db403c5af585d06a00eec75169b623d486b53881c54e9cf1d30c14cfb57"
+  },
+  "schema_version": "1.0.0",
+  "status": "completed"
+}

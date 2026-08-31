@@ -1,0 +1,6 @@
+sensitivity,available,field_or_source,detail
+family_separation,true,is_quality_alert + is_security_alert,mutually exclusive flags required for every included alert
+precision,true,precision,enhanced alert metadata
+problem_severity,true,problem_severity,enhanced alert metadata
+production_only,true,location_class or derived from file_path,<ARTIFACT_ROOT>/config/study/pr_enrichment_rules.json
+changed_file_only,true,group + repo_name + pr_number + normalized file_path,Deterministic exact path join after slash/dot normalization; path case is preserved. Every eligible alert is classifiable. Incomplete file-list PRs may remain in the full denominator only when they have no introduced alerts.

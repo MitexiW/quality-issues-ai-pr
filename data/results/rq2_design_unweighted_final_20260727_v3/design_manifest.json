@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-07-27T03:53:00.386132+00:00",
+  "status": "final_design",
+  "source_snapshot_id": "study_stars500_final_20260727_v3",
+  "source_rq2_ready": true,
+  "outcome_blind": true,
+  "design_name": "unweighted_full_sample",
+  "primary_design": {
+    "method": "unweighted complete-case analysis",
+    "selection_rule": "retain every complete-covariate PR",
+    "analysis_weight": 1.0,
+    "repository_policy": "cross-repository comparison; repository is the clustered uncertainty unit, not an exact matching variable"
+  },
+  "candidate_quality_gated_pr_n": 5404,
+  "complete_covariate_pr_n": 5404,
+  "analysis_pr_n": 5404,
+  "retained_common_support_pr_n": 5404,
+  "retained_ai_pr_n": 3087,
+  "retained_human_pr_n": 2317,
+  "same_repository_task_supported_pr_n": 4014,
+  "balance": {
+    "target_absolute_smd": 0.1,
+    "max_before_abs_smd": 1.0138810974877972,
+    "max_after_abs_smd": 1.0138810974877972,
+    "all_after_abs_smd_below_0_1": false
+  },
+  "inputs": {
+    "analysis_pr_level": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq_analysis_final_20260727_v3/analysis_pr_level.csv",
+    "snapshot_manifest": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/rq_analysis_final_20260727_v3/snapshot_manifest.json"
+  }
+}

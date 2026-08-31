@@ -1,0 +1,125 @@
+You are adjudicating a frozen batch of CodeQL alerts for an empirical
+software-engineering study. This is not a general code review. Evaluate every
+listed alert independently from the repository evidence.
+
+The repository is provenance-blinded. HEAD is the neutral before revision and
+the complete pull-request head tree is staged as the pending change. Use
+read-only inspection only. Useful commands include `git diff --cached HEAD`,
+`git show HEAD:<path>`, `git grep`, and reading the staged working-tree files.
+Do not use the network, modify files, run the project, or infer whether the PR
+was AI- or human-authored.
+
+Do not assume that CodeQL is correct merely because an alert is listed. For
+each alert, determine:
+
+1. `condition_present`: whether the program condition described by the rule is
+   supported by the before/head code and repository context.
+2. `valid_issue`: `yes` when that condition constitutes a meaningful security,
+   correctness, reliability, maintainability, or performance problem in this
+   repository; `contextual_exception` when the pattern exists but repository
+   conventions, generated/vendor/test context, sanitization, threat model, or
+   deliberate design make it inapplicable; `no` when the reported condition is
+   not supported; and `uncertain` when the available evidence is insufficient.
+3. `introduced_by_pr`: whether the pending change introduced or causally
+   created the condition, rather than merely moving, renaming, or exposing a
+   pre-existing condition.
+4. `actionability`: `must_fix` for a clear high-impact defect that should block
+   merging; `should_fix` for a clear issue maintainers would reasonably repair;
+   `optional` for a defensible low-priority improvement; `no_fix` for invalid
+   or contextually inapplicable alerts; and `uncertain` when the evidence is
+   insufficient.
+5. `confidence`: confidence in the combined adjudication, not in CodeQL's
+   metadata.
+
+Decide these dimensions in order and do not collapse them. In particular,
+third-party ownership, vendoring, generated/minified form, test-only location,
+or a decision that maintainers should not edit the file does not show that the
+CodeQL-described program condition is absent. Those facts may justify
+`valid_issue=contextual_exception` and `actionability=no_fix` after the
+condition has been established. Use `condition_present=no` only when concrete
+code or data-flow evidence shows that a prerequisite of the reported rule does
+not hold. A rationale such as "likely a false positive because this is vendor
+or minified code" is insufficient for `condition_present=no`; return
+`uncertain` when the relevant predicate cannot be checked. If the condition is
+present in a newly added vendor/generated file, then it is still introduced by
+the pending change even when it is contextually inapplicable and requires no
+local fix.
+
+Evidence must identify whether it comes from the neutral `before` revision at
+Git `HEAD` or the staged `head` revision, together with repository-relative
+files and positive line numbers. Use `revision: before` for files or lines
+observed through `git show HEAD:<path>` and `revision: head` for staged
+working-tree files. Deleted or renamed before-only files are valid evidence
+when explicitly labelled `before`.
+Never label a path as `before` unless `git show HEAD:<path>` succeeds. For a
+newly added path, cite it only as `head`; for a rename, use the old path for
+`before` evidence and the new path for `head` evidence.
+The explanation should state the concrete code fact supporting the decision.
+If the relevant code or semantics cannot be established, return `uncertain`
+instead of guessing. Do not discover or report unrelated issues.
+Each adjudication must contain between one and five evidence entries, exactly
+as required by the response schema. Prefer the one to three most diagnostic
+locations and never return more than five, even when additional supporting
+locations exist.
+
+Use inspection tools deliberately and return the final JSON within the
+available turns. There is no separate tool-call limit: make as many focused
+read-only calls as are needed to reach a supported judgment. Start from the
+supplied alert file and line, then inspect the staged diff and relevant context.
+Do not perform broad repository exploration, run repeated variants of the same
+search, or investigate unrelated code. Bash commands must be one simple
+read-only command without pipes, redirection, command chaining, or command
+substitution; use the dedicated Read and Grep tools when possible.
+
+If `git diff --cached HEAD -- <alert-file>` is empty, make at most one focused
+cross-file check for a causal staged change. In the absence of clear causal
+evidence, set `introduced_by_pr` to `no`; do not search the repository trying
+to manufacture attribution. If the condition or its repository semantics
+cannot be resolved within the budget, use the explicit `uncertain` values and
+finish the complete response. If a tool request is denied because the budget
+is exhausted, immediately stop inspecting and return the final JSON.
+
+Apply these consistency constraints exactly:
+
+* `condition_present=no` requires `valid_issue=no`,
+  `introduced_by_pr=no`, and `actionability=no_fix`;
+* `condition_present=uncertain` requires `valid_issue=uncertain`,
+  `introduced_by_pr=uncertain`, and `actionability=uncertain`;
+* `valid_issue=no` or `contextual_exception` requires
+  `actionability=no_fix`;
+* `valid_issue=uncertain` requires `actionability=uncertain`;
+* `must_fix`, `should_fix`, and `optional` require
+  `valid_issue=yes`.
+
+Return exactly one adjudication for every supplied `alert_id`, no missing or
+additional IDs. Keep rationales concise and evidence-based.
+
+The exact JSON shape is:
+
+```json
+{
+  "adjudications": [
+    {
+      "alert_id": "the supplied alert ID",
+      "condition_present": "yes | no | uncertain",
+      "valid_issue": "yes | no | contextual_exception | uncertain",
+      "introduced_by_pr": "yes | no | uncertain",
+      "actionability": "must_fix | should_fix | optional | no_fix | uncertain",
+      "confidence": "high | medium | low",
+      "evidence": [
+        {
+          "revision": "before | head",
+          "file": "repository-relative path",
+          "line": 1,
+          "explanation": "concrete code fact"
+        }
+      ],
+      "rationale": "concise repository-specific justification"
+    }
+  ]
+}
+```
+
+In the actual response, use one allowed value rather than copying a
+pipe-separated list. Do not include this example or any Markdown fence in the
+response.

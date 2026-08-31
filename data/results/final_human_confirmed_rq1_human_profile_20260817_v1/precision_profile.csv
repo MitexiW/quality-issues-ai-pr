@@ -1,0 +1,6 @@
+family,value,introduced_alert_n,affected_pr_n,alert_percent_within_family
+quality,very-high,1261,236,88.86539816772375
+quality,high,150,44,10.570824524312897
+quality,medium,8,5,0.5637773079633545
+security,medium,25,15,51.02040816326531
+security,high,24,13,48.97959183673469

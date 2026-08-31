@@ -1,0 +1,9 @@
+task_type,group,retained_pr_n,weight_sum,effective_sample_size,weight_min,weight_max,weight_p99,weight_above_10_n
+all,ai,3087,3087.0,3087.0,1.0,1.0,1.0,0
+all,human,2317,2317.0,2317.0,1.0,1.0,1.0,0
+feat,ai,1353,1353.0,1353.0,1.0,1.0,1.0,0
+feat,human,1090,1090.0,1090.0,1.0,1.0,1.0,0
+fix,ai,1427,1427.0,1427.0,1.0,1.0,1.0,0
+fix,human,1037,1037.0,1037.0,1.0,1.0,1.0,0
+refactor,ai,307,307.0,307.0,1.0,1.0,1.0,0
+refactor,human,190,190.0,190.0,1.0,1.0,1.0,0

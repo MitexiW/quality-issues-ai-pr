@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "config_sha256": "dea5de8d12f422830715b71ead2e7b573ca159c471ade9da420925c626d727e9",
+  "frame_manifest_sha256": "89fb63947114c1fc723380fdf242235201de901961a741251dea4a59cc7ca956",
+  "frame_scope": {
+    "alert_positive_pr_n": 957,
+    "alerts_by_group": {
+      "ai": 2751,
+      "human": 4373
+    },
+    "alerts_per_batch": 5,
+    "analysis_roster_n": 5404,
+    "batch_n": 1963,
+    "exact_duplicate_alert_row_n": 4,
+    "introduced_alert_n": 7124,
+    "positive_prs_by_group": {
+      "ai": 476,
+      "human": 481
+    }
+  },
+  "effort": "max",
+  "failure_circuit_unit": "pr_case",
+  "failure_limit": 10,
+  "max_budget_usd": 10.0,
+  "max_turns": 40,
+  "max_tool_calls": null,
+  "worktree_timeout": 900,
+  "implementation": {
+    "build_codeql_adjudication_worktree.py": {
+      "sha256": "ab4995a290031118c673ed64c75adf11f782465a765723dca6b1585d1d462c59"
+    },
+    "codeql_alert_adjudication_protocol.py": {
+      "sha256": "3b90c613a3a282c16cf6fe34d0346d6744cad0a400430ca6c68e1286ea09b442"
+    },
+    "run_claude_code_review.py": {
+      "sha256": "53eaee6e6d415764613e84fbed0553bdb1560d3a1f1d55bc1fa2154e66868330"
+    },
+    "run_codeql_alert_adjudication.py": {
+      "sha256": "b72481e5f483771527bf159fbb6ceb0460a40bbce4962d6de13bebbe7b393fc4"
+    }
+  },
+  "prompt_sha256": "31d417757cf0f8c0a7471d22d6ada839e921b4bd25dda4b2326f7a91aea1b35b",
+  "output_schema_sha256": "9db2aa1bc0482346044dd3e3c60d4e040e7229501ce132ae01d72d767662f7e2",
+  "model_backend": {
+    "provider": "compatible",
+    "api_protocol": "anthropic-compatible",
+    "requested_model": "claude-opus-5[1m]",
+    "resolved_backend_model": "claude-opus-5[1m]"
+  },
+  "response_policy": {
+    "anthropic": "provider structured output",
+    "compatible": "batch-cardinality-and-ID-constrained provider structured output with exact raw or single-fenced JSON fallback",
+    "deepseek": "one exact raw or single-fenced JSON document",
+    "exact_alert_id_partition": true,
+    "failed_response_recovery": "reuse a prior paid response only when it passes every current validation on a fresh worktree; protocol failures still require the narrow audited logical normalization, while a response rejected solely for SDK sandbox worktree mutation is revalidated unchanged",
+    "field_synthesis": false,
+    "json_repair": false,
+    "logical_normalization": "only condition_present=no, valid_issue=no, and actionability=no_fix imply introduced_by_pr=no; every change is persisted",
+    "oversized_file_read_policy": "disable the line-oriented Read tool for a batch when an alert file exceeds 256 KiB; retain focused Grep/Glob/read-only Bash"
+  },
+  "sdk_versions": {
+    "bundled_claude_code_cli": "2.1.220 (Claude Code)",
+    "claude_agent_sdk": "0.2.128"
+  },
+  "source_job_manifest_sha256": {
+    "ai": "3ad3f474b48f952b16643d8c214e52f5a2c180630aaaff7982b6f02c0eeb0037",
+    "human": "96d0ff54f14be8f1b4c8e142f233907190dd75333072843263680c57c3b219a7"
+  }
+}

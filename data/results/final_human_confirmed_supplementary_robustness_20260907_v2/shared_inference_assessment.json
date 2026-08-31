@@ -1,0 +1,13 @@
+{
+  "scenario": "shared_repositories",
+  "check_n": 5,
+  "failed_checks": [
+    "default_1e-8",
+    "default_1e-10"
+  ],
+  "status": "inference_not_validated",
+  "supports_robustness_claim": false,
+  "point_estimate_min": -0.010271238031172206,
+  "point_estimate_max": -0.010271238021429943,
+  "reason": "All-zero Go stratum; stricter fits produced invalid robust covariance. Do not promote the default-fit CI to validated robustness evidence."
+}

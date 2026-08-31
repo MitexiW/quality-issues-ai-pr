@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "status": "final_ready",
+  "rq2_ready": true,
+  "snapshot_id": "study_stars500_final_20260727_v3",
+  "derived_snapshot_id": "final_human_confirmed_issue_analysis_20260817_v1",
+  "generated_at": "2026-08-17T10:29:33.698150+00:00",
+  "adjudicator_type": "model_screen_then_complete_human_census_and_consensus",
+  "ground_truth_claimed": false,
+  "human_validation_scope": "complete_raw_differential_alert_frame",
+  "primary_outcome_definition": {
+    "condition_present": "yes",
+    "introduced_by_pr": "yes",
+    "valid_issue": "yes",
+    "actionability_filter": null,
+    "final_human_disposition": "confirmed_valid"
+  },
+  "analysis_population": {
+    "ai": {
+      "manifest_pr_n": 3376,
+      "quality_gated_pr_n": 3087,
+      "enriched_quality_gated_pr_n": 3087
+    },
+    "human": {
+      "manifest_pr_n": 2446,
+      "quality_gated_pr_n": 2317,
+      "enriched_quality_gated_pr_n": 2317
+    }
+  },
+  "counts": {
+    "raw_differential_alert_n": 7124,
+    "validated_issue_n": 2322,
+    "validated_quality_n": 2194,
+    "validated_security_n": 128,
+    "quality_gated_pr_n": 5404,
+    "human_reviewed_alert_n": 7124,
+    "human_reviewed_model_positive_n": 2495
+  },
+  "inputs": {
+    "raw_snapshot_manifest_sha256": "8e4a97308834d9a0644a260aa7eafaa79b4311c30d711a0594962508ec9325d8",
+    "adjudication_manifest_sha256": "1c057138a4339a8c483753d942d43dbfa83ef922be539c5b305c9cd8d5cfc778",
+    "model_adjudications_sha256": "a7dbe78a7556475f04458a8f80b99391fc2e3bf325d402e9553a928355a358a9",
+    "human_labels_sha256": "5f6b3b2df90f5d2e44733c616cc0dbc543d8756c26d2fd6bf7479cb8868d5b1c"
+  },
+  "outputs": [
+    {
+      "path": "analysis_pr_level.csv",
+      "size": 2960050,
+      "sha256": "e0db4943af3e8c8b08813041737456b7856e91020316e799a9eee12f026883b6"
+    },
+    {
+      "path": "validated_alerts.csv",
+      "size": 5353792,
+      "sha256": "2337ae86906bd41781dd55ccba5ff941223dee01ce08832eef99a8c1159a787e"
+    },
+    {
+      "path": "adjudication_funnel.csv",
+      "size": 2661,
+      "sha256": "6bea611fe5a0370c687ebfb597da6df23a260d2c0907fc9b16eb275e8a585377"
+    },
+    {
+      "path": "human_validation_dispositions.csv",
+      "size": 1958,
+      "sha256": "ff0b2b7bed8eeff28848aebdc7a7676435d85df0c8f6a47afb03d447d94ed958"
+    },
+    {
+      "path": "human_validation_strata.csv",
+      "size": 16357,
+      "sha256": "5651bc9b342cb458d4d5c264458d9db288082677335116083b0b492958ace665"
+    }
+  ]
+}

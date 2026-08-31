@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-08-17T10:29:49.788458+00:00",
+  "status": "final",
+  "group": "human",
+  "eligible_pr_n": 2317,
+  "raw_introduced_alert_n": 2322,
+  "eligible_introduced_alert_n": 1468,
+  "excluded_alert_n": 854,
+  "invalid_family_alert_n": 0,
+  "expected_family_counts": {
+    "quality": 1419,
+    "security": 49
+  },
+  "observed_family_counts": {
+    "quality": 1419,
+    "security": 49
+  },
+  "count_conservation": {
+    "quality": true,
+    "security": true
+  },
+  "count_conservation_pass": true,
+  "repository_cluster_bootstrap": {
+    "replicates": 2000,
+    "seed": 20260623,
+    "method": "repository-cluster percentile"
+  },
+  "inputs": {
+    "alerts": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/validated_alerts.csv",
+      "sha256": "2337ae86906bd41781dd55ccba5ff941223dee01ce08832eef99a8c1159a787e"
+    },
+    "analysis_pr_level": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_issue_analysis_20260817_v1/analysis_pr_level.csv",
+      "sha256": "e0db4943af3e8c8b08813041737456b7856e91020316e799a9eee12f026883b6"
+    },
+    "location_rules": {
+      "path": "<ARTIFACT_ROOT>/config/study/pr_enrichment_rules.json",
+      "sha256": "b567c060dee938ce90dffd6b87a149523caa89b77b7f33c660793bbbde79296b"
+    }
+  }
+}

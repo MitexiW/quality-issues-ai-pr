@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "status": "frozen_author_confirmed",
+  "generated_at_utc": "2026-09-01T08:27:27.210808+00:00",
+  "strict_reference_n": 114,
+  "group_n": {
+    "ai": 57,
+    "human": 57
+  },
+  "recovered_n": 20,
+  "category_n": {
+    "redundant_or_locally_inconsistent_construction": 29,
+    "dependency_error_or_resource_mismanagement": 55,
+    "interface_or_contract_mismatch": 9,
+    "control_state_or_dataflow_miscomposition": 19,
+    "incomplete_change_coordination": 2
+  },
+  "recovered_by_category": {
+    "interface_or_contract_mismatch": 1,
+    "control_state_or_dataflow_miscomposition": 4,
+    "incomplete_change_coordination": 1,
+    "dependency_error_or_resource_mismanagement": 10,
+    "redundant_or_locally_inconsistent_construction": 4
+  },
+  "mapping_status_n": {
+    "frozen_existing_rq1_decision": 57,
+    "author_confirmed_transferred_codebook": 57
+  },
+  "human_transfer_author_confirmation": {
+    "confirmed": true,
+    "reference_n": 57,
+    "category_change_n": 0,
+    "per_item_review_timestamps_recorded": false
+  },
+  "method": {
+    "ai": "Joined by adjudication_alert_id to the frozen RQ1 alert-to-cluster mapping.",
+    "human": "Explicit reference-level transfer of the frozen five-category RQ1 codebook, subsequently reviewed and confirmed by an author.",
+    "runtime_rule_to_category_mapping": false
+  },
+  "inputs": {
+    "references": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/final_human_confirmed_rq3_20260817_v1/reference_adjudication_join.csv",
+    "alert_links": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_compiled_v1/alert_cluster_links.csv",
+    "clusters": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/ai_quality_root_cause_review_20260831_v1/full_compiled_v1/root_cause_clusters.csv"
+  }
+}

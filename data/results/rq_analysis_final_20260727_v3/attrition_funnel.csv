@@ -1,0 +1,13 @@
+group,stage,pr_n,note
+ai,manifest_prs,3376,prs.csv
+ai,terminal_prs,3376,all jobs terminal or retry_excluded
+ai,compared_prs,3096,pr_security_summary comparison_status=compared
+ai,enhanced_metadata_prs,3096,explicit Security/Quality family counts
+ai,quality_gate_prs,3087,primary analysis eligible
+ai,enriched_quality_gate_prs,3087,quality-gated PRs with GitHub additions+deletions
+human,manifest_prs,2446,prs.csv
+human,terminal_prs,2446,all jobs terminal or retry_excluded
+human,compared_prs,2325,pr_security_summary comparison_status=compared
+human,enhanced_metadata_prs,2325,explicit Security/Quality family counts
+human,quality_gate_prs,2317,primary analysis eligible
+human,enriched_quality_gate_prs,2317,quality-gated PRs with GitHub additions+deletions

@@ -1,0 +1,5 @@
+scenario,pr_n,repository_n,positive_pr_n,ctol,initialization,status,zero_event_languages,converged,finite_parameters_covariance,minimum_covariance_eigenvalue,max_abs_coefficient,dependence_parameter,iterations,large_coefficients,point_risk_difference,warnings
+baseline,5404,640,515,1e-06,default,ok,,True,True,0.0019862438938802393,3.5106462387725177,0.06238326367785454,11,,-0.009449433794556927,
+exclude_top1,5404,640,294,1e-06,default,ok,,True,True,0.0026114264212492807,3.529127541225073,0.03698068034257494,16,,-0.006585008489563844,
+exclude_top5,5404,640,192,1e-06,default,ok,,True,True,0.0028792978537308736,3.745442821930427,0.009903228346213558,14,,-0.004215439198991783,
+shared_repositories,4477,277,434,1e-06,default,boundary_caution,Go,True,True,0.0023555887303575054,33.0782317044079,0.062361169119078734,10,C(repo_language)[T.Go],-0.010271238031172206,

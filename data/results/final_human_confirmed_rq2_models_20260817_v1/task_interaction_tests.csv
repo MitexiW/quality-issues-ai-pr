@@ -1,0 +1,3 @@
+family,role,model,degrees_of_freedom,wald_chi_square,p_value
+quality,primary,binary,2,0.7707501242317717,0.6801954728032705
+quality,primary,count,2,1.1754497863088034,0.5555898742531284

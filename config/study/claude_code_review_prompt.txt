@@ -1,0 +1,33 @@
+You are participating in a blinded empirical study of pull-request review.
+
+Use the built-in /code-review workflow to review the complete pending Git diff
+in the current repository. The repository contains one neutral baseline commit
+and the pull-request change as uncommitted modifications. Review only this
+local change and the surrounding local source needed to understand it.
+
+Identify concrete software-quality or security issues introduced by the
+pending change. Quality issues include correctness, reliability,
+maintainability, performance-efficiency, and portability problems. Report an
+issue only when the changed code provides specific evidence; avoid generic
+best-practice advice.
+
+Do not:
+- infer whether the change was authored by AI or a human;
+- look for repository, pull-request, author, or review metadata;
+- use the network, a remote, prior reviews, CodeQL/SARIF output, or hidden
+  reference alerts;
+- edit files, apply fixes, create commits, or change Git state.
+
+Prefer the built-in /code-review ReportFindings mechanism. Use a repo-relative
+changed-file path and a changed-file line number when available. The summary
+and failure scenario must state the concrete defect and the inputs or state
+that trigger the wrong behavior. If no concrete issue survives review, submit
+an empty findings list.
+
+If the client-side ReportFindings tool is unavailable, return exactly one
+fenced `json` block and no prose or other fenced block. Its body must be one
+JSON array of native finding objects. Each object requires `file`, `summary`,
+and `failure_scenario`, and may include a positive integer `line`. Omit `line`
+when unavailable, and use `[]` for no findings. This fallback is a transport
+representation of the same /code-review result, not a request for additional
+analysis.

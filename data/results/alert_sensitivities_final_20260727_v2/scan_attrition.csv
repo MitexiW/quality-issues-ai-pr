@@ -1,0 +1,11 @@
+group,stage,pr_n,percent_of_candidate_pool,role
+ai,candidate_pool,3376,100.0,descriptive attrition only
+ai,paired_scan_success,3096,91.70616113744076,descriptive attrition only
+ai,quality_gated_analysis,3087,91.43957345971565,outcome denominator
+ai,scan_not_successful,280,8.293838862559241,descriptive attrition only
+ai,post_scan_nonfailure_excluded,9,0.2665876777251185,descriptive attrition only
+human,candidate_pool,2446,100.0,descriptive attrition only
+human,paired_scan_success,2325,95.05314799672935,descriptive attrition only
+human,quality_gated_analysis,2317,94.7260834014718,outcome denominator
+human,scan_not_successful,121,4.946852003270646,descriptive attrition only
+human,post_scan_nonfailure_excluded,8,0.3270645952575634,descriptive attrition only

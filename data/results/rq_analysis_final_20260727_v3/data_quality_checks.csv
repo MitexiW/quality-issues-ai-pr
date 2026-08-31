@@ -1,0 +1,14 @@
+check_id,group,passed,severity,count,denominator,detail
+experiment_terminal,ai,true,blocker,3376,3376,所有 PR 作业必须进入终态
+enhanced_family_metadata,ai,true,blocker,3096,3096,所有已比较 PR 必须具有互斥且穷尽的 Security/Quality 计数
+changed_size_complete,ai,true,blocker,3087,3087,所有 quality-gated PR 必须具有统一 GitHub additions+deletions 口径的 Changed KLOC
+enrichment_file_list_complete,ai,false,info,3086,3087,文件列表完整性仅影响文件级派生敏感性，不影响 PR-level Changed KLOC
+unique_manifest_pr,ai,true,blocker,0,3376,repo_name+pr_number 在 prs.csv 中必须唯一
+unique_summary_pr,ai,true,blocker,0,3354,repo_name+pr_number 在 summary 中必须唯一
+experiment_terminal,human,true,blocker,2446,2446,所有 PR 作业必须进入终态
+enhanced_family_metadata,human,true,blocker,2325,2325,所有已比较 PR 必须具有互斥且穷尽的 Security/Quality 计数
+changed_size_complete,human,true,blocker,2317,2317,所有 quality-gated PR 必须具有统一 GitHub additions+deletions 口径的 Changed KLOC
+enrichment_file_list_complete,human,true,info,2317,2317,文件列表完整性仅影响文件级派生敏感性，不影响 PR-level Changed KLOC
+unique_manifest_pr,human,true,blocker,0,2446,repo_name+pr_number 在 prs.csv 中必须唯一
+unique_summary_pr,human,true,blocker,0,2343,repo_name+pr_number 在 summary 中必须唯一
+cross_group_overlap_resolved,both,true,info,11,5822,发现 11 个重叠 PR；主分析数据已从两组同时排除并写入审计表

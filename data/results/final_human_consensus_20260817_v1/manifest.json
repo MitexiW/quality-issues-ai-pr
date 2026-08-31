@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0.0",
+  "status": "final_ready",
+  "dataset_id": "final_human_consensus_20260817_v1",
+  "review_design": {
+    "reviewer_a": "complete model-retained census (2,495 alerts)",
+    "reviewer_b": "complete model-excluded census (4,629 alerts)",
+    "reviewer_c": "independent re-review of 2,379 source-confirmed alerts",
+    "consensus": "explicit resolution of all 60 source-versus-C disagreements"
+  },
+  "counts": {
+    "raw_alert_n": 7124,
+    "retained_n": 2495,
+    "excluded_n": 4629,
+    "source_confirmed_n": 2379,
+    "rereview_confirmed_n": 2319,
+    "disagreement_n": 60,
+    "final_confirmed_n": 2322,
+    "quality_confirmed_n": 2194,
+    "security_confirmed_n": 128,
+    "ai_confirmed_n": 854,
+    "human_confirmed_n": 1468,
+    "consensus_confirmed_n": 3,
+    "consensus_rejected_n": 57,
+    "final_dispositions": {
+      "not_valid_issue": 2155,
+      "confirmed_valid": 2322,
+      "condition_absent": 520,
+      "not_pr_introduced": 2127
+    },
+    "final_confirmed_by_group": {
+      "human": 1468,
+      "ai": 854
+    },
+    "final_confirmed_by_domain": {
+      "quality": 2194,
+      "security": 128
+    }
+  },
+  "inputs": {
+    "retained_labels": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/manual_validation/full_validated_2495_v1/human_labels.csv",
+      "sha256": "cf19dab304faaadd6bfe77ab7ec3e01699357a3155c2847846b50dd10433a7be"
+    },
+    "excluded_labels": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/manual_validation/model_excluded_full_census_4629_v1/review/human_labels.csv",
+      "sha256": "ad5df5a08c8d22a9afd1fb32d5ce8f018f127f3e6cdfd9260e18a5702df5d8ae"
+    },
+    "rereview_labels": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/manual_validation/independent_full_rereview_2379_v1/review/human_labels.csv",
+      "sha256": "46e4d58d0f549f47020e0fc8ce2a96e52505d696671ac47e13fb224b8340ab84"
+    },
+    "source_reference": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/manual_validation/independent_full_rereview_2379_v1/admin/source_reviewer_reference.csv",
+      "sha256": "6bfc1a17bdd7efc55752af5fea00b30c88afe06d5c0084ca91becdb1f9bce445"
+    },
+    "disagreements": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/manual_validation/independent_full_rereview_2379_v1/analysis/disagreements_for_consensus.csv",
+      "sha256": "c2c39dd3fa9de5a65b20aa5b424b0dc327e0d31e7caaaaeac90fd405a3241ebb"
+    },
+    "consensus": {
+      "path": "<ARTIFACT_ROOT>/data/experiments/security-and-quality/study_stars500/reports/manual_validation/independent_full_rereview_2379_v1/analysis/disagreements_for_consensus_final.csv",
+      "sha256": "9a17734939873493c3fa84554f6638a141377d731ae124beaa2f66cfbd5cad06"
+    }
+  },
+  "outputs": {
+    "final_alert_labels": {
+      "path": "final_alert_labels.csv",
+      "rows": 7124,
+      "size": 3153114,
+      "sha256": "5f6b3b2df90f5d2e44733c616cc0dbc543d8756c26d2fd6bf7479cb8868d5b1c"
+    },
+    "final_disposition_summary": {
+      "path": "final_disposition_summary.csv",
+      "rows": 14,
+      "size": 1037,
+      "sha256": "41289df2d630be4a63ee5a1277db94b7388fabbd00bd238617163ad8258092a2"
+    },
+    "consensus_resolutions": {
+      "path": "consensus_resolutions.csv",
+      "rows": 60,
+      "size": 34082,
+      "sha256": "252723a9ac914724710a9c12e1c059d16f6952d8ec098579e24034f0aab1f332"
+    }
+  }
+}

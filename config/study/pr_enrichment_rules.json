@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0.0",
+  "classification_precedence": [
+    "generated",
+    "vendor",
+    "build",
+    "test",
+    "docs",
+    "example",
+    "production"
+  ],
+  "path_rules": {
+    "generated": {
+      "segments": ["generated", "gen", "autogen", "codegen"],
+      "prefixes": [],
+      "basenames": [],
+      "suffixes": [".generated.js", ".generated.ts", ".g.cs", ".pb.go", ".pb.cc", ".pb.h"]
+    },
+    "vendor": {
+      "segments": ["vendor", "vendors", "third_party", "third-party", "node_modules"],
+      "prefixes": [],
+      "basenames": [],
+      "suffixes": []
+    },
+    "build": {
+      "segments": ["build", "dist", "target", "out", "coverage"],
+      "prefixes": [],
+      "basenames": [],
+      "suffixes": [".min.js", ".min.css"]
+    },
+    "test": {
+      "segments": ["test", "tests", "testing", "__tests__", "spec", "specs"],
+      "prefixes": [],
+      "basenames": [],
+      "suffixes": [
+        "_test.go",
+        "_test.py",
+        ".test.js",
+        ".test.jsx",
+        ".test.ts",
+        ".test.tsx",
+        ".spec.js",
+        ".spec.jsx",
+        ".spec.ts",
+        ".spec.tsx"
+      ]
+    },
+    "docs": {
+      "segments": ["doc", "docs", "documentation"],
+      "prefixes": [],
+      "basenames": ["readme", "readme.md", "changelog", "changelog.md", "contributing.md"],
+      "suffixes": [".md", ".mdx", ".rst", ".adoc"]
+    },
+    "example": {
+      "segments": ["example", "examples", "demo", "demos", "sample", "samples", "tutorial", "tutorials"],
+      "prefixes": [],
+      "basenames": [],
+      "suffixes": []
+    }
+  },
+  "language_extensions": {
+    ".c": "C",
+    ".h": "C/C++ Header",
+    ".cc": "C++",
+    ".cpp": "C++",
+    ".cxx": "C++",
+    ".hpp": "C++",
+    ".hh": "C++",
+    ".hxx": "C++",
+    ".go": "Go",
+    ".java": "Java",
+    ".js": "JavaScript",
+    ".jsx": "JavaScript",
+    ".mjs": "JavaScript",
+    ".cjs": "JavaScript",
+    ".ts": "TypeScript",
+    ".d.ts": "TypeScript",
+    ".tsx": "TypeScript",
+    ".mts": "TypeScript",
+    ".cts": "TypeScript",
+    ".py": "Python",
+    ".pyi": "Python",
+    ".rb": "Ruby",
+    ".rake": "Ruby",
+    ".kt": "Kotlin",
+    ".kts": "Kotlin",
+    ".cs": "C#",
+    ".swift": "Swift",
+    ".rs": "Rust",
+    ".php": "PHP",
+    ".scala": "Scala",
+    ".sh": "Shell",
+    ".bash": "Shell",
+    ".sql": "SQL",
+    ".html": "HTML",
+    ".css": "CSS",
+    ".scss": "CSS",
+    ".md": "Markdown",
+    ".mdx": "Markdown",
+    ".rst": "reStructuredText",
+    ".json": "JSON",
+    ".yaml": "YAML",
+    ".yml": "YAML",
+    ".xml": "XML"
+  },
+  "binary_extensions": [
+    ".7z", ".avi", ".bin", ".bmp", ".class", ".dll", ".dylib", ".exe",
+    ".gif", ".gz", ".ico", ".jar", ".jpeg", ".jpg", ".mov", ".mp3",
+    ".mp4", ".o", ".obj", ".pdf", ".png", ".so", ".tar", ".tgz",
+    ".ttf", ".wav", ".webp", ".woff", ".woff2", ".zip"
+  ]
+}

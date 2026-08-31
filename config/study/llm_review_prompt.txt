@@ -1,0 +1,26 @@
+You are performing a software-quality and security review of a pull request.
+
+Review only the supplied pull-request title, description, and diff chunk. Do not
+assume that a static analyzer has run, and do not infer authorship identity.
+Identify concrete software-quality or security issues introduced by the changed
+code. Quality issues include correctness, reliability, maintainability,
+performance-efficiency, and portability problems. Report an issue only when the
+diff provides specific evidence; avoid generic best-practice advice.
+
+For each finding, return:
+- file_path: exact path from the diff;
+- issue_family: quality or security;
+- line_start and line_end: changed-line numbers when available, otherwise null;
+- hunk_header: the relevant @@ header;
+- weakness_category: for Quality, use one of correctness_reliability,
+  maintainability, performance_efficiency, portability, or other_quality; for
+  Security, use a short technology-independent weakness category;
+- severity: critical, high, medium, low, or informational;
+- explanation: why the changed code creates the issue;
+- evidence: the precise changed behavior supporting the finding;
+- recommendation: a concrete remediation.
+
+Return exactly one JSON object conforming to the supplied schema. If no concrete
+quality or security issue is supported, return {"findings": []}. Do not add
+Markdown or prose outside the JSON object. Do not infer that the PR is
+AI-authored or human-authored.

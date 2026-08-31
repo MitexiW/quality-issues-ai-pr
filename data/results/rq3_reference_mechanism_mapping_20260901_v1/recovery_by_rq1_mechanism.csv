@@ -1,0 +1,16 @@
+group,rq1_mechanism_category,rq1_mechanism_label,reference_n,recovered_n,recall,wilson_95_ci_low,wilson_95_ci_high,case_n
+ai,incomplete_change_coordination,Incomplete change coordination,2,1,0.5,0.09453120573423074,0.9054687942657693,2
+ai,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,9,1,0.1111111111111111,0.019890887638544907,0.434999705576656,6
+ai,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",10,2,0.2,0.05668215145437519,0.5098375284633583,8
+ai,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",30,6,0.2,0.0950510717728987,0.3730569641314825,11
+ai,interface_or_contract_mismatch,Interface or contract mismatch,6,1,0.16666666666666666,0.030053369748306635,0.5635028221864702,4
+human,incomplete_change_coordination,Incomplete change coordination,0,0,,,,0
+human,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,20,3,0.15,0.052368745896216595,0.36041886474075696,14
+human,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",9,2,0.2222222222222222,0.06322510711784671,0.5474110308930111,9
+human,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",25,4,0.16,0.0640345145667644,0.3465362160717886,11
+human,interface_or_contract_mismatch,Interface or contract mismatch,3,0,0.0,5.551115123125783e-17,0.5614970317550454,3
+all,incomplete_change_coordination,Incomplete change coordination,2,1,0.5,0.09453120573423074,0.9054687942657693,2
+all,redundant_or_locally_inconsistent_construction,Redundant or locally inconsistent construction,29,4,0.13793103448275862,0.05497439964111964,0.30558993720352023,20
+all,control_state_or_dataflow_miscomposition,"Control-, state-, or data-flow miscomposition",19,4,0.21052631578947367,0.08507676632916253,0.43334278443814167,17
+all,dependency_error_or_resource_mismanagement,"Dependency, error, or resource mismanagement",55,10,0.18181818181818182,0.10187670434449676,0.3033045963663764,22
+all,interface_or_contract_mismatch,Interface or contract mismatch,9,1,0.1111111111111111,0.019890887638544907,0.434999705576656,7

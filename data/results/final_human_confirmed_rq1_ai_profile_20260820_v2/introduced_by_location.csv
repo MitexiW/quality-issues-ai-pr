@@ -1,0 +1,9 @@
+family,value,introduced_alert_n,affected_pr_n,alert_percent_within_family
+quality,production,613,194,79.09677419354838
+quality,test,139,69,17.93548387096774
+quality,example,15,6,1.935483870967742
+quality,docs,5,4,0.6451612903225806
+quality,build,3,1,0.3870967741935484
+security,production,66,25,83.54430379746836
+security,example,12,1,15.189873417721518
+security,test,1,1,1.2658227848101267

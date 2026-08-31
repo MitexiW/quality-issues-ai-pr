@@ -1,0 +1,13 @@
+group,codeql_relation,finding_n,finding_percent
+ai,no_match,264,51.5625
+ai,no_reference,116,22.65625
+ai,related_distinct,108,21.09375
+ai,same_issue,24,4.6875
+human,no_match,280,55.55555555555556
+human,no_reference,124,24.603174603174605
+human,related_distinct,79,15.674603174603174
+human,same_issue,21,4.166666666666667
+pooled,no_match,544,53.54330708661417
+pooled,no_reference,240,23.62204724409449
+pooled,related_distinct,187,18.405511811023622
+pooled,same_issue,45,4.429133858267717

@@ -1,0 +1,15 @@
+dimension,value,reviewed_alert_n,confirmed_valid_n,condition_absent_n,not_pr_introduced_n,not_valid_issue_n,confirmed_valid_rate
+overall,all,7124,2322,520,2127,2155,0.325940482875
+source_set,model_excluded,4629,115,498,2032,1984,0.024843378700
+source_set,model_retained,2495,2207,22,95,171,0.884569138277
+group,ai,2751,854,278,1214,405,0.310432569975
+group,human,4373,1468,242,913,1750,0.335696318317
+issue_domain,quality,6608,2194,475,1933,2006,0.332021791768
+issue_domain,security,516,128,45,194,149,0.248062015504
+group_by_domain,ai__quality,2506,775,262,1119,350,0.309257781325
+group_by_domain,ai__security,245,79,16,95,55,0.322448979592
+group_by_domain,human__quality,4102,1419,213,814,1656,0.345928815212
+group_by_domain,human__security,271,49,29,99,94,0.180811808118
+resolution_basis,consensus_after_independent_rereview,60,3,11,44,2,0.050000000000
+resolution_basis,source_and_independent_rereview_agreement,2319,2319,0,0,0,1.000000000000
+resolution_basis,source_census_negative,4745,0,509,2083,2153,0.000000000000
