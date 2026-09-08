@@ -105,6 +105,19 @@ See
 `docs/RUN_EXPERIMENTS.md` for the original experimental stages, individual
 analysis commands, and the resource-intensive CodeQL rerun procedure.
 
+## Run model assessment, human validation, or a new RQ3 review
+
+- [Alert assessment and human validation](docs/ALERT_ASSESSMENT.md): prepare
+  batches, configure the model, review both retained/excluded queues, and export
+  final human labels.
+- [RQ3 reviewer experiment](docs/RQ3_REVIEW.md): prepare blinded code, test one
+  PR, run the fixed paper cohort, and verify finding/reference relations.
+
+These operations require repository context, human work and, for live model
+calls, API access and a budget. They are separate from frozen-data reproduction.
+The guides explicitly identify historical count checks and manual steps; they
+do not claim that human validation or semantic adjudication is fully automated.
+
 ## Recreate the paper figures
 
 ```bash

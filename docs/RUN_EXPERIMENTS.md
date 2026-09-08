@@ -225,19 +225,15 @@ Frozen analysis tables remain the inputs for checking exact paper statistics.
 
 ## 6. Inspect or repeat the validation and LLM-review stages
 
-The repository includes the validation application, output schemas, prompts,
-and RQ3 execution scripts for methodological inspection. The final human
-decisions and semantic relations are already frozen in `data/results/`.
+Follow the step-by-step guides:
 
-```bash
-python scripts/manual_alert_review_app.py --help
-python scripts/rq3/run_rq3_formal_reviews.py --help
-```
+- [Model-assisted alert assessment and human validation](ALERT_ASSESSMENT.md)
+  covers batch preparation, model execution, full retained/excluded review
+  queues, and label exports.
+- [RQ3 reviewer execution and matching](RQ3_REVIEW.md) covers code preparation,
+  single-case preflight, the fixed 267-case run, semantic decisions and scoring.
 
-These commands expose the same methodological components, but running `--help`
-does not repeat the study. Human validation requires reviewer interaction, and
-live LLM execution requires a separately supplied provider endpoint and API
-key, incurs cost, and may not be bit-for-bit reproducible as hosted models
-change. Neither operation is part of `reproduce_analysis.py`; the released
-paper results use the frozen human decisions, model outputs, and semantic
-relations.
+Both guides state the required inputs and remaining human steps. Live calls
+require a separately supplied endpoint, credential and budget; no paid call
+is enabled by default. Historical fixed-count scripts are distinguished from
+new-sample runs. Neither operation is part of `reproduce_analysis.py`.
