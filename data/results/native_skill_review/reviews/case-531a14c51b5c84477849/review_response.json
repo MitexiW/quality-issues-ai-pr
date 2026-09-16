@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user runs a crew with an agent that has knowledge_sources and a local LLM (or no OPENAI_API_KEY); the default OpenAI embedding function fails inside collection.upsert() with openai.AuthenticationError, which is not TypeError/ValueError, so set_knowledge re-raises it and kickoff() crashes. Before this change the same run completed: the storage was constructed without embedding calls, and the query-time embedding failure was swallowed by the `except Exception` in execute_task (agent.py:362). Additionally, a ValueError raised by KnowledgeStorage.save() (e.g. embedding dimension mismatch, knowledge_storage.py:174) is now mislabeled as \"Invalid Knowledge Configuration\".",
+      "file": "src/crewai/agent.py",
+      "line": 203,
+      "summary": "add_sources() now runs inside the narrow `except (TypeError, ValueError)` that re-raises, so any non-ValueError/TypeError exception (embedding API auth/rate-limit/network errors, chromadb errors) aborts the entire Crew.kickoff(), whereas the equivalent crew-level path (crew.py:347) catches all exceptions and only logs a warning."
+    },
+    {
+      "failure_scenario": "Crew A and Crew B on the same machine each define an agent with role \"Researcher\" but different knowledge sources. After Crew B kicks off, its chunks live in the shared collection; when Crew A kicks off, its add_sources() appends its chunks, and Crew A's agent query can return Crew B's content, injecting wrong or leaked information into the prompt. Likewise, if a user deletes a knowledge source from their code, its old chunks remain in the persistent store and keep being retrieved. Before this change agent sources were never added, so the shared collection stayed empty and mixing/staleness could not occur.",
+      "file": "src/crewai/agent.py",
+      "line": 203,
+      "summary": "The new add_sources() call persists agent knowledge into a persistent per-role ChromaDB collection (`knowledge_<role>`), which is shared by every agent with the same role across crews, so agents now retrieve chunks from other agents'/crews' sources, and sources removed from the code are never cleared from the collection."
+    },
+    {
+      "failure_scenario": "A crew with a large knowledge source kicked off via kickoff_for_each() over 100 inputs re-reads, re-chunks, and re-embeds the whole corpus 100 times, paying OpenAI embedding API cost and latency on every input (a fresh OpenAIEmbeddingFunction instance per kickoff means chromadb's per-instance cache never helps). Even calling crew.kickoff() twice on the same crew re-embeds everything. StringKnowledgeSource.chunks also grows unboundedly because add() extends the list on each call, so the re-saved chunk list doubles each kickoff.",
+      "file": "src/crewai/agent.py",
+      "line": 203,
+      "summary": "set_knowledge() now calls add_sources() on every kickoff, and since Crew.kickoff() invokes set_knowledge for each agent on every run and each call builds a fresh Knowledge/KnowledgeStorage/embedder (no cache reuse), the entire knowledge corpus is re-processed and re-embedded on every kickoff with no idempotence guard."
+    },
+    {
+      "failure_scenario": "If set_knowledge() passed the wrong sources to add_sources, or if source.add()/storage.save() silently stopped persisting chunks, the test still passes because the real add_sources is never executed — the knowledge persistence the PR claims to fix is not exercised. The dead return-value line misleads future readers into thinking the `patch(\"crewai.knowledge\")` mock (whose sources/search setup is likewise inert, since agent.py binds the real Knowledge class at import time) participates in the assertion.",
+      "file": "tests/agent_test.py",
+      "line": 1656,
+      "summary": "The reworked test patches Knowledge.add_sources with a mock and only asserts the method was called once, so it verifies invocation rather than the actual fix (sources being persisted), and the added line `MockKnowledge.add_sources.return_value = [string_source]` (line 1639) targets the patched crewai.knowledge module mock which agent.py never uses, making it dead."
+    },
+    {
+      "failure_scenario": "Running those existing tests after this change performs a real OpenAI embeddings call for the source content (a request not present in the pre-recorded cassette, which only contains the query-embedding call) and writes a `knowledge_<role>` collection into the persistent store under the user's data directory, polluting local state across test runs and risking cassette replay mismatches or CI failures without network access. The PR updated only the one test's mocking instead of the shared pattern.",
+      "file": "tests/agent_test.py",
+      "line": 1656,
+      "summary": "The production change is only mocked in this one test; sibling vcr-marked tests (test_agent_with_knowledge_sources_extensive_role, test_agent_with_knowledge_sources_generate_search_query) use `patch(\"crewai.knowledge\")`, which does not mock the real Knowledge class agent.py uses, so their kickoff() now executes the real add_sources() — writing into the user's persistent ChromaDB knowledge store and issuing real embedding requests."
+    }
+  ],
+  "level": null
+}

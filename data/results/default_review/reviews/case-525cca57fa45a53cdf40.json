@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "src/tools/getURLIndex.ts",
+      "line": 3,
+      "summary": "Record accepts only 2 type parameters, but 3 are provided (string, SearchResult['url'], QueryResult['query']), causing a TypeScript compilation error that prevents tsc from succeeding.",
+      "failure_scenario": "Running `npm run build` (which invokes `tsc`) on this codebase fails with error TS2558: Expected 2 type arguments, but got 3. The return type annotation `Record<string, SearchResult['url'], QueryResult['query']>` should be `Record<string, string>` (the original type before this refactoring) — passing 3 generic arguments to the built-in `Record<K, V>` utility type is invalid TypeScript.",
+      "finding_id": "mf-85547bb09960bb772937"
+    }
+  ]
+}

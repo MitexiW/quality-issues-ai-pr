@@ -1,0 +1,83 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User selects any .heic file and clicks Convert: heic2any() rejects because the libheif decoder global is undefined; the rejection is unhandled, no file is ever downloaded, and the progress overlay (showProgress={max !== 0}) spins forever with no error message.",
+      "file": "next/src/components/tools/HeicConvertTool.js",
+      "line": 10,
+      "summary": "The heic-convert -> heic2any dependency swap removes the only bundled HEIC decoder: heic2any@0.0.4 declares zero dependencies and requires a separately loaded libheif.js at runtime, but nothing in the app loads libheif (it was only pulled in transitively by the removed heic-convert), so every conversion rejects."
+    },
+    {
+      "failure_scenario": "Even with a working libheif decoder, converting a HEIC produces PNG bytes (canvas.toBlob defaults to image/png when toType is undefined) delivered as photo.jpg in the single-file branch and as .jpg entries inside \"Converted JPGs.zip\" - the advertised JPG output never materializes.",
+      "file": "next/src/components/tools/HeicConvertTool.js",
+      "line": 18,
+      "summary": "heic2any is called with heic-convert's option shape (format: \"JPEG\", copied from the old frontend implementation in frontend/src/routes/tools/HeicConvertPage.js); heic2any's option is toType with a MIME value like \"image/jpeg\", so the format request is ignored and the canvas output defaults to PNG while every output file is named .jpg."
+    },
+    {
+      "failure_scenario": "User opens the metadata editor and selects any JPEG: the FileReader.onload callback throws before setFields/setInfo run, so no EXIF fields ever appear and no error is shown; the save path is broken the same way - saveImage calls piexif.insert(exifStr, info.dataURL) (line 76) on a base64 string, which also throws or produces corrupt output.",
+      "file": "next/src/components/tools/MetadataEditorTool.js",
+      "line": 26,
+      "summary": "piexif.load is handed the base64 data URL from FileReader.readAsDataURL (line 42), but piexifjs only parses binary JPEG strings (its splitIntoSegments throws \"Given data isn't JPEG.\" for any input not starting with the JPEG magic bytes), so the throw inside reader.onload is uncaught and the EXIF editor never renders fields for any file."
+    },
+    {
+      "failure_scenario": "User selects a PNG or GIF on the metadata editor page: piexif.load throws on the non-JPEG data inside the async onload callback (exception swallowed), so the tool shows nothing; even after the data-URL issue is fixed, non-JPEG inputs would still throw because the type check is too broad.",
+      "file": "next/src/components/tools/MetadataEditorTool.js",
+      "line": 17,
+      "summary": "The image branch accepts every image/* type (PNG, GIF, WebP, HEIC), but piexif can only parse JPEG, so any non-JPEG selection fails silently inside the FileReader callback with no error shown."
+    },
+    {
+      "failure_scenario": "Entering 60 MB at 8 Mbps (exactly 60 s) displays \"1m Instantly ;)\"; a 3599.6 s result displays \"59m 60s\" instead of \"1h\"; entering a negative size or speed in the number inputs (which accept minus signs) displays a nonsensical negative h/m/s string.",
+      "file": "next/src/components/tools/DownloadTimeCalculator.js",
+      "line": 12,
+      "summary": "format() emits wrong durations: the \"Instantly ;)\" fallback replaces any zero-second component even when hours/minutes are present, second rounding can reach 60 without carrying (\"59m 60s\"), and negative inputs produce \"-1h -1m -8s\"."
+    },
+    {
+      "failure_scenario": "User whose network or CSP blocks cdn.jsdelivr.net selects a file: the new Promise never settles, no fields appear, and no error is ever shown; the same pattern exists for the jsmediatags (line 44-49) and browser-id3-writer (line 84) loads, and repeated selections append duplicate script tags.",
+      "file": "next/src/components/tools/MetadataEditorTool.js",
+      "line": 21,
+      "summary": "The CDN script loader promise resolves only on onload - there is no onerror, timeout, or rejection - so if cdn.jsdelivr.net is slow, blocked (CSP, ad-blocker), or offline, the tool hangs forever with no feedback."
+    },
+    {
+      "failure_scenario": "User opens a valid zip, then selects a corrupt or non-zip file (the accept=\".zip\" hint does not prevent this): zipReader.getEntries() throws, setRichFiles never runs, and the header shows the corrupt file's name above the previous zip's file list with no error message.",
+      "file": "next/src/components/tools/UnzipFilesTool.js",
+      "line": 33,
+      "summary": "If the selected file is not a valid zip, unzip() rejects, the rejection is unhandled, and the UI is left inconsistent: zipFile already shows the new file's name while richFiles still displays the previous archive's contents."
+    },
+    {
+      "failure_scenario": "A user unzips several large archives in one session: each previous ZipReader/BlobReader stays open holding its decompression state, so memory is retained for every archive opened, and the module-level variables make the component non-reentrant for no reason.",
+      "file": "next/src/components/tools/UnzipFilesTool.js",
+      "line": 16,
+      "summary": "Module-level zipFileReader/zipReader are assigned but never read or closed: every new selection orphans the previous ZipReader (zip.js requires close() to release resources), and the singletons are dead state that nothing consumes."
+    },
+    {
+      "failure_scenario": "Zipping a folder of already-compressed files (e.g. JPEGs): the compressed output plus zip headers exceeds the uncompressed total, so the progress bar exceeds 100% mid-run and Progress renders e.g. \"57.3 MB of 50 MB\"; the final setProgressBytes(maxBytes) only papers over the mismatch at completion.",
+      "file": "next/src/components/tools/ZipFilesTool.js",
+      "line": 23,
+      "summary": "Progress counts bytes of compressed zip output (trackingStream) but Progress's max is maxBytes, the sum of uncompressed file sizes, so the percentage mixes units - it lags on compressible data and exceeds 100% on incompressible data - unlike the old frontend implementation which counted uncompressed bytes for the same bar."
+    },
+    {
+      "failure_scenario": "User on /tools clicks the \"Tools\" crumb at the top of the page: they are taken to /legal (the impressum/privacy/terms section) instead of staying on or returning to the tools index.",
+      "file": "next/src/app/(site)/(header-static)/tools/page.js",
+      "line": 18,
+      "summary": "The breadcrumb labeled \"Tools\" is a Link to /legal, so clicking the page's own breadcrumb navigates to the legal pages."
+    },
+    {
+      "failure_scenario": "Accessibility regression: screen-reader users lose the main landmark on the Quick Share page; maintenance cost: two leftover key hacks remain in the codebase that were already known not to fix the scroll bug they target.",
+      "file": "frontend/src/routes/QuickSharePage.js",
+      "line": 19,
+      "summary": "The page's <main> landmark is replaced with a plain <div> and a no-op key hack is added (a React key on a component's root element has no effect); Footer.js carries the same dead key hack with a comment admitting it \"didnt work\"."
+    },
+    {
+      "failure_scenario": "The devDependency is dead weight, and the intended typing for heic2any is absent - so the mismatched options object in HeicConvertTool (format instead of toType) receives no compile-time checking.",
+      "file": "next/package.json",
+      "line": 51,
+      "summary": "@types/heic-convert is added as a devDependency for the exact package this same change removes (heic-convert is no longer importable anywhere in next/), while the newly added heic2any gets no type coverage at all."
+    },
+    {
+      "failure_scenario": "Maintenance: changes to the hero section (e.g. the grid pattern) must be made in two components, and the hardcoded SVG pattern id \"tool-pattern\" would produce duplicate DOM ids if two ToolLayouts ever render on one page.",
+      "file": "next/src/components/ToolLayout.js",
+      "line": 12,
+      "summary": "ToolLayout duplicates the existing GenericToolPage component (identical hero/SVG-pattern markup, only the pattern id changed from a UUID to the hardcoded \"tool-pattern\"), creating a second copy of the tool page hero to maintain."
+    }
+  ],
+  "level": null
+}

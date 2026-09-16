@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Build the benchmark with WC_USE_DEVID (e.g. --enable-cryptocb) and no NO_HW_BENCH, and run it with no crypto device registered: BENCH_DEVID is defined so bench_aes_aad_options_wrap(bench_aesgcm, 1) now executes; wc_CryptoCb_AesGcmEncrypt (cryptocb.c:1160) returns WC_NO_ERR_TRACE(CRYPTOCB_UNAVAILABLE), wc_AesGcmEncrypt falls through to the software implementation (aes.c ~8691), and the AES-GCM rows are printed with BENCH_DEVID_GET_NAME(1) = 'HW' even though the cipher ran in software, corrupting HW/SW comparisons. Conversely, a registered device that returns a real error for GCM makes the benchmark print 'AesGcmSetKey failed, ret = ...' / 'bench_aesgcm failed: ...' rows that never appeared before this change.",
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3266,
+      "summary": "Adding defined(BENCH_DEVID) to the AES-GCM HW-bench condition makes bench_aesgcm(1) run on every WC_USE_DEVID crypto-callback build, and since wc_AesGcmEncrypt silently falls back to software when the callback returns CRYPTOCB_UNAVAILABLE, results computed in software get reported under the 'HW' label (or failure noise is printed) on devices that lack AES-GCM."
+    },
+    {
+      "failure_scenario": "Define the override via compiler flags (-DBENCH_DEVID_GET_NAME(u)=MyLabel(u)) in a software-only build: line 1832 redefines the macro to \"\", producing a 'BENCH_DEVID_GET_NAME redefined' diagnostic (a hard build failure with -Werror, common in CI) and silently discarding the custom label on every result row, defeating the purpose of the change.",
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 1824,
+      "summary": "The new #if !defined(BENCH_DEVID_GET_NAME) override guard wraps only the device-ID branch; the #else branch still unconditionally redefines BENCH_DEVID_GET_NAME, so an external definition — the exact use case this change adds — is clobbered on builds where none of WOLFSSL_ASYNC_CRYPT/WOLFSSL_CAAM/WC_USE_DEVICE is defined."
+    },
+    {
+      "failure_scenario": "The repository's own Renesas example configurations (IDE/Renesas/e2studio/RA6M4/common/user_settings.h and RZN2L/common/user_settings.h) define NO_SW_BENCH; building from them, the software AES-CCM row and software Curve25519 shared-secret row still run and print SW results alongside HW-only rows, so the benchmark output mixes software and hardware results and does not honor the flag the way the new guards on AES-CTR and Curve25519 keygen establish.",
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3313,
+      "summary": "The change adds NO_SW_BENCH guards to the AES-CTR and Curve25519-keygen software benches but leaves the adjacent software benchmarks (AES-CCM at line 3313, Curve25519 key agreement at line 3851, SM2 at line 3835) unguarded, so NO_SW_BENCH builds still execute those software benchmarks and the flag's suppression is inconsistent."
+    }
+  ],
+  "level": null
+}

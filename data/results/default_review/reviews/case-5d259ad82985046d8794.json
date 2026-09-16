@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 107,
+      "summary": "validate_task validator short-circuits with 'return self', disabling all task-mismatch validation; dead code below references the old 'self.run_config' field (renamed to 'run_config_properties') and would crash with AttributeError if reached",
+      "failure_scenario": "A TaskRunConfig with model_name='gpt-4', model_provider_name='openai', parented to task_A is accidentally parented (or re-parented) to task_B. No error is raised. When run_config() is called, it silently constructs a RunConfig with task=task_B (the wrong task), causing evaluation results to be attributed to the wrong task or the model to be invoked with wrong task instructions.",
+      "finding_id": "mf-dd06367fc035549da2ff"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/eval/base_eval.py",
+      "line": 44,
+      "summary": "run_config.prompt_id is never passed to adapter_for_task; the adapter internally creates a new RunConfig with the default prompt, silently ignoring any custom prompt_id configured in the eval's TaskRunConfig",
+      "failure_scenario": "A user configures a TaskRunConfig with prompt_id='simple_chain_of_thought' expecting chain-of-thought prompting. The eval runs but uses the default SIMPLE prompt instead. The eval scores are produced with the wrong prompt strategy, invalidating the comparison. No error or warning is emitted.",
+      "finding_id": "mf-771f4b825934f5436691"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/eval/eval_runner.py",
+      "line": 170,
+      "summary": "run_job catches all exceptions with a bare 'except Exception' and only prints to stdout, then returns False; no error details are persisted, no structured logging, and the user sees only a count of errors with no way to diagnose which jobs failed or why",
+      "failure_scenario": "A transient API rate-limit error causes 3 out of 50 eval jobs to fail. The progress shows 'errors: 3' but there is no record of which dataset items failed or what the specific errors were. The user must re-run the entire eval to reproduce, and still has no per-item error log.",
+      "finding_id": "mf-608826005abc0c364183"
+    },
+    {
+      "file": "libs/core/kiln_ai/datamodel/test_task.py",
+      "line": 84,
+      "summary": "RunConfigProperties(task=sample_task, ...) passes an invalid 'task' keyword argument; Pydantic v2 silently ignores extra fields, so the test passes but the copy-paste error from the old RunConfig API is masked",
+      "failure_scenario": "A developer copies this pattern elsewhere expecting 'task' to be a valid field on RunConfigProperties. The invalid field is silently ignored at runtime. If Pydantic's extra handling is ever changed to 'forbid', this test and any copied patterns would start raising ValidationError for the wrong reason.",
+      "finding_id": "mf-76f342c0eed46c26a30e"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 518,
+      "summary": "Discarded sycl::event from pr::uniform: GPU random threshold generation is asynchronous but its completion event is dropped; gen_random_thresholds returns a default (already-done) event, so downstream kernels may read random_bins_com before generation finishes.",
+      "failure_scenario": "gen_random_thresholds calls pr::uniform (device_engine_dpc.cpp:86) which submits oneapi::mkl::rng::generate to the GPU queue. The returned sycl::event is discarded at this line. The function returns sycl::event() (line 524). The caller at line 1921-1922 waits on this no-op event and then passes random_bins_com to find_best_split. On an out-of-order SYCL queue the GPU generation kernel and the find_best_split kernel can overlap, causing find_best_split to read partially written or stale random threshold values.",
+      "finding_id": "mf-5c9bbbb5c6ae6f12a446"
+    },
+    {
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_service_kernels_dpc.cpp",
+      "line": 245,
+      "summary": "Assertion uses ctx.selected_row_count_ * ctx.tree_count_ instead of ctx.selected_row_total_count_ * ctx.tree_in_block_; in distributed mode selected_row_count_ is a sentinel bad_val_, and tree_count_ is the total tree count while buffers are sized for tree_in_block_.",
+      "failure_scenario": "tree_order_lev_ is allocated as selected_row_total_count_ * tree_in_block_ (e.g. 256*32=8192). The assertion at line 245 checks selected_row_count_ * tree_count_. In non-distributed mode this is selected_row_total_count_ * tree_count_ (e.g. 256*100=25600), which fails whenever tree_count_ > tree_in_block_ (the common memory-constrained case). In distributed mode selected_row_count_ is never updated from its init value of bad_val_ (-1), making the assertion check a garbage product.",
+      "finding_id": "mf-d3b1d174e7ba3987a8f1"
+    },
+    {
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_service_kernels_dpc.cpp",
+      "line": 246,
+      "summary": "Same wrong-constant bug as line 245: tree_order_buf assertion uses selected_row_count_ * tree_count_ instead of selected_row_total_count_ * tree_in_block_.",
+      "failure_scenario": "Same root cause as finding at line 245 applied to the tree_order_buf assertion. Allocated size is selected_row_total_count_ * tree_in_block_; assertion checks a different product.",
+      "finding_id": "mf-0fbe94f2237a3cc7526b"
+    },
+    {
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 480,
+      "summary": "Return value of pr::uniform_without_replacement (sycl::event) is discarded in a loop; for non-philox engines the internal skip_ahead_gpu may submit untracked GPU work.",
+      "failure_scenario": "Each call to pr::uniform_without_replacement returns a sycl::event from a barrier kernel (device_engine_dpc.cpp:115-118) and also calls engine_.skip_ahead_gpu(count) which for state-based engines (mt2203, mrg32k3a, etc.) may submit a GPU skip operation whose event is discarded internally (skip_ahead_gpu returns void at device_engine.hpp:109-111). If a user selects a non-philox engine via the new set_engine_type API, the untracked skip operations can race with subsequent generate calls on the same device engine.",
+      "finding_id": "mf-e15dff7eb9b7011b4481"
+    },
+    {
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 510,
+      "summary": "Unused .to_host() copy: node_vs_tree_map is copied from device to host but the resulting host array is never read, wasting a device allocation and a D2H transfer per level.",
+      "failure_scenario": "The old code used node_vs_tree_map_list_host to read tree_map_ptr[node] for per-tree engine selection. The new code uses a single shared engine and never reads this array. The to_host() allocates device memory and copies data on every call to gen_random_thresholds (once per tree level). In a 100-tree forest with depth 10 this wastes ~1000 unnecessary device allocations and D2H copies.",
+      "finding_id": "mf-2f787e2432e17f3654f6"
+    },
+    {
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 378,
+      "summary": "Unused parameter engine_offset in gen_initial_tree_order: declared in the signature but never read in the function body, indicating incomplete refactoring from the old per-engine-list design.",
+      "failure_scenario": "The old code indexed rng_engine_list[engine_offset + node_idx] to select a per-node random engine. The new code uses a single device engine and ignores engine_offset entirely. The caller at line 1884 still passes iter as this argument, which is dead computation. No runtime failure, but the dead parameter obscures the fact that the old skip-ahead-per-tree logic (host_engine_collection with per-engine skip callback) was completely replaced without an equivalent skip-ahead-per-tree mechanism for the single device engine.",
+      "finding_id": "mf-73de30e527ce28d94529"
+    },
+    {
+      "file": "cpp/oneapi/dal/backend/primitives/sort/sort_dpc.cpp",
+      "line": 569,
+      "summary": "radix_sort_dpl overwrites its event variable each iteration and returns only the last row's event; if called with row_count > 1 on an out-of-order queue, earlier rows may not be complete when the caller waits on the returned event.",
+      "failure_scenario": "radix_sort_dpl loops over rows (line 563) and assigns radix_sort_event = oneapi::dpl::... on each iteration (line 569). The function returns radix_sort_event (line 580) which holds only the last row's event. Currently no caller invokes the multi-row overload with row_count > 1, so this is latent, but any future caller that sorts multiple rows and waits on the returned event would proceed with incomplete sorts on earlier rows.",
+      "finding_id": "mf-59122c9a7397c8673a9e"
+    }
+  ]
+}

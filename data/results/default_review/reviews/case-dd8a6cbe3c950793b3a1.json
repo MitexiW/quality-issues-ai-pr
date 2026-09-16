@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 68,
+      "summary": "Bare `except Exception: pass` silently swallows all errors in `get_macros()`, including AttributeError when `context.context._macros` does not exist (version mismatch, corrupted state, unexpected Context subclass)",
+      "failure_scenario": "If `_macros` is missing from the inner context (e.g., a Context subclass that shadows the attribute, or a refactoring that renames it), the function silently returns only built-in macros with no log entry, making the root cause undetectable without a debugger.",
+      "finding_id": "mf-cef43247e30358f1d9d4"
+    },
+    {
+      "file": "sqlmesh/lsp/main.py",
+      "line": 602,
+      "summary": "`triggered_by_at` check depends on client behavior for subsequent completion requests; some LSP clients clear `triggerCharacter` on re-filter requests, causing `insert_text` to change from `macro_name` to `@macro_name` mid-typing, which produces `@@macro_name` on insertion",
+      "failure_scenario": "User types `@` (triggers completion, triggered_by_at=True), then types `ea` to filter (VS Code sends a new request with triggerCharacter=undefined, triggered_by_at=False), then selects `@each` -- the insert_text sent is `@each` but the `@` is already on the line, producing `@@each`.",
+      "finding_id": "mf-aaa0f9db8044d3e0a727"
+    },
+    {
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 63,
+      "summary": "`get_macros()` accepts but never uses the `file_uri` parameter, giving a misleading API alongside `get_models()` and `get_keywords()` which both use `file_uri` to scope results",
+      "failure_scenario": "No crash, but a future caller passing a `file_uri` expecting file-scoped macro filtering (matching the behavior of get_models and get_keywords) silently gets all macros regardless of file, leading to incorrect completions.",
+      "finding_id": "mf-000c4a27071a30d5da59"
+    },
+    {
+      "file": "sqlmesh/lsp/context.py",
+      "line": 179,
+      "summary": "`@staticmethod` decorator combined with a parameter named `self` is misleading -- `self` has no special semantics for staticmethods and callers must explicitly pass the context; this design invites future bugs if a maintainer calls it as `instance.get_completions(uri, content)` expecting normal method binding",
+      "failure_scenario": "A maintainer adds a call `lsp_context_instance.get_completions(uri, content)` -- the URI is bound to the `self` parameter and content to `uri`, producing the wrong `AllModelsResponse` with no type-error warning since all parameters accept Optional[LSPContext] and Optional[URI].",
+      "finding_id": "mf-5d615f5d6ec319a1bce0"
+    },
+    {
+      "file": "vscode/extension/tests/completions.spec.ts",
+      "line": 59,
+      "summary": "Comment says 'Skip the macro completions test as regular checks because they are flaky' but neither `test.describe.skip` nor `test.skip()` is applied -- the flaky tests will run and may cause CI failures",
+      "failure_scenario": "CI runs `pnpm run test:e2e`, the macro completion tests execute, and due to their documented flakiness fail intermittently, blocking unrelated PRs from merging.",
+      "finding_id": "mf-38cf6c485080f4647746"
+    },
+    {
+      "file": "tests/lsp/test_completions.py",
+      "line": 95,
+      "summary": "Test assertion changed from `>` to `>=` weakens the guarantee that context-specific keywords are being added; the test now passes even if `get_keywords` returns only the base tokenizer keywords without any model-dialect augmentation",
+      "failure_scenario": "A future change breaks dialect-specific keyword loading so `get_keywords()` returns only `TOKENIZER_KEYWORDS`; the `>=` assertion passes (equal), hiding the regression that models would lose dialect-aware completions.",
+      "finding_id": "mf-890a7ef771f7530aa907"
+    }
+  ]
+}

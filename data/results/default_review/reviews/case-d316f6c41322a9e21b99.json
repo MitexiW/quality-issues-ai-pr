@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "src/enrichmcp/app.py",
+      "line": 105,
+      "summary": "The built-in data model exploration tool receives a description prefix telling the agent to call it after itself, creating a circular/contradictory instruction.",
+      "failure_scenario": "An EnrichMCP app is created with title 'My API'. The explore_my_api_data_model tool's final description becomes: 'This is a retriever for the My API server. Use it after calling explore_my_api_data_model. IMPORTANT: Call this tool FIRST...' The LLM agent sees conflicting ordering instructions -- the prefix says to use this tool only after calling explore_my_api_data_model, while the body says to call this tool first. The agent may delay calling the data-model tool (looking for a nonexistent prerequisite), loop, or ignore the FIRST instruction, degrading the quality of subsequent tool interactions.",
+      "finding_id": "mf-dbbc00174bc1de6c19a9"
+    }
+  ]
+}

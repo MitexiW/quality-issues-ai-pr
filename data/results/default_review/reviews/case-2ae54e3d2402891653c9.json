@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 510,
+      "summary": "Missing test file (react-router.spec.tsx) -- violates CLAUDE.md rule requiring tests alongside components",
+      "failure_scenario": "All 13 other JS framework docs in this directory have collocated .spec.tsx files. Without tests, regressions in the full onboarding flow (client setup, server setup, replay, feedback, profiling configs) for the React Router platform will not be caught by the test suite. CLAUDE.md lines 312-313 state: '5. ALWAYS colocate tests'.",
+      "finding_id": "mf-5dd36c15fb01f0a88cf4"
+    },
+    {
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 498,
+      "summary": "Missing featureFlagOnboarding in Docs export -- all 14 other JS framework docs include it",
+      "failure_scenario": "javascript-react-router is included in featureFlagOnboardingPlatforms (derived filter) so the sidebar will open for this platform, but the loaded docs module lacks featureFlagOnboarding. The FeatureFlagOnboardingLayout falls back to docsConfig.onboarding (line 41 of featureFlagOnboardingLayout.tsx), so users get generic onboarding instead of platform-specific feature flag setup instructions. Every other JS framework doc (react, nextjs, remix, vue, angular, astro, ember, gatsby, nuxt, solid, solidstart, svelte, sveltekit, tanstackstart-react) includes this config.",
+      "finding_id": "mf-1bc78d1f9da105634f70"
+    },
+    {
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 191,
+      "summary": "Unused import: 'Route' type imported but never referenced in getVerifySnippet",
+      "failure_scenario": "The verify snippet imports 'import type { Route } from \"./+types/error-page\"' but the Route type is never used in the loader or component body. This dead import appears in the rendered documentation, potentially confusing users about whether Route is needed. Low severity but unnecessary code in a user-facing snippet.",
+      "finding_id": "mf-ff53c84e0079e4c0e2af"
+    }
+  ]
+}

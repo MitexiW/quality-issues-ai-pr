@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "docker-compose.yml",
+      "line": 10,
+      "summary": "The PR adds OPENAI_API_KEY forwarding to Docker but never forwards LLM_PROVIDER, so the container always falls back to the gemini default and OpenAI-only deployments crash at startup",
+      "failure_scenario": "User follows the new README: exports LLM_PROVIDER=openai and OPENAI_API_KEY (no GEMINI_API_KEY), runs `docker compose up`. Neither docker-compose.yml's environment block nor Dockerfile's ENV block passes LLM_PROVIDER, so inside the container config.ts line 61 defaults to 'gemini', line 135 throws 'GEMINI_API_KEY not found' at module import, and the app never starts.",
+      "finding_id": "case-501f4049215a852666e2-f0001"
+    },
+    {
+      "file": "src/config.ts",
+      "line": 122,
+      "summary": "getModel sets compatibility 'strict' (OpenAI json_schema structured outputs) while every generateObject call sends maxTokens 1000, below OpenAI's documented minimum max_tokens of 2500 for gpt-4o-mini structured outputs, so OpenAI calls can be rejected with HTTP 400",
+      "failure_scenario": "LLM_PROVIDER=openai: dedup/evaluator/errorAnalyzer/queryRewriter/agent all call generateObject with the strict-mode model and maxTokens: 1000; OpenAI's API rejects json_schema requests whose max_tokens is below the model minimum for structured outputs, so every tool call fails with a 400 before producing any object.",
+      "finding_id": "case-501f4049215a852666e2-f0002"
+    },
+    {
+      "file": "src/tools/__tests__/dedup.test.ts",
+      "line": 19,
+      "summary": "The new provider-parameterized test suites never actually switch providers: tool modules and config constants (LLM_PROVIDER, model) are evaluated once at static-import time, before any beforeEach, and jest.resetModules() has no effect on already-imported bindings, so the 'with openai provider' tests silently exercise the startup provider (gemini by default)",
+      "failure_scenario": "CI sets GEMINI_API_KEY but no OPENAI_API_KEY and leaves LLM_PROVIDER unset; dedup.ts's `const model = getModel('dedup')` runs at import with provider 'gemini'. The openai describe-block then sets process.env.LLM_PROVIDER='openai' in beforeEach, but dedupQueries still closes over the gemini model — the openai suites pass while making gemini API calls, so any OpenAI-specific regression (e.g. the strict-mode maxTokens issue above) ships undetected. Same defect in error-analyzer.test.ts, evaluator.test.ts, and query-rewriter.test.ts.",
+      "finding_id": "case-501f4049215a852666e2-f0003"
+    },
+    {
+      "file": "src/config.ts",
+      "line": 136,
+      "summary": "The import-time throw for a missing OPENAI_API_KEY cannot be rescued by the new tests' env management, because config.ts evaluates and throws during module import, before any beforeEach hook can set process.env",
+      "failure_scenario": "Developer has LLM_PROVIDER=openai in .env (dotenv loads it at import) and exports OPENAI_API_KEY only when running the server; running `npm test` imports config.ts in all five test files, line 136 throws 'OPENAI_API_KEY not found' during import, and every suite fails before its process.env-restoring beforeEach ever runs — the tests' apparent self-configuration is impossible.",
+      "finding_id": "case-501f4049215a852666e2-f0004"
+    },
+    {
+      "file": "src/config.ts",
+      "line": 17,
+      "summary": "validateModelConfig bounds temperature to [0,1], but Gemini models support temperature up to 2.0, and the temperature field is never passed to generateObject anywhere in the codebase, so the new validation guards dead configuration with a wrong ceiling",
+      "failure_scenario": "Cost: if temperature is ever wired through (the only reason to validate it), a valid gemini setting like temperature 1.5 throws 'Invalid temperature' at startup; meanwhile the 0.1/0.7 temperature values remain silently ignored by every LLM call today.",
+      "finding_id": "case-501f4049215a852666e2-f0005"
+    }
+  ]
+}

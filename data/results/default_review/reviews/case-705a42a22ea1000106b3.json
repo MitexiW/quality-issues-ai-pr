@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/cli/utils.py",
+      "line": 276,
+      "summary": "Crew detection logic silently breaks support for the class-based factory pattern (callable with crew() method) -- only module-level Crew instances are now found",
+      "failure_scenario": "A user's crew.py defines `class MyCrew: def crew(self): return Crew(...)` (the previous supported pattern). get_crew() iterates module attributes, finds MyCrew (a class, not a Crew instance), isinstance(attr, Crew) is False, so it is skipped. No matching attribute is ever found, the function returns None, and reset_memories_command raises ValueError('No crew found.'). Previously, callable(MyCrew) was True, hasattr(MyCrew, 'crew') was True, and MyCrew().crew() returned the Crew instance successfully.",
+      "finding_id": "mf-531a5ad17d302aea4f0b"
+    },
+    {
+      "file": "src/crewai/cli/utils.py",
+      "line": 295,
+      "summary": "ImportError handler uses parameter name 'crew_path' instead of full OS path 'crew_os_path', degrading diagnostic error messages",
+      "failure_scenario": "A user's crew.py has a syntax error or missing import. The except block formats the error as 'Error importing crew from crew.py: No module named X'. The old code used the reassigned crew_path variable (full path like '/home/user/myproject/crew.py'), which told the user exactly which file failed. Now the message shows only the basename parameter, so if multiple crew.py files exist in different directories, the user cannot identify which one caused the error.",
+      "finding_id": "mf-0185a8b7a80088fefb0f"
+    },
+    {
+      "file": "docs/concepts/memory.mdx",
+      "line": 523,
+      "summary": "Documentation typo: 'KNOWLEDEGE' is misspelled (extra 'E' before the final 'E') -- should be 'KNOWLEDGE'",
+      "failure_scenario": "Users reading the docs see 'Reset KNOWLEDEGE storage' in the CLI options table, which is confusing and looks unprofessional. The actual CLI option and code use the correct spelling 'knowledge'. This has no functional impact but misleads readers.",
+      "finding_id": "mf-8c07d080fcbdec1d43c9"
+    }
+  ]
+}

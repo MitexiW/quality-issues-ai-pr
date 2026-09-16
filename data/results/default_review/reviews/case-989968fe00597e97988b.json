@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "mlflow/dspy/wrapper.py",
+      "line": 123,
+      "summary": "Removal of reshape(-1) causes 0-D numpy arrays to crash with TypeError instead of being handled gracefully",
+      "failure_scenario": "Calling model.predict(np.array(42)) passes the supported_input_types check, reaches line 123 where len(np.array(42)) raises TypeError: len() of unsized object. The old code's reshape(-1) converted 0-D to 1-D before the length check.",
+      "finding_id": "mf-e3a269399aae152c6c78"
+    }
+  ]
+}

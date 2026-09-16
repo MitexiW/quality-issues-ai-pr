@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "sqlmesh/core/loader.py",
+      "line": 345,
+      "summary": "SeedModel seed file tracking removed -- modifications to seed CSV files are no longer detected by the loader's change-tracking mechanism",
+      "failure_scenario": "A user edits a seed CSV file (e.g., adds new rows to waiter_names.csv) without touching the corresponding SQL model file. The loader's reload_needed() returns False because the seed path is no longer tracked via _track_file(), so stale seed data is used in subsequent runs until the SQL model file itself is touched.",
+      "finding_id": "mf-39d4f55abcac95d44bf0"
+    },
+    {
+      "file": "sqlmesh/core/loader.py",
+      "line": 561,
+      "summary": "Cached SQL model paths are added to the models dict without duplicate FQN detection, unlike pool-loaded paths which check before insertion",
+      "failure_scenario": "Two SQL model files define models with the same FQN (e.g., 'db.my_model'), both are cached from a prior load. On the next load, cache.get() returns both. The first cached model is inserted into models at line 564, then the second silently overwrites it at the same line -- no ConfigError is raised. The pool-loaded path at line 603 does check for duplicates, but the cached-only path at lines 561-565 does not.",
+      "finding_id": "mf-b3f02a8dbb487a684753"
+    },
+    {
+      "file": "sqlmesh/core/loader.py",
+      "line": 150,
+      "summary": "except ConfigError block in get_variables() is unreachable dead code -- dict.get() never raises ConfigError",
+      "failure_scenario": "The old code called self.config.get_gateway() which raised ConfigError for missing gateways. The new code accesses _config_essentials['gateways'].get(gateway_name), where 'gateways' is a plain Dict[str, GatewayConfig]. Dict.get() returns None for missing keys, never raising ConfigError. The except block is dead code, and the old behavior of raising ConfigError for truly missing gateways is silently lost -- it now falls through to gateway=None and issues a warning instead.",
+      "finding_id": "mf-c5aa54c74a73ae9fb77b"
+    },
+    {
+      "file": "sqlmesh/core/loader.py",
+      "line": 173,
+      "summary": "_variables_by_gateway dict is declared in Loader.__init__ but never populated -- dead state left from the old _get_variables caching implementation",
+      "failure_scenario": "self._variables_by_gateway is initialized as {} on line 173 but the old _get_variables method that populated it was removed. The new get_variables() module-level function does not cache by gateway, making this instance attribute dead state that wastes memory and confuses future readers.",
+      "finding_id": "mf-2a41c1e7e15a9550712d"
+    },
+    {
+      "file": "sqlmesh/dbt/loader.py",
+      "line": 365,
+      "summary": "DbtLoader._Cache.get() does not set model._path on returned models, unlike SqlMeshLoader._Cache.get() which does",
+      "failure_scenario": "Currently get() is not called in the DbtLoader flow (it uses get_or_load_models). If future code calls cache.get(path) directly, returned models will have model._path unset (None or stale). This causes downstream code that reads model._path (e.g., console logging at console.py:2490, context.py:502) to fail or produce wrong output.",
+      "finding_id": "mf-406b2a7a6a811b37880e"
+    },
+    {
+      "file": "sqlmesh/utils/process.py",
+      "line": 62,
+      "summary": "create_process_pool_executor passes max_workers=None to ProcessPoolExecutor when MAX_FORK_WORKERS is None, which is correct, but the type signature declares max_workers as t.Optional[int] while the condition max_workers == 1 evaluates False for None -- this is intentional but non-obvious and fragile if MAX_FORK_WORKERS defaults change",
+      "failure_scenario": "On a system where hasattr(os, 'fork') is True but sched_getaffinity is unavailable, MAX_FORK_WORKERS is set to None in constants.py line 43-44. create_process_pool_executor is called with max_workers=None. max_workers == 1 is False, IS_WINDOWS is False, so ProcessPoolExecutor(max_workers=None) is created. This uses all CPUs. The None-vs-1 comparison is correct but relies on Python's behavior that None != 1; a refactor that changes the condition to max_workers <= 1 would incorrectly use SynchronousPoolExecutor when max_workers is None.",
+      "finding_id": "mf-04073e2bce80ecc9d2ba"
+    },
+    {
+      "file": "sqlmesh/core/loader.py",
+      "line": 584,
+      "summary": "default_catalog_per_gateway is included in model_loading_defaults dict and unpacked into load_sql_based_models -- this works, but the key name default_catalog_per_gateway shadows the explicit parameter in load_sql_based_models and also flows into **loader_kwargs; if load_sql_based_models ever stops accepting it as a named parameter, it would silently land in loader_kwargs and bypass type checking",
+      "failure_scenario": "If load_sql_based_models signature changes (e.g., default_catalog_per_gateway is removed), this kwarg would silently flow into **loader_kwargs instead of raising TypeError. The wrong overload resolution could pass the value to model constructors that don't expect it, causing subtle bugs.",
+      "finding_id": "mf-807b1ee07eeacdb62155"
+    }
+  ]
+}

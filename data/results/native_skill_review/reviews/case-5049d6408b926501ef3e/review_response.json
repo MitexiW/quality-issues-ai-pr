@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Parse a program whose subroutine declares `integer :: beta, beta_var_0` (beta is in the now-fixed KEYWORDS_TO_AVOID set, so it is renamed to `beta_var_0` in ast_desugaring.py:2369, while the distinct, non-colliding `beta_var_0` keeps its name). Both declarations and all their references end up named `beta_var_0` in the same scope, so the SDFG builder merges the two variables and `beta = 1.0; beta_var_0 = 2.0` produces wrong results (or a duplicate-declaration build error). Same collision arises when a colliding `d`'s first rename yields `d_var_0` in a scope that also declares a variable literally named `d_var_0`. Before this change the transform was disabled, so no renaming ever ran.",
+      "file": "dace/frontend/fortran/fortran_parser.py",
+      "line": 2575,
+      "summary": "Re-enabling assign_globally_unique_variable_names can give two distinct variables in the same scope the same name, because generated '{name}_var_{COUNTER}' names are never checked against existing identifiers or kept entry-point argument names."
+    },
+    {
+      "failure_scenario": "Fortran `if (z'80000000' .lt. 0) then ... endif`: _const_eval_basic_type now folds the condition to 2147483648 < 0 = .false., so prune_branches deletes the branch, while Fortran semantics (z'80000000' = -2147483648 as int32) take the branch — a live branch is silently eliminated. Likewise `x .eq. z'80000000'` with int32 x = -2147483648 becomes an int32-vs-int64 comparison that is false instead of true. Previously (numpy < 1.24) these wrapped to the correct negative value; on numpy >= 1.24 they raised OverflowError, so the old behavior was never a silently wrong result.",
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 626,
+      "summary": "Hex BOZ constants are now always evaluated as int64, so literals with bit 31 set (z'80000000', z'FFFFFFFF') become large positive values instead of Fortran's two's-complement int32 bit-pattern value in default-integer contexts, silently changing results instead of the previous crash."
+    },
+    {
+      "failure_scenario": "test_fortran_frontend_allocated_nested (line 286) and test_fortran_frontend_bound_allocatable_offsets (intrinsic_bound_test.py:170) never run. The renaming pass gives interface-block dummy names (e.g. 'data' in the INTERFACE of allocated_test_nested) and the implementation's dummy names different '_var_N' suffixes, and the test body still calls `sdfg(res=res, __f2dace_A_data_d_0_s_0=0)` with pre-rename connector names — so any regression introduced or exposed by re-enabling the transform at fortran_parser.py:2575 in allocatable/bound handling is masked rather than fixed or tracked.",
+      "file": "tests/fortran/intrinsic_basic_test.py",
+      "line": 286,
+      "summary": "Two previously-live CI tests for nested ALLOCATED and allocatable-bound intrinsics in the internal-AST frontend are unconditionally skipped, hiding failures in name-based argument matching that the newly enabled variable renaming directly perturbs."
+    },
+    {
+      "failure_scenario": "`@pytest.mark.skip('Segfaults in Python 3.9, works in Python 3.12')` has no version condition, so test_minimal never runs anywhere. The config-injection feature (inject_const_evals / ConstTypeInjection) loses its sole functional coverage, and the Python 3.9 segfault the message documents (memory unsafety in the frontend) stays masked instead of being fixed or tracked.",
+      "file": "tests/fortran/array_dims_config_injector_test.py",
+      "line": 19,
+      "summary": "The only test covering ConstTypeInjection config injections is skipped unconditionally, even on Python 3.12 where per the skip message it works."
+    },
+    {
+      "failure_scenario": "The test asserting `d[0] == int(\"000000ffffffffff\", 16)` for `int(z'000000ffffffffff', i8)` — the exact pattern the np.int32-to-np.int64 change at ast_desugaring.py:626 was made for — never executes, leaving the new int64 path (including its interaction with INT(...) kind handling and 16-hex-digit values) untested.",
+      "file": "tests/fortran/non-interactive/fortran_int_init_test.py",
+      "line": 11,
+      "summary": "The rewritten int-init test that specifically exercises the new int64 hex-constant evaluation is skipped, so the motivating production change is never verified."
+    },
+    {
+      "failure_scenario": "create_singular_sdfg_from_string(sources, 'main') returns the top-level SDFG for 'main' itself; there is no nested SDFG named '*test_function*', so the loop at lines 33-38 never matches, the `sdfg = node.sdfg; break` branch is unreachable, and the parent-detachment lines (39-42, written for detaching a nested SDFG) are no-ops on the top-level SDFG. The test's structure misleads maintainers about what is validated and leaves the pointer-translation path (p_area => s%w) without any execution or result assertion.",
+      "file": "tests/fortran/non-interactive/pointers_test.py",
+      "line": 36,
+      "summary": "Dead code left behind: the rewritten test still searches for a NestedSDFG whose name contains 'test_function', which can never exist in the new single-subroutine program."
+    },
+    {
+      "failure_scenario": "The helper (and the `ParseConfig` / `create_internal_ast` imports that only it uses, line 8) remain in the file with no caller, adding dead code and unused imports that future maintainers must reason about.",
+      "file": "tests/fortran/array_dims_config_injector_test.py",
+      "line": 12,
+      "summary": "construct_internal_ast is now dead code — defined but never called after the test was rewritten to use create_singular_sdfg_from_string directly."
+    }
+  ],
+  "level": null
+}

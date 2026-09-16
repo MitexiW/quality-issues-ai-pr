@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/connections/eternalai_connection.py",
+      "line": 144,
+      "summary": "KeyError crash when config dict lacks 'chain_id' key due to bracket access instead of .get()",
+      "failure_scenario": "Load any agent config whose 'eternalai' connection block omits the 'chain_id' field (validate_config does not require it, only 'model'). Call generate_text via generate-text action. The fallback chain_id = None or self.config['chain_id'] raises KeyError because bracket access does not return None for missing keys -- only .get() does.",
+      "finding_id": "mf-fc83a81244d98cd19bc0"
+    },
+    {
+      "file": "src/connections/eternalai_connection.py",
+      "line": 163,
+      "summary": "Bare 'except:' swallows BaseException subclasses including KeyboardInterrupt and SystemExit",
+      "failure_scenario": "During json.dumps() of completion.onchain_data (line 162), a user presses Ctrl+C to stop the agent loop. The KeyboardInterrupt is caught by the bare 'except:' on line 163, logged at info level, and execution continues instead of propagating the interrupt. The agent does not stop.",
+      "finding_id": "mf-cadc151e6e21ce6aefd9"
+    },
+    {
+      "file": "src/connections/eternalai_connection.py",
+      "line": 137,
+      "summary": "chain_id parameter added to generate_text signature but never exposed in the registered action parameters, making it unreachable through normal dispatch",
+      "failure_scenario": "Callers using the standard action dispatch (connection_manager.perform_action -> EternalAIConnection.perform_action -> generate_text) can never supply chain_id because the generate-text action registered at lines 48-55 does not list chain_id as a parameter, and connection_manager only maps required parameters from positional args to kwargs. The chain_id parameter will always be None, falling through to self.config['chain_id'] (the bug at line 144).",
+      "finding_id": "mf-5d27ebb328b436f74e6b"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run `npm run build` (or `npm ci`/`npm install`, which now run the new `prepare: npm run build` script, or the explicit 'Build TypeScript' step in the new npm-publish workflow): TypeScript reports error TS6059 \"File 'package.json' is not under 'rootDir' './src'\" because the import added by this change (enabled by the newly added resolveJsonModule) pulls package.json into the program as an input file outside rootDir. tsc exits non-zero, so npm ci fails in both the test.yml and npm-publish.yml workflows, npm publish never runs, and contributors cannot install dependencies.",
+      "file": "src/cli.ts",
+      "line": 4,
+      "summary": "Importing '../package.json' while tsconfig sets rootDir './src' makes tsc fail with TS6059, breaking the build and every script that triggers it."
+    },
+    {
+      "failure_scenario": "After the build emits only dist/agent.js, dist/cli.js, dist/config.js, dist/server.js, dist/test-duck.js, dist/types.js and dist/tools/**, publishing the package (per the new npm-publish workflow) and running `require('node-deepresearch')` or `import 'node-deepresearch'` throws MODULE_NOT_FOUND for dist/index.js — the published package is unusable as a library, and the `types` field points at a nonexistent dist/index.d.ts.",
+      "file": "package.json",
+      "line": 4,
+      "summary": "main/types are changed to dist/index.js and dist/index.d.ts, but no src/index.ts exists anywhere in the repo, so the built package has no entry point."
+    },
+    {
+      "failure_scenario": "A user runs `npm install -g node-deepresearch` after release; because package.json has no \"bin\" entry (verified by grep), no `deepresearch` executable is installed, and `npx node-deepresearch` fails with 'command not found'. The only way to reach the CLI is manually running `node node_modules/node-deepresearch/dist/cli.js`, making the entire CLI addition (and its tests and publish workflow) unreachable through the published artifact.",
+      "file": "src/cli.ts",
+      "line": 1,
+      "summary": "The new CLI (shebang, commander program, dedicated tests, publish workflow) is never exposed via a package.json 'bin' field, so the published package installs no deepresearch command."
+    },
+    {
+      "failure_scenario": "`deepresearch -t 10abc \"query\"` is accepted with a budget of 10 tokens (parseInt('10abc') === 10, isNaN false), so getResponse exits its loop after the first LLM call and returns a low-quality answer the user did not ask for. `deepresearch -t 0 \"query\"` or `-t -5` makes the `while (getTotalUsage() < tokenBudget)` loop in agent.ts never execute, skipping all research and falling straight into the 'beast mode' ungrounded single-shot answer. Same defect on the -m/--max-attempts option (line 19).",
+      "file": "src/cli.ts",
+      "line": 14,
+      "summary": "parseInt-based validation accepts garbage-suffixed, zero, and negative token budgets, silently truncating them instead of rejecting."
+    },
+    {
+      "failure_scenario": "The mock factory is dead code: all three tests run `ts-node src/cli.ts` in child processes that load the real ./agent module. The mock gives false confidence that agent calls are stubbed — the moment a test passes an actual query (the obvious next test case for the query argument and answer output), the spawned CLI will invoke the real LLM provider and search APIs from CI (network calls, API cost, flakiness) instead of the mocked response.",
+      "file": "src/__tests__/cli.test.ts",
+      "line": 10,
+      "summary": "jest.mock('../agent') only patches the jest process module registry, but every test spawns the CLI with execAsync as a separate ts-node child process, so getResponse is never actually mocked."
+    },
+    {
+      "failure_scenario": "`deepresearch -v \"query\"` behaves byte-for-byte identically to `deepresearch \"query\"` (the agent logs step progress unconditionally regardless of the flag), so users who opt in to detailed progress get nothing extra and the advertised option is a no-op — a dead option that must be maintained or removed.",
+      "file": "src/cli.ts",
+      "line": 23,
+      "summary": "The -v/--verbose option is declared and documented as 'Show detailed progress' but is never read anywhere in the action handler."
+    },
+    {
+      "failure_scenario": "On a cold CI runner, each `ts-node src/cli.ts` invocation must type-check and compile agent.ts's dependency graph (ai SDK, @ai-sdk/google, zod, duck-duck-scrape, undici) before commander even prints --version/--help; three such spawns run sequentially with no timeout option passed to execAsync. When any single spawn exceeds jest's default testTimeout of 5000 ms, the test fails with 'Exceeded timeout of 5000 ms for a test' even though the CLI itself is fine, making the new CLI tests flaky in CI.",
+      "file": "src/__tests__/cli.test.ts",
+      "line": 22,
+      "summary": "The execAsync spawns have no timeout while each cold-starts ts-node compiling the full agent import graph, so the suite can trip jest's 5-second default per-test timeout."
+    }
+  ],
+  "level": null
+}

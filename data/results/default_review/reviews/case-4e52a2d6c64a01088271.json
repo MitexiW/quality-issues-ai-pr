@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "modules/userId/index.ts",
+      "line": 1167,
+      "summary": "enforceStorageTypeRule does strict string comparison against storage.type but the type can contain &-separated values (e.g. 'cookie&html5'), causing every storage access to be flagged as a mismatch",
+      "failure_scenario": "User configures userSync.userIds with storage.type = 'cookie&html5' and enforceStorageType = true. When the submodule writes to cookie storage, params[ACTIVITY_PARAM_STORAGE_TYPE] is 'cookie', but submoduleConfig.storage.type is 'cookie&html5'. The !== comparison evaluates true, returning {allow: false} and blocking a valid write. The existing getConfiguredStorageTypes utility (line 907) already splits on &-separators, but enforceStorageTypeRule does not use it.",
+      "finding_id": "mf-75ab62469637991e532a"
+    },
+    {
+      "file": "modules/userId/index.ts",
+      "line": 1207,
+      "summary": "enforceStorageTypeRule is never unregistered when userSync.userIds is removed from config or when init() is called again, leaving a dangling activity control rule with stale config snapshot that can incorrectly deny storage access",
+      "failure_scenario": "1) Set config: {userSync: {userIds: [{name: 'uid2', storage: {type: 'html5'}}], enforceStorageType: true}}. The rule is registered, blocking cookie writes for uid2. 2) Call resetUserIds(). This calls config.setConfig({userSync: {}}) then init(config) which creates a new closure. The old rule's unregister handle is lost in the previous init() scope — it can never be unregistered. 3) Set new config: {userSync: {userIds: [{name: 'uid2', storage: {type: 'cookie'}}], enforceStorageType: true}}. The old rule still has enforceStorageType=true with the old config snapshot (html5), so it returns {allow: false} for cookie writes. The new rule also runs but {allow: false} from any same-priority rule causes isActivityAllowed to return false immediately, so cookie writes are permanently blocked despite the new config allowing them.",
+      "finding_id": "mf-c7816302bb3f4c136351"
+    }
+  ]
+}

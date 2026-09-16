@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "plain-dev/plain/dev/requests.py",
+      "line": 140,
+      "summary": "request.data.dict() crashes for JSON POST because request.data returns a plain dict from json.loads(), not a QueryDict with a .dict() method",
+      "failure_scenario": "A JSON POST request (Content-Type: application/json) triggers the dev middleware to call request_as_dict(). At line 140, request.data.dict() raises AttributeError: 'dict' object has no attribute 'dict', crashing the request-logging path.",
+      "finding_id": "mf-a2c5822a062ca2202d63"
+    },
+    {
+      "file": "plain/plain/csrf/middleware.py",
+      "line": 367,
+      "summary": "json.JSONDecodeError from request.data.get() bypasses the UnreadablePostError handler in the CSRF middleware, causing a 500 error instead of a 403",
+      "failure_scenario": "A POST request with Content-Type: application/json and an invalid JSON body reaches a CSRF-protected view. request.data.get('_csrftoken', '') at line 367 triggers _load_data_and_files(), which calls json.loads(self.body) and raises json.JSONDecodeError on malformed JSON. The except UnreadablePostError at line 368 does not catch json.JSONDecodeError, so the exception propagates to _get_csrf_response which only catches RejectRequest, resulting in an unhandled 500 error instead of the expected 403 response.",
+      "finding_id": "mf-97ccae07d6a17abb4d7c"
+    },
+    {
+      "file": "plain/plain/http/request.py",
+      "line": 380,
+      "summary": "Stale comment in _load_data_and_files still references old attribute names 'self.POST' and 'self._post' which no longer exist after the rename",
+      "failure_scenario": "No runtime failure, but the outdated comment at lines 380-383 ('self.POST, set self._post and self._file to prevent attempts to parse POST data again') misleads future maintainers about the actual attributes (self.data, self._data, self._files) that _mark_post_parse_error sets.",
+      "finding_id": "mf-2bf843ae1aecde330e21"
+    }
+  ]
+}

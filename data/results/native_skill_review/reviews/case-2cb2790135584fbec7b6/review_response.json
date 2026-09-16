@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A caller stores cache['key'] = {'ips': ('1.2.3.4', 'A')} (tuple) or a set/bytes/datetime value through the public Cache class, then close() -> sync(): json.dump raises 'TypeError: Object of type tuple/set/bytes is not JSON serializable'; open(...,'w') has already truncated the cache file, __changed stays True, the exception also fires from __del__ during GC ('Exception ignored'), and the previous file contents are destroyed. Pickle serialized all of these types before the change.",
+      "file": "ddns/cache.py",
+      "line": 72,
+      "summary": "sync() now serializes with json.dump, which raises an uncaught TypeError for any value pickle used to handle (tuple keys, set/bytes/datetime values), and because __changed is only reset after the write block, every later sync (including close()/__del__) retries and fails so the cache is never persisted."
+    },
+    {
+      "failure_scenario": "User upgrades from a version that wrote ddns.<md5>.cache with pickle; on the first run load() fails with JSONDecodeError -> ValueError branch -> clear() + __changed=True, and at process exit close()->sync() overwrites the file with {}. Every configured domain then triggers a redundant dns.set_record API call on the first post-upgrade run (provider rate-limit/quota impact), which is exactly what the cache existed to prevent, and the old data is unrecoverable.",
+      "file": "ddns/cache.py",
+      "line": 54,
+      "summary": "Existing users' pickle-format cache files are silently destroyed on upgrade: json.load raises JSONDecodeError on the legacy binary data, the new 'except ValueError: pass' swallows it, clear() marks the cache changed, and the next sync() overwrites the legacy file, losing all cached DNS records."
+    },
+    {
+      "failure_scenario": "Cache stores ('a','b') as a value or uses an int/None key: after sync() and a restart, load() returns ['a','b'] and the key as '42'/'null', so cache.get(42) misses and cache.get(key) == ('a','b') never matches; tuple keys additionally crash the write with TypeError. The previous pickle format round-tripped these types unchanged.",
+      "file": "ddns/cache.py",
+      "line": 47,
+      "summary": "The pickle-to-JSON switch silently changes data types on a sync/load round trip that pickle preserved exactly: tuple values come back as lists and non-string keys (int/float/bool/None) come back as strings, so lookups and equality checks against the original types fail after a reload."
+    },
+    {
+      "failure_scenario": "Each test run permanently leaves ddns.test_hash_123.cache and a ddns_test_nonexistent_*.cache file in the global temp dir; a later run loads the leftover (possibly stale or >72h-old) data, parallel CI runs of the same suite share the same fixed file, and on a multi-user host a 0600 file of that name owned by another user makes cache.close()'s open() raise PermissionError, failing the test.",
+      "file": "tests/test_cache.py",
+      "line": 520,
+      "summary": "New tests pollute the shared system temp directory: test_cache_new_temp_file uses the fixed name ddns.test_hash_123.cache that cache.close() writes and nothing ever removes (so leftover data is re-read by later runs and the file is shared across concurrent runs), and test_cache_new_nonexistent_file likewise leaves its tempfile.mktemp file behind because close() creates it via sync()."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "bentofile.yaml contains 'args: {model_name: deepseek-ai/DeepSeek-V3, gpu: 4}' and the user runs 'bentoml build --arg model_name=meta-llama/Llama-3.3-70B-Instruct --arg gpu=4' (the documented override workflow). The CLI callback set_build_args puts {model_name, gpu} into BentoMLContainer.bento_arguments, then __attrs_post_init__ executes set_arguments(**yaml_args, **cli_args) — Python raises TypeError: set_arguments() got multiple values for keyword argument 'model_name' instead of the command-line value taking precedence, so the build crashes before it starts. The fix is a real dict merge, e.g. set_arguments(**{**BentoMLContainer.bento_arguments.get(), **self.args}) with the CLI dict last.",
+      "file": "src/bentoml/_internal/bento/build_config.py",
+      "line": 892,
+      "summary": "set_arguments(**self.args, **BentoMLContainer.bento_arguments.get()) raises TypeError on duplicate keys instead of merging with CLI precedence as the comment claims"
+    },
+    {
+      "failure_scenario": "bentofile.yaml contains any non-empty 'args:' section and the user runs 'bentoml build --name mybento' (or passes --label or programmatic name/labels). from_file runs __attrs_post_init__ once, leaving BentoMLContainer.bento_arguments = {yaml keys}. build_bentofile then calls attr.evolve(build_config, ...) at src/bentoml/bentos.py:440, which re-instantiates BentoBuildConfig and re-runs __attrs_post_init__; set_arguments(**yaml, **container) now has every YAML key in both mappings and raises TypeError: set_arguments() got multiple values for keyword argument — even though no CLI --arg was ever given. Similarly, two build_bentofile/from_file calls in one process either crash on shared keys or silently let the second bento inherit the first bento's args because the previous merged dict is never reset.",
+      "file": "src/bentoml/_internal/bento/build_config.py",
+      "line": 892,
+      "summary": "The merge mutates the process-global bento_arguments container non-idempotently, so a second __attrs_post_init__ run (attr.evolve or a second build in one process) re-merges the already-merged dict and crashes with duplicate keyword arguments"
+    }
+  ],
+  "level": null
+}

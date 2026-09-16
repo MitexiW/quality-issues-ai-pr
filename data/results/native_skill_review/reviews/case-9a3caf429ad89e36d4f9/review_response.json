@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The docker Python package is installed, DOCKER_API_VERSION is set in the environment (docker-py then skips the from_env() version handshake, which is the only place connection errors get wrapped into DockerException), and the daemon is not running. docker.from_env() succeeds without contacting the daemon, then client.ping() raises requests.exceptions.ConnectionError, which escapes _is_docker_available() and propagates out of MagenticOne.__init__, crashing the constructor with an unrelated stack trace instead of issuing the warning and returning a LocalCommandLineCodeExecutor — the exact scenario the fallback was written to handle.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 46,
+      "summary": "_is_docker_available() catches only DockerException, but client.ping() raises requests.exceptions.ConnectionError when the daemon is unreachable, so MagenticOne construction can crash instead of falling back to the local executor."
+    },
+    {
+      "failure_scenario": "On a machine with the docker package installed but no running daemon and DOCKER_API_VERSION set, pytest evaluates docker_tests_enabled() during collection (skipif on line 46); client.ping() raises requests.exceptions.ConnectionError, which propagates out of the marker evaluation and aborts collection of the whole tests/teams run rather than skipping. test_docker_availability_check (line 73) errors the same way at runtime despite its docstring claiming it 'should pass regardless of Docker availability'.",
+      "file": "python/packages/autogen-ext/tests/teams/test_magentic_one.py",
+      "line": 46,
+      "summary": "The new docker_tests_enabled() helper catches only DockerException and is evaluated by pytest.mark.skipif at collection time, so an uncaught requests.exceptions.ConnectionError from client.ping() aborts the entire test session with a collection error instead of skipping the Docker test."
+    },
+    {
+      "failure_scenario": "A long-running service constructs MagenticOne(client) repeatedly while Docker is available: each task run starts an autogen-code-exec-* container on first code execution, and since MagenticOneGroupChat exposes only reset() (it never stops participants' executors) and CodeExecutorAgent never propagates stop, every container keeps running and consuming resources until the process exits (cleanup is registered only via asyncio_atexit in _docker_code_executor.py). The previous default, LocalCommandLineCodeExecutor, held no external resources, so this leak is introduced by the default-executor change.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 56,
+      "summary": "The default-constructed DockerCommandLineCodeExecutor is never exposed or stopped through the team API, so its container is only cleaned up by asyncio_atexit at process exit."
+    },
+    {
+      "failure_scenario": "Docker is running so _is_docker_available() returns True, but DockerCommandLineCodeExecutor() raises during construction (transient SDK or validation error); the exception is discarded with no logging, and MagenticOne falls back to LocalCommandLineCodeExecutor while the only warning claims Docker is unavailable. The user believes the Coder's generated code runs in the recommended Docker isolation but it executes directly on the host, and the actual error is absent from logs — the fallback exists specifically for security, and this path defeats it silently.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 57,
+      "summary": "A failure of DockerCommandLineCodeExecutor() construction is swallowed by except Exception: pass and misreported by the 'Docker is not available or not running' warning, silently degrading from sandboxed to host code execution with no record of the real error."
+    },
+    {
+      "failure_scenario": "docker_tests_enabled() already exists in tests/code_executors/test_docker_commandline_code_executor.py:18 and tests/code_executors/test_docker_jupyter_code_executor.py:17; the third copy means any fix to the daemon-probe logic (e.g., the ConnectionError gap above) must be applied in three places and will drift. test_docker_availability_check calls the local _is_docker_available() alias (line 33), which merely returns docker_tests_enabled(), so it provides no coverage of autogen_ext.teams.magentic_one._is_docker_available, and its only assertion (isinstance(result, bool)) cannot fail unless Docker raises — false confidence while the production probe goes untested.",
+      "file": "python/packages/autogen-ext/tests/teams/test_magentic_one.py",
+      "line": 14,
+      "summary": "The new test module adds a third verbatim copy of the docker_tests_enabled() helper and a vacuous test_docker_availability_check that tests a one-line local alias rather than the production _is_docker_available function."
+    }
+  ],
+  "level": null
+}

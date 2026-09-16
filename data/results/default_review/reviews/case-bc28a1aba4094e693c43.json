@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "modules/colossussspBidAdapter.js",
+      "line": 74,
+      "summary": "Video placement type lost: adapter deletes canonical `plcmt` field and `placement.placement` is sourced from deprecated `mediaTypes.video.placement` instead of canonical `mediaTypes.video.plcmt`",
+      "failure_scenario": "Publisher sets `mediaTypes.video.plcmt = 1` (instream) without the deprecated `placement` field. Library sets `placement.placement = undefined` (from deprecated field), adapter deletes `placement.plcmt` (the canonical value). Server receives no placement type, potentially serving wrong ad format or no ad.",
+      "finding_id": "mf-f82338bb64d53a559629"
+    },
+    {
+      "file": "libraries/teqblazeUtils/bidderUtils.js",
+      "line": 202,
+      "summary": "`interpretResponse` has no try/catch around `serverResponse.body.length`; old colossusssp adapter caught and logged errors",
+      "failure_scenario": "Server returns null body, malformed response, or network error produces an unexpected response object. `serverResponse.body` is null/undefined, accessing `.length` throws an uncaught TypeError, crashing the bid response processing instead of returning an empty bid array.",
+      "finding_id": "mf-8fe0d1d8934b37ab2f68"
+    },
+    {
+      "file": "libraries/teqblazeUtils/bidderUtils.js",
+      "line": 40,
+      "summary": "`schain` always included in placement (minimum `{}`); old code only included it when `bid.ortb2.source.ext.schain` was present",
+      "failure_scenario": "A placement with no supply chain data now sends `schain: {}` in the JSON request. `{}` is invalid ORTB schain (missing required `ver`, `complete`, `nodes` fields), potentially causing server-side validation failure or bid rejection.",
+      "finding_id": "mf-a41d7f394b5e27626406"
+    },
+    {
+      "file": "libraries/teqblazeUtils/bidderUtils.js",
+      "line": 136,
+      "summary": "`page` field now sends full URL from `bidderRequest.refererInfo.page` instead of just `location.pathname`",
+      "failure_scenario": "Old code sent `page: '/home'`; new code sends `page: 'https://example.com/home'`. Server-side URL parsing, matching, or logging that expects a path-only value may break or produce incorrect results.",
+      "finding_id": "mf-59d4a9b77a179e0184c5"
+    },
+    {
+      "file": "libraries/teqblazeUtils/bidderUtils.js",
+      "line": 17,
+      "summary": "NATIVE bid validation stricter: now requires `bid.native.impressionTrackers` with non-empty array; old colossusssp accepted any truthy `bid.native`",
+      "failure_scenario": "Server returns a valid native bid with creative but without impression trackers (or with an empty tracker list). The old adapter would accept and forward this bid; the new adapter silently drops it in `interpretResponse`, reducing fill rate.",
+      "finding_id": "mf-3ac1fcf7d2c0433dab4d"
+    },
+    {
+      "file": "modules/colossussspBidAdapter.js",
+      "line": 118,
+      "summary": "`buildRequests` replaces `request.data` with a hand-picked subset, silently dropping `coppa`, `tmax`, `bcat`, `badv`, `bapp`, `battr`, `device` that the `buildRequestsBase` library function sets",
+      "failure_scenario": "Library adds a new request field in a future version (e.g., a new consent or targeting parameter). The adapter's explicit field-whitelist reconstruction silently drops it, so the new feature never reaches the colossusssp server. Existing dropped fields like `coppa` and `tmax` are also lost from bid requests.",
+      "finding_id": "mf-50c7fd3f1a8500ad4dae"
+    }
+  ]
+}

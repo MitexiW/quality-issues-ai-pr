@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 146,
+      "summary": "upgrade_old_entries validator checks wrong dict nesting level — data.get('structured_output_mode') looks at the top-level TaskRunConfig dict, but structured_output_mode is nested inside data['run_config_properties'], so the check is always None, causing ALL entries loaded from file (including ones with a valid mode already set) to be overwritten to 'unknown'",
+      "failure_scenario": "A TaskRunConfig with structured_output_mode='json_schema' is saved to disk. On next file load, upgrade_old_entries fires, data.get('structured_output_mode') at the TaskRunConfig level returns None, and the validator writes 'unknown' into run_config_properties, overwriting the correct value. The adapter then falls back to a runtime lookup that may pick a less suitable mode for models not in the built-in list.",
+      "finding_id": "mf-6d1aeabf26770fb0908e"
+    },
+    {
+      "file": "app/web_ui/src/routes/(app)/run/+page.svelte",
+      "line": 56,
+      "summary": "Svelte reactive statement $: update_structured_output_mode(…) depends on $available_models which loads asynchronously; when the store populates after initial render it overwrites any user-selected structured_output_mode dropdown value with the model's default, silently discarding the user's choice",
+      "failure_scenario": "User opens Run page, selects a model, then manually changes Structured Output from the default 'JSON Schema' to 'JSON Instructions'. The async available_models store finishes loading, the reactive $: fires, and structured_output_mode is reset to 'json_schema' (the model's default). The user's explicit selection is lost without any warning.",
+      "finding_id": "mf-d686255708eab358aa24"
+    },
+    {
+      "file": "app/web_ui/src/routes/(app)/evals/[project_id]/[task_id]/[eval_id]/compare_run_methods/+page.svelte",
+      "line": 363,
+      "summary": "Same reactivity overwrite bug as in run/+page.svelte — the $: update_structured_output_mode(…) depends on $available_models and resets the user's selection when the store updates",
+      "failure_scenario": "User adds a new eval method, manually changes the structured output mode dropdown, then an async available_models store update fires, resetting the mode to the model default. The submited task run config uses the wrong structured output mode.",
+      "finding_id": "mf-2a1ef82d4f2090acd548"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/ml_model_list.py",
+      "line": 960,
+      "summary": "llama-3.1-70b on OpenRouter changed from function_calling_weak (which explicitly avoided a known logprobs incompatibility with strict function calling) to json_schema; the removed comment documented that strict=True broke logprobs, and it is unclear whether OpenRouter returns logprobs when json_schema is used for this model",
+      "failure_scenario": "A user runs a G-Eval (logprobs-based evaluation) with llama-3.1-70b on OpenRouter. With json_schema, OpenRouter may skip returning logprobs. The adapter receives no output_logprobs, and the G-Eval raises 'No logprobs found for output - can not calculate g-eval'.",
+      "finding_id": "mf-3fc52211b7cc1c14c1a7"
+    },
+    {
+      "file": "app/desktop/studio_server/repair_api.py",
+      "line": 79,
+      "summary": "StructuredOutputMode(sdm) conversion raises ValueError (not ValidationError) when the persisted string is not a valid enum member; only ValidationError is caught in the try/except block, so an invalid persisted value causes an unhandled 500 error instead of a proper 422",
+      "failure_scenario": "A run's source properties in the JSON file contain structured_output_mode='invalid_mode' (e.g. after a manual edit). When repair is triggered, StructuredOutputMode('invalid_mode') raises ValueError, which is not caught by the except ValidationError handler, resulting in an unhandled 500 Internal Server Error.",
+      "finding_id": "mf-81cd302339f5af197039"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/ml_model_list.py",
+      "line": 2315,
+      "summary": "Mutable default argument disallowed_modes: List[StructuredOutputMode] = [] — the empty list is created once at function definition and shared across all calls; if any future caller mutates it (e.g. via append or sort), all subsequent callers see the contaminated list",
+      "failure_scenario": "A future code change adds a call like default_structured_output_mode_for_model_provider(..., disallowed_modes=some_list).some_list is later modified in-place. On the next invocation with the default [], the same list reference is returned, now polluted with extra disallowed entries, silently filtering out valid structured output modes.",
+      "finding_id": "mf-f1e9b514b3eb01986c89"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/model_adapters/test_base_adapter.py",
+      "line": 318,
+      "summary": "test_properties_for_task_output_catches_missing_new_property mutates RunConfigProperties.model_fields at the class level; if the test process is interrupted before the finally block restores it, the class is left with a fake field, corrupting all subsequent tests that instantiate RunConfigProperties",
+      "failure_scenario": "pytest crashes or is killed during the test body; RunConfigProperties.model_fields retains the 'new_fake_property' entry; all later tests constructing RunConfigProperties see an unknown field and fail with unexpected validation errors.",
+      "finding_id": "mf-131f11ca0d7dd33087ae"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/provider_tools.py",
+      "line": 240,
+      "summary": "lite_llm_provider_model() creates a KilnModelProvider without setting structured_output_mode, so it defaults to StructuredOutputMode.default; while the new code reads structured_output_mode from run_config instead of model_provider(), any future code path that reads model_provider().structured_output_mode would silently get 'default' (function-calling) instead of the intended json_instructions from the API",
+      "failure_scenario": "A maintenance change in a future PR inadvertently reads provider.structured_output_mode from the model_provider() returned by lite_llm_provider_model(). Since it was never set, it reads as 'default', causing the adapter to use function calling instead of json_instructions for OpenAI-compatible providers, potentially breaking calls to providers that don't support function calling.",
+      "finding_id": "mf-28ad222924bb6032655f"
+    }
+  ]
+}

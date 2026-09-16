@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "After this change, `@returns {Regs|null}` (line 145), `@returns {Ext|null}` (156), `@param {Array<PrebidBidRequest>}` (397, 414), `@returns {Dictionnary<PrebidBidRequest>}` (398), `@returns {Array<AjaxRequest>}` (416), `@returns {PrebidJSResponse}` (545, 610) and `@param {Array<Format>} formats` (655) all reference removed typedefs. `npm run lint` now emits new jsdoc/no-undefined-types warnings (that rule stays enabled at 'warn' via jsdoc flat/recommended in eslint.config.js, which only turns off check-types/require-*/etc.), and IDE tooltips/type resolution for these functions silently break. The added line 652 `interface Format { w: number; h: number }` is not a JSDoc tag, so it does not define Format and the reference at 655 remains dangling.",
+      "file": "modules/adotBidAdapter.js",
+      "line": 398,
+      "summary": "The PR deletes the @typedefs for Regs, Ext, AjaxRequest, PrebidJSResponse, Format, PrebidBidRequest and Dictionnary but leaves nine JSDoc references to them, so the type annotations now point at types that are no longer defined anywhere."
+    },
+    {
+      "failure_scenario": "A maintainer reading the docs is told the function accepts a bidderRequest argument it cannot receive; eslint-plugin-jsdoc's check-param-names (enabled at 'warn' by the flat/recommended preset and not disabled in eslint.config.js) flags the block, adding a new lint warning where HEAD had none.",
+      "file": "modules/adotBidAdapter.js",
+      "line": 155,
+      "summary": "The PR adds `@param {BidderRequest} bidderRequest` to the docblock of getOpenRTBExtObject(), a function whose signature (line 158) takes no arguments, documenting a parameter that does not exist."
+    },
+    {
+      "failure_scenario": "buildBidResponse's `imp` argument is produced by getImpfromBid() (line 577: an element of `bidRequest.imp`, with id/sizes, matched by `imp.id === bid.impid`) and is dereferenced by isBidImpInvalid(bid, imp). The new annotation says it is an OpenRtbBid (a bid, keyed by impid/price/adid), which describes the first parameter instead; the docs now mislead anyone tracing how response validation and bid-building work.",
+      "file": "modules/adotBidAdapter.js",
+      "line": 544,
+      "summary": "The PR relabels the third parameter of buildBidResponse() from the correct `{Imp}` to `{OpenRtbBid}`, misdocumenting it as a bid when it is actually the request-side impression object."
+    },
+    {
+      "failure_scenario": "The function at line 531 is `onTimeout: (timeoutData) => { ... }` but the docblock now reads `@param {Object} bid`. eslint-plugin-jsdoc's check-param-names (enabled at 'warn' in eslint.config.js) reports the nonexistent param name, and readers lose the information about what timeoutData contains.",
+      "file": "modules/medianetBidAdapter.js",
+      "line": 529,
+      "summary": "The PR renames the documented parameter of onTimeout from the actual `timeoutData` to a nonexistent `bid`, while also dropping the previously meaningful TimedOutBid type."
+    },
+    {
+      "failure_scenario": "The docblock for buildAjaxRequest (line 386) now ends with a dangling `@returns` that carries no information; the return-shape documentation the tag previously provided is gone, and tools that normalize JSDoc (and future maintainers) are left with an empty annotation.",
+      "file": "modules/adotBidAdapter.js",
+      "line": 384,
+      "summary": "The PR truncates buildAjaxRequest()'s `@returns {AjaxRequest}` tag to a bare `@returns` with no type or description, leaving a malformed, empty tag."
+    },
+    {
+      "failure_scenario": "Every other property in the `spec` object (lines 80-160) is indented two spaces; line 97 now sits one space in, an inconsistent formatting regression with no functional effect. The repo's eslint config has '@stylistic/indent' turned off (eslint.config.js line 129), so nothing catches it and the inconsistency will persist.",
+      "file": "modules/gmosspBidAdapter.js",
+      "line": 97,
+      "summary": "The sole non-comment change in the PR dedents the `interpretResponse` property by one space, making it the only member of the spec object literal indented at one space instead of two."
+    }
+  ],
+  "level": null
+}

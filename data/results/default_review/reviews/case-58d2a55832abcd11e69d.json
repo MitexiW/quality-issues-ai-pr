@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "airbyte-ci/connectors/base_images/base_images/python/bases.py",
+      "line": 134,
+      "summary": "Security regression: removed sanity check `check_user_cant_write_dir` verifying the `airbyte` user cannot write to `/custom_cache`; no replacement guard exists",
+      "failure_scenario": "If the base image's `/custom_cache` directory permissions are inadvertently changed (e.g., someone adds `chown airbyte /custom_cache` as the Java image does), the `airbyte` user could write arbitrary files to the cache directory root. This would go undetected since the sanity check verifying the write-restriction was deleted.",
+      "finding_id": "mf-0fc2be736c1349593b26"
+    },
+    {
+      "file": "airbyte-ci/connectors/base_images/base_images/commands.py",
+      "line": 158,
+      "summary": "Resource leak: `open(\"dagger.log\", \"w\")` creates a file handle that is never explicitly closed; the `async with dagger.Connection(...)` context manager does not own or close the file",
+      "failure_scenario": "When `execute_async_command` returns, the file object's buffer may not be flushed before process exit, losing dagger log data. In non-refcounting Python implementations (PyPy, Jython), the file may never be closed, leaking the file descriptor. Multiple sequential CLI invocations append to the same CWD-relative `dagger.log`, making log attribution ambiguous across different commands.",
+      "finding_id": "mf-978427103ece67b75469"
+    },
+    {
+      "file": "airbyte-ci/connectors/base_images/base_images/root_images.py",
+      "line": 22,
+      "summary": "Dead code: `PYTHON_3_10_14` constant is defined but no longer imported or referenced anywhere in the codebase after the switch to `PYTHON_3_11_11`",
+      "failure_scenario": "Maintenance burden: future developers may mistakenly believe Python 3.10.14 is still a supported root image and waste time debugging against it, or reintroduce references to it without realizing it was deprecated.",
+      "finding_id": "mf-5bc9455528cad51b8670"
+    }
+  ]
+}

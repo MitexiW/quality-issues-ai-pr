@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A TSIP AES context whose aes->ctx.keySize is neither 16 nor 32 (AES-192/24 is enabled by default via WOLFSSL_AES_192, or an app that sets ctx.keySize itself as IDE/.../wolfssl_tsip_unit_test.c:312 does, or leaves it 0) reaches wc_tsip_AesCtr: tsip_hw_lock() set ret=0, both R_TSIP_*Ctr* blocks are skipped, `if (ret == TSIP_SUCCESS)` at line 661 is taken, the counter in aes->reg is advanced by `blocks` and the function returns 0 while `out` is never written. The caller treats stale/uninitialized bytes (or the untouched plaintext when in==out) as ciphertext. In the same file wc_tsip_AesCbcEncrypt/Decrypt (lines 510-518) and wc_tsip_AesGcmEncrypt (line 742) reject unknown key sizes with an error instead.",
+      "file": "wolfcrypt/src/port/Renesas/renesas_tsip_aes.c",
+      "line": 632,
+      "summary": "New wc_tsip_AesCtr has no branch for ctx.keySize values other than 16/32, so it returns tsip_hw_lock()'s 0 (= TSIP_SUCCESS) as success without encrypting anything; the sibling CBC/GCM routines validate keySize."
+    },
+    {
+      "failure_scenario": "`./configure --enable-linuxkm && make -C linuxkm`: configure.ac:10528-10534 adds `-DHAVE_GETPID=1` to AM_CFLAGS on a Linux host and linuxkm/Makefile passes $(AM_CFLAGS) into WOLFSSL_CFLAGS for the Kbuild compile. With WOLFSSL_NO_GETPID no longer defined, wolfcrypt/src/random.c:1672 and 2046-2047 (`rng->pid = getpid();`, the latter on the wc_RNG_GenerateBlock path) and src/ssl.c:25540/26024 compile getpid() into libwolfssl.ko; the kernel provides no getpid() and there is no shim anywhere in linuxkm/, so the module fails to build/load. The `!defined(WOLFSSL_NO_GETPID)` conditions in random.c/random.h/ssl.c/tests/api.c show this define was the mechanism keeping those calls out of the module.",
+      "file": "wolfssl/wolfcrypt/settings.h",
+      "line": 3623,
+      "summary": "Removing the `#ifndef WOLFSSL_NO_GETPID / #define WOLFSSL_NO_GETPID` default from the WOLFSSL_LINUXKM block re-enables getpid() calls in Linux kernel modules, which have no getpid()."
+    },
+    {
+      "failure_scenario": "Build with WOLF_CRYPTO_CB + HAVE_ECC + NO_ECC_DHE (the combination documented at examples/configs/user_settings_min_ecc.h:31, '-DNO_ECC_SIGN -DNO_ECC_DHE -DNO_ECC_KEY_EXPORT'): tests/api.c:60562-60617 (test_CryptoCb_Func, guarded only by `#if defined(WOLF_CRYPTO_CB) && defined(HAVE_IO_TESTS_DEPENDENCIES)` at 60393 plus `#ifdef HAVE_ECC`) references info->pk.eckg/eccsign; wolfcrypt/src/wc_pkcs11.c:2551, 2716-2790 and the eccsign/eccverify uses (inside `#ifdef HAVE_ECC` at line 2368) do the same; examples/async/async_tls.c:100-146 uses all four. The members no longer exist in those configurations, so those files fail to compile ('no member named eckg/eccsign in wc_CryptoInfo'). Only wolfcrypt/test/test.c was updated.",
+      "file": "wolfssl/wolfcrypt/cryptocb.h",
+      "line": 179,
+      "summary": "The eckg/ecdh/eccsign/eccverify/ecc_check members of wc_CryptoInfo were placed under HAVE_ECC_DHE/SIGN/VERIFY/CHECK_KEY, but in-tree crypto-callback implementations still reference them under HAVE_ECC alone."
+    },
+    {
+      "failure_scenario": "Build with WOLFSSL_VALIDATE_ECC_KEYGEN (or FIPS_VERSION_GE(5,0)) and HAVE_ECC_DHE undefined (e.g. -DNO_ECC_DHE with ECC keygen/sign still enabled): the definition block now requires `defined(HAVE_ECC_DHE)` (ecc.c:10266-10267) while ecc.c:6055-6067 still calls `_ecc_pairwise_consistency_test(key, rng)` and the prototype at ecc.c:1439-1442 is still visible, so the file compiles and the link fails with 'undefined reference to _ecc_pairwise_consistency_test'. The trailing comment at 10382 was updated to match the new guard, so the definition/call mismatch is clearly introduced by this change.",
+      "file": "wolfcrypt/src/ecc.c",
+      "line": 6066,
+      "summary": "_ecc_pairwise_consistency_test is now defined only under HAVE_ECC_DHE, but its call site in wc_ecc_make_key_ex2 and its forward declaration were left on the old guard, producing an undefined reference."
+    },
+    {
+      "failure_scenario": "Configure HAVE_ECC + WOLF_CRYPTO_CB + -DNO_ECC_CHECK_KEY (the macro that settings.h:3008-3011 uses to drop HAVE_ECC_CHECK_KEY): the definition in wolfcrypt/src/cryptocb.c is now inside `#ifdef HAVE_ECC_CHECK_KEY` (guard added at cryptocb.c:697, function at 698) and references info->pk.ecc_check, which is itself only declared under HAVE_ECC_CHECK_KEY, but src/ssl.c:7063-7067 still calls it under `#ifdef HAVE_ECC` and the prototype in wolfssl/wolfcrypt/cryptocb.h:532 is unguarded, so the build compiles and fails at link ('undefined reference to wc_CryptoCb_EccCheckPrivKey').",
+      "file": "src/ssl.c",
+      "line": 7066,
+      "summary": "wc_CryptoCb_EccCheckPrivKey is still called under HAVE_ECC only, while its definition was moved under HAVE_ECC_CHECK_KEY, leaving an undefined symbol for NO_ECC_CHECK_KEY builds."
+    },
+    {
+      "failure_scenario": "Build wolfcrypt test with WOLF_CRYPTO_CB_ONLY_ECC + HAVE_ECC + -DNO_ECC_VERIFY (or -DNO_ECC_DHE): at test.c:59590 `wc_ecc_sign_hash(in, inLen, out, &outLen, &rng, key)` runs inside `#ifdef HAVE_ECC_SIGN` (59580), but `rng` is declared only under `#ifdef HAVE_ECC_DHE` (59532) and `in/inLen/out/outLen` only under `#if defined(HAVE_ECC_SIGN) && defined(HAVE_ECC_VERIFY)` (59539-59545) — the translation unit fails with 'rng undeclared' / 'out undeclared'. The removed `#else` block that previously silenced these variables was deleted in the same hunk, so the narrower guards are the only declaration source.",
+      "file": "wolfcrypt/test/test.c",
+      "line": 59590,
+      "summary": "ecc_onlycb_test declares rng only under HAVE_ECC_DHE and in/inLen/out/outLen only under HAVE_ECC_SIGN && HAVE_ECC_VERIFY, but uses them inside the HAVE_ECC_SIGN block."
+    },
+    {
+      "failure_scenario": "wolfssl_demo/user_settings.h now defines WOLFSSL_AES_COUNTER unconditionally (line 105-106 of the diff), while the repo's TSIP configuration leaves CTR off (IDE/Renesas/e2studio/RX72N/EnvisionKit/Simple/test/test.scfg:1144-1145 `TSIP_AES_128_CTR`/`TSIP_AES_256_CTR` selectedIndex=\"0\"; same in RX65N GR-ROSE smc.scfg:973). The definitions at wolfssl_tsip_unit_test.c:195 and 426 are `#if ... && TSIP_AES_128_CTR == 1 && WOLFSSL_AES_128`, so they are compiled out while the calls at 1571 and 1576 are compiled in, giving an implicit-declaration/undefined-reference error when the demo project is built. The PR fixed the analogous problem for RSAES by flipping test.scfg:1169-1170 to selectedIndex=\"1\" but did not do so for the CTR items.",
+      "file": "IDE/Renesas/e2studio/RX72N/EnvisionKit/wolfssl_demo/wolfssl_tsip_unit_test.c",
+      "line": 1571,
+      "summary": "tsip_crypt_test() calls tsip_aes128_ctr_test/tsip_aes256_ctr_test under `#ifdef WOLFSSL_AES_COUNTER` although the definitions additionally require TSIP_AES_128_CTR/TSIP_AES_256_CTR == 1."
+    },
+    {
+      "failure_scenario": "An application registers wc_tsip_AesCipher (declared WOLFSSL_API at wolfssl/wolfcrypt/port/Renesas/renesas-tsip-crypt.h:518) and calls wc_AesCtrEncrypt(aes, out, in, 100) (or any CTR user with an unaligned length, e.g. the EAX path at wolfcrypt/src/aes.c:14326): wc_AesCtrEncrypt calls wc_CryptoCb_AesCtrEncrypt with the caller's full sz before consuming aes->left/handling the remainder (aes.c:6351-6360), the callback returns BAD_FUNC_ARG, and because that value differs from CRYPTOCB_UNAVAILABLE wc_AesCtrEncrypt returns it instead of falling through — so a size that used to fall back to the software path now fails the call outright, while the comment at renesas_tsip_aes.c:609-610 claims the public API covers the odd remainder.",
+      "file": "wolfcrypt/src/port/Renesas/renesas_tsip_aes.c",
+      "line": 619,
+      "summary": "wc_tsip_AesCtr rejects every size that is not a 16-byte multiple (and sz==0) with BAD_FUNC_ARG, but the crypto-callback hook in wc_AesCtrEncrypt runs before the software partial-block handling, so the 'public API handles the odd remainder' comment is wrong and such calls now hard-fail."
+    },
+    {
+      "failure_scenario": "renesas_common.c:566 registers Renesas_cmn_CryptoDevCb with wc_CryptoCb_RegisterDevice (the path behind wc_CryptoCb_CryptInitRenesasCmn, which the RX72N demo/unit test calls at wolfssl_tsip_unit_test.c:1586); its WC_ALGO_TYPE_CIPHER dispatch (lines 182-247) handles only WC_CIPHER_AES_GCM and WC_CIPHER_AES_CBC, so a WC_CIPHER_AES_CTR request returns CRYPTOCB_UNAVAILABLE and wc_AesCtrEncrypt silently falls back to software AES with key material that lives only in the TSIP device. The new wc_tsip_AesCtr code is reached only if an application registers wc_tsip_AesCipher itself; no in-tree code references it.",
+      "file": "wolfcrypt/src/port/Renesas/renesas_common.c",
+      "line": 182,
+      "summary": "The WC_CIPHER_AES_CTR branch added to wc_tsip_AesCipher is unreachable in-tree because the callback the port actually registers (Renesas_cmn_CryptoDevCb) was not given a CTR case."
+    }
+  ],
+  "level": null
+}

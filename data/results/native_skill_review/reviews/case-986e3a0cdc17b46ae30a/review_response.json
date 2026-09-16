@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A Kotlin consumer of this public library, e.g. wire.writingDocument().start(metaData = true) or Marshallable.fromString(cs = \"...\") or WireType.TEXT.fromFile(filename = \"x.yaml\"), fails to compile with \"Cannot find a parameter with this name\" after upgrading, since Kotlin named arguments are resolved against the declared parameter names; parameter names of public API methods are also part of the documented (Javadoc {@param}) contract, so downstream code, IDE parameter hints and generated docs all silently shift.",
+      "file": "src/main/java/net/openhft/chronicle/wire/WriteDocumentContext.java",
+      "line": 31,
+      "summary": "Renaming public API parameter names (metaData -> isMetaData, chainedElement -> isChained, plus cs/event/out/using/sb/objects/filename -> text/fieldName/valueOut/targetBuffer/textBuilder/targets/filePath across Marshallable, MarshallableIn, ReadMarshallable, WriteMarshallable and WireType) breaks source compatibility for Kotlin callers that use named arguments."
+    },
+    {
+      "failure_scenario": "The assert is the only check that a repeated start(boolean) call on an in-progress document passes a metadata flag consistent with the started document (it guards against corrupting the binary header's META_DATA bit). A maintainer reading 'isMetaData == isMetaData()' as a tautology and 'simplifying' it, or renaming either the parameter or the isMetaData() method, silently removes or inverts this validation, so a writer can call start(true) on a document started with start(false) (or vice versa) and produce a header whose metaDataBit disagrees with the actually written content.",
+      "file": "src/main/java/net/openhft/chronicle/wire/BinaryWriteDocumentContext.java",
+      "line": 65,
+      "summary": "The renamed parameter isMetaData now collides with the isMetaData() method name, turning the metadata-consistency validation 'assert isMetaData == isMetaData()' into an apparent self-comparison whose meaning is preserved only by Java's variable-vs-method namespace split."
+    },
+    {
+      "failure_scenario": "The check verifying that a nested start(isMetaData) call agrees with the metadata flag of the already-started text document (which controls the 'meta-data' comment emitted on the wire) is no longer recognizable as a parameter-vs-method comparison; any future refactor that 'fixes' the apparent tautology or renames one side removes the last validation, letting a mismatched metadata flag through so a data document can be written while isMetaData() reports true (or vice versa), producing text wire output whose comment markers disagree with the document content.",
+      "file": "src/main/java/net/openhft/chronicle/wire/TextWriteDocumentContext.java",
+      "line": 72,
+      "summary": "Same rename collision as BinaryWriteDocumentContext: the parameter isMetaData shares its name with the isMetaData() method, so 'assert isMetaData == isMetaData()' reads as a self-comparison and the intent of the consistency check is obscured."
+    }
+  ],
+  "level": null
+}

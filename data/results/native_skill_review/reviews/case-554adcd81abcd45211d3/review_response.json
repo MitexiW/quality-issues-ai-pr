@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Deploy a tiered price (billingScheme \"tiered\", tiers [{upTo:100, unitAmount:5},{upTo:\"inf\",unitAmount:3}]), then change the first tier to unitAmount:4 under the same logical id. apply() detects the prop change and re-enters the handler in phase \"update\"; this branch calls prices.update with only active/metadata/nickname/lookup_key/expand (lines 364-373), and Stripe price tiers are immutable, so billing stays 5/3. alchemy/src/apply.ts then stores the NEW props with status \"updated\" (lines 134, 205-215), so the next deploy logs \"Skipped Resource (no changes)\" and the change can never be applied. The adopt branch (lines 437-450) has the same gap. This also contradicts CLAUDE.md's \"Update Validation - Validate immutable properties during resource updates\".",
+      "file": "alchemy/src/stripe/price.ts",
+      "line": 364,
+      "summary": "Tier, tiersMode and transformQuantity changes on an existing Price are silently discarded on update, yet the new props are persisted to state, so the requested pricing change is lost permanently with no error."
+    },
+    {
+      "failure_scenario": "Price(\"p\", { billingScheme: \"tiered\", tiers: [{upTo:100, unitAmount:500}], unitAmount: 0 }) passes validation because 0 is falsy; the create branch then sets createParams.unit_amount = 0 (line 390, which uses a !== undefined check) together with createParams.tiers (line 408). Stripe rejects requests that set both, so the caller receives an opaque 400 instead of the intended local validation error, and the invariant the guard claims to enforce is not enforced.",
+      "file": "alchemy/src/stripe/price.ts",
+      "line": 351,
+      "summary": "The \"Cannot set both tiers and unitAmount/unitAmountDecimal\" guard uses truthiness, so unitAmount: 0 slips through and both unit_amount and tiers are sent to Stripe."
+    },
+    {
+      "failure_scenario": "Creating the documented free first tier ({upTo: 10000, unitAmount: 0}) yields a Stripe tier with unit_amount: 0; the mapping emits unitAmount: undefined (only unitAmountDecimal: \"0\" survives), so price.tiers[0].unitAmount is undefined in the resource output and persisted state. Any consumer reading the tier amounts back (comparing deployed pricing, rendering a pricing table) sees no unit amount for the free tier. Same defect for flat_amount: 0 at line 481.",
+      "file": "alchemy/src/stripe/price.ts",
+      "line": 483,
+      "summary": "Response-to-props tier mapping collapses legitimate zero amounts to undefined (`tier.unit_amount || undefined`), losing the free-tier value used by this same diff's examples."
+    },
+    {
+      "failure_scenario": "A user copies the example (tiersMode \"graduated\", tier 1 upTo 100000 unitAmount 1, tier 2 upTo \"inf\" flatAmount 100000) expecting the documented $1000 maximum. For 150,000 API calls Stripe bills 100,000 x $0.01 + $1,000 = $2,000, so customers above 100k usage are charged twice the documented cap. A true $1000 cap requires tiersMode \"volume\" (or no unit_amount in the first tier).",
+      "file": "alchemy-web/docs/providers/stripe/price.md",
+      "line": 151,
+      "summary": "The \"Overage Cap with Flat Amount\" example does not cap the bill at $1000: in graduated mode Stripe charges the second tier's flat_amount on top of the first tier's per-unit charges."
+    },
+    {
+      "failure_scenario": "Price(\"p\", { billingScheme: \"tiered\", tiers: [{upTo:100, unitAmount:500, unitAmountDecimal:\"5.00\"}] }) builds a tier containing both unit_amount and unit_amount_decimal. Stripe permits only one of the pair (the rule documented in this file at lines 92-94 and handled for the top-level price at lines 390-394), so creation fails with a raw Stripe API error instead of a clear local validation error.",
+      "file": "alchemy/src/stripe/price.ts",
+      "line": 412,
+      "summary": "Tier mapping forwards both unit_amount and unit_amount_decimal (and both flat_amount variants) verbatim, unlike the top-level fields which pick one, so a tier specifying both is sent as an invalid request."
+    }
+  ],
+  "level": null
+}

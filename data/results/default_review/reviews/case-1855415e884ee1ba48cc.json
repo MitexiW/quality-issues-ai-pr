@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "packages/kit/src/views/Staking/components/ApproveBaseStake/index.tsx",
+      "line": 352,
+      "summary": "StakeProgress component is conditionally hidden during deposit-only flows when token allowance is already sufficient, removing the visual step indicator that was previously always rendered",
+      "failure_scenario": "User opens the staking form for a token they have already approved (allowance >= deposit amount) — e.g. allowance=1000, they enter amount=100. The `isShowStakeProgress` condition `!!amountValue && (isApprove || showStakeProgressRef.current[amountValue])` evaluates to false because `isApprove` is false (allowance covers 100) and the ref was never set (no approve flow ran). The `<StakeProgress>` (showing '1. Approve / 2. Deposit' steps) is not rendered at all. Before this change the progress was always visible, showing the deposit step as active with a checkmark on the already-complete approve step.",
+      "finding_id": "mf-2e3567c77bbd65bbbbea"
+    },
+    {
+      "file": "packages/kit/src/views/Staking/components/ApproveBaseStake/index.tsx",
+      "line": 215,
+      "summary": "showStakeProgressRef entry set before approval navigation is never cleared on cancel or failure, leaving a stale entry that can incorrectly re-activate the progress indicator after external allowance changes",
+      "failure_scenario": "User enters amount='100', clicks Approve, cancels the transaction → `showStakeProgressRef.current['100']` remains true. Later, allowance increases externally (e.g., the user approves the same token through another app or flow) and returns to this screen with amount='100' still typed. `isApprove` becomes false (allowance now covers 100) but the stale ref still has true for key '100', so `isShowStakeProgress` evaluates to true. The StakeProgress incorrectly shows as if the approval had completed in this session.",
+      "finding_id": "mf-948bc8ad5bc6eb423de6"
+    },
+    {
+      "file": "packages/kit/src/views/Staking/components/ProtocolDetails/ProviderSection.tsx",
+      "line": 201,
+      "summary": "poolFee data is still collected from details and passed as a prop to ProviderInfo but the rendering code for it was removed in this diff, leaving dead code in ProviderSection that wastes computation and the ProviderInfo destructuring parameter that TypeScript may flag as unused",
+      "failure_scenario": "ProviderSection collects `details.provider.poolFee` into `providerProps.poolFee` (lines 201-205) and passes it to ProviderInfo. ProviderInfo destructures `poolFee` in its parameter list (line 51) but the grid item that rendered it was deleted. This dead code path computes and passes a value that is never consumed, and the unused destructured variable may trigger linter warnings. The poolFee value was moved to ProfitSection for display inside the MorphoApy popover, but the ProviderSection collection and prop threading were not cleaned up.",
+      "finding_id": "mf-fd539680c4092b94b570"
+    }
+  ]
+}

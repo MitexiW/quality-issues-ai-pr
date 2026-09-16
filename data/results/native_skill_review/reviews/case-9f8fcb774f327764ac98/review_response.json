@@ -1,0 +1,89 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "TaskRunConfig stores the mode only inside `run_config_properties`. `data.get(\"structured_output_mode\")` is therefore always None, so the `if` on line 147 is always entered and line 149 unconditionally overwrites the persisted value. A user who creates an eval method with structured_output_mode=json_instructions (or function_calling_weak), then reloads the app (task.run_configs() -> load_from_file -> model_validate(context={'loading_from_file': True})), gets mode=unknown; task_run_config.run_config() -> adapter silently substitutes the ml_model_list recommendation instead of the user's choice.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 146,
+      "summary": "upgrade_old_entries reads structured_output_mode from the top level of `data` instead of from the nested `run_config_properties` dict, so every TaskRunConfig loaded from disk gets its saved mode overwritten with `unknown`."
+    },
+    {
+      "failure_scenario": "litellm_adapter.response_format_options() resolves `unknown` via default_structured_output_mode_for_model_provider (litellm_adapter.py:190-194) and returns {} for json_instructions / json_instruction_and_object, expecting the schema instructions to be in the prompt. build_prompt compares the raw run_config mode to those two values, never matches `unknown`, and calls prompt_builder.build_prompt(include_json_instructions=False). For a legacy run config (mode upgraded to unknown) on a model whose recommended mode is json_instructions (e.g. deepseek_r1/openrouter, qwq_32b/fireworks) or json_instruction_and_object (several llama/bedrock entries), the request goes out with no schema and no prompt instructions, so the response is not JSON and parse/validate_schema_with_value_error fails the eval.",
+      "file": "libs/core/kiln_ai/adapters/model_adapters/base_adapter.py",
+      "line": 192,
+      "summary": "build_prompt does not resolve StructuredOutputMode.unknown the way response_format_options does, so prompt-injected JSON modes are skipped while the API layer still expects them."
+    },
+    {
+      "failure_scenario": "app/web_ui/src/routes/(app)/run/run.svelte:238-243 still POSTs {evaluator_feedback, model_name, provider} to run_repair. Those properties are absent from the regenerated components['schemas']['RepairTaskApiInput'] (api_schema.d.ts:2277), so svelte-check/`npm run check` reports TS2353 on the object literal; at runtime pydantic ignores the unknown keys, so a user who selected a different model for the repair gets the original run's model instead, with no error shown.",
+      "file": "app/desktop/studio_server/repair_api.py",
+      "line": 23,
+      "summary": "RepairTaskApiInput dropped the model_name/provider fields, but the web UI caller still sends them, so the request body no longer type-checks and the user's chosen repair model is silently ignored."
+    },
+    {
+      "failure_scenario": "RunConfigProperties.structured_output_mode lost its default (task.py:70), so the TaskRunConfig built at test_base_eval.py:291-299 raises 'structured_output_mode Field required' before the test body runs. The same file was updated in test_run_task_and_eval (line 367) but this call site was missed.",
+      "file": "libs/core/kiln_ai/adapters/eval/test_base_eval.py",
+      "line": 293,
+      "summary": "test_run_method constructs RunConfigProperties without the now-required structured_output_mode, so the test fails with a pydantic ValidationError."
+    },
+    {
+      "failure_scenario": "A run whose source.properties contains structured_output_mode=\"json_schem\" (hand-edited project file, or a value written by a newer/older build) reaches line 79; StructuredOutputMode(value) raises ValueError, which is not a pydantic ValidationError, so it propagates out of run_repair as an unhandled 500 rather than the \"Invalid run config properties\" 422 the surrounding try/except was added to produce.",
+      "file": "app/desktop/studio_server/repair_api.py",
+      "line": 79,
+      "summary": "StructuredOutputMode(sdm) raises a plain ValueError that is not caught by the new `except ValidationError` handler, turning bad stored data into an HTTP 500 instead of the intended 422."
+    },
+    {
+      "failure_scenario": "For any model not in built_in_models (kiln_custom_registry custom models, untested Ollama tags, openai_compatible), get_model_by_name raises and the helper returns `default`. LiteLlmAdapter's default branch then calls tool_call_params() for every non-Ollama provider (litellm_adapter.py:214-223), so Data Gen (data_gen_api.py:104-107) and repairs of legacy runs now send `tools`/`tool_choice` to endpoints that may not support function calling. Previously the adapter read provider.structured_output_mode, which provider_tools.py:188 and provider_api.py:933 document as json_instructions, 'the only safe bet that works everywhere'.",
+      "file": "libs/core/kiln_ai/adapters/ml_model_list.py",
+      "line": 2314,
+      "summary": "default_structured_output_mode_for_model_provider falls back to StructuredOutputMode.default for custom/untested models, contradicting the codebase's established json_instructions fallback for unknown models and routing them to function calling."
+    },
+    {
+      "failure_scenario": "run/+page.svelte:56-64 and compare_run_methods/+page.svelte:363-375 bind structured_output_mode to \"default\" whenever the model is not found in available_models, and available_models legitimately returns \"default\" for many built-in providers. FancySelect renders empty_label when no option matches (fancy_select.svelte:170-176), so the field shows \"Select an option\" while a real value is bound; once a user picks any other option there is no way back to the adapter-decided default.",
+      "file": "app/web_ui/src/lib/ui/run_options.svelte",
+      "line": 62,
+      "summary": "structured_output_options has no entry for the \"default\" (and \"unknown\") enum values that the binding is initialized and updated with, so the select displays the placeholder instead of the actual mode and the user can never restore the default."
+    },
+    {
+      "failure_scenario": "The removed lines (baseline: '# Need to not pass \"strict=True\" to the function call to get this to work with logprobs for some reason. Openrouter issue.') documented why logprobs were only usable with weak function calling. G-Eval requests top_logprobs=10, and litellm_adapter.py:139-140 raises RuntimeError('Logprobs were required, but no logprobs were returned.') when the provider omits them; g_eval_single_metric likewise raises 'No logprobs found for output'. If OpenRouter's json_schema-constrained path does not return logprobs for this model (the condition the deleted workaround existed to avoid), running G-Eval with llama_3_1_70b now fails hard instead of scoring.",
+      "file": "libs/core/kiln_ai/adapters/ml_model_list.py",
+      "line": 960,
+      "summary": "Llama 3.1 70B on OpenRouter was switched from function_calling_weak to json_schema, deleting the workaround comment that this model needed non-strict function calling for logprobs to work."
+    },
+    {
+      "failure_scenario": "load_task only performs a GET and returns the Task (stores.ts:145-164); the current_task store is written only by load_current_task from ui_state.current_task_id. On a deep link or when the URL's task_id differs from the persisted ui_state task, $current_task is null/stale, so `has_structured_output={!!$current_task?.output_json_schema}` (line 797) hides the Structured Output selector for a structured task (or shows it for an unstructured one) even though the fetch on line 82 succeeded — its result is simply thrown away.",
+      "file": "app/web_ui/src/routes/(app)/evals/[project_id]/[task_id]/[eval_id]/compare_run_methods/+page.svelte",
+      "line": 82,
+      "summary": "load_task(project_id, task_id) is added to the Promise.all but its return value is discarded and the current_task store is never set, so has_structured_output is computed from an unrelated (or null) task."
+    },
+    {
+      "failure_scenario": "POST /api/projects/{project_id}/tasks/{task_id}/run takes RunConfigProperties directly as its request model (libs/server/kiln_server/run_api.py:54-57, 216). Any client built against the previous schema (older bundled web UI, SDK/scripts) that sends run_config_properties without structured_output_mode now gets a 422 ValidationError instead of a run; only TaskRunConfig files loaded through load_from_file get the `unknown` migration.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 70,
+      "summary": "Making structured_output_mode required on RunConfigProperties breaks every existing API client that posts a run without it, while the PR only migrates file-based data."
+    },
+    {
+      "failure_scenario": "The inline style sets max-height: calc(100vh - var(--dropdown-top, 0px) - 30px). Per CSS min/max resolution, when min-height exceeds the computed max-height the max-height is ignored. For a field near the bottom of a short window (e.g. the Advanced Options collapse on the run page, or any fancy_select with only 1-3 options) the list now forces a 300px box, mostly empty, whose lower part is clipped below the viewport, so options can be unreachable or the popup overlaps other controls.",
+      "file": "app/web_ui/src/lib/ui/fancy_select.svelte",
+      "line": 180,
+      "summary": "Adding min-h-[300px] to the absolutely-positioned dropdown-content overrides the computed max-height, so every dropdown is at least 300px tall and can extend below the viewport."
+    },
+    {
+      "failure_scenario": "For a user-added Ollama model whose tag is not in built_in_models, kiln_model_provider_from reaches the else branch and logs 'Unexpected model/provider pair. Will treat as custom model...' on every BaseAdapter.model_provider() call (base_adapter.py:85), i.e. on every run. Untested models are a first-class supported feature (provider_api.available_ollama_models/custom_models), so logs are spammed with a warning that tells users to check settings that are already correct.",
+      "file": "libs/core/kiln_ai/adapters/provider_tools.py",
+      "line": 171,
+      "summary": "The new else-branch logs a WARNING for model/provider pairs that are a supported configuration (untested Ollama/custom models), producing repeated misleading warnings."
+    },
+    {
+      "failure_scenario": "Finetune.structured_output_mode defaults to None for tunes created before the field existed. finetune_provider_model (provider_tools.py:311-321) resolves those to json_schema for OpenAI and json_mode otherwise; all_fine_tuned_models instead advertises json_instructions, which the web UI copies into run_config_properties. Because the adapter now trusts run_config over the provider (litellm_adapter.py:187), a legacy OpenAI fine-tune is called with prompt-injected JSON instructions and no response_format, instead of the json_schema mode it was trained with.",
+      "file": "app/desktop/studio_server/provider_api.py",
+      "line": 969,
+      "summary": "all_fine_tuned_models falls back to json_instructions when a fine-tune has no saved structured_output_mode, while finetune_provider_model uses json_schema/json_mode for those same legacy tunes, so the value the UI sends disagrees with the provider logic."
+    },
+    {
+      "failure_scenario": "`disallowed_modes: List[StructuredOutputMode] = []` is evaluated once and shared by every call that omits it; the current callers do not mutate it, but any future caller that appends to the parameter (e.g. to add a disallowed mode per call site) would leak that change into all subsequent calls and silently change the mode resolved for unrelated models/providers.",
+      "file": "libs/core/kiln_ai/adapters/ml_model_list.py",
+      "line": 2315,
+      "summary": "default_structured_output_mode_for_model_provider uses a mutable list as a default argument."
+    }
+  ],
+  "level": null
+}

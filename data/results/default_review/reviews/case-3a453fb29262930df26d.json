@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "src/huggingface_hub/hf_api.py",
+      "line": 722,
+      "summary": "InferenceProviderMapping.__init__ pops 'providerId' (camelCase) but the dataclass field is 'provider_id' (snake_case); constructing with snake_case kwarg raises KeyError",
+      "failure_scenario": "Calling InferenceProviderMapping(hf_model_id='x', status='live', task='t', provider_id='id') -- i.e. using the Python field name -- crashes at kwargs.pop('providerId') with KeyError because the __init__ only looks for camelCase 'providerId'. All internal callers currently pass 'providerId', so this is latent, but it makes the interface fragile for any future user who naturally uses the snake_case field name.",
+      "finding_id": "mf-48cabc41740997cf3b51"
+    },
+    {
+      "file": "src/huggingface_hub/hf_api.py",
+      "line": 725,
+      "summary": "InferenceProviderMapping.__init__ pops 'adapterWeightsPath' (camelCase) not 'adapter_weights_path' (snake_case) -- snake_case keyword is silently dropped and defaults to None",
+      "failure_scenario": "If someone constructs InferenceProviderMapping(adapter_weights_path='lora/my_weights.safetensors', ...) using the snake_case field name, the __init__ skips this kwarg (since it only pops 'adapterWeightsPath'), so self.adapter_weights_path defaults to None. The LoRA weights path is silently lost, and the Fal AI inference client will skip adding loras to the payload. The remaining kwargs wind up set on the instance via self.__dict__.update, creating a confusing duplicate attribute.",
+      "finding_id": "mf-a554b8b46e47a02968eb"
+    },
+    {
+      "file": "src/huggingface_hub/inference/_providers/_common.py",
+      "line": 130,
+      "summary": "_prepare_mapping_info calls provider_mapping.task on a value that _could_ be a raw dict instead of InferenceProviderMapping if ModelInfo conversion was skipped on a falsy-but-typed response",
+      "failure_scenario": "Although the current code path prevents this, if the Hub API ever returns inferenceProviderMapping as a non-None, non-dict truthy value (e.g., a single mapping object due to API evolution), ModelInfo.__init__ would skip the conversion and _fetch_inference_provider_mapping would return the raw value. Then _prepare_mapping_info would attempt provider_mapping.task on a non-InferenceProviderMapping, raising AttributeError with a misleading traceback instead of the intended ValueError('Model ... is not supported').",
+      "finding_id": "mf-aacedbf117458487abb5"
+    },
+    {
+      "file": "src/huggingface_hub/hf_api.py",
+      "line": 855,
+      "summary": "ModelInfo.__init__ uses truthiness check 'if self.inference_provider_mapping:' to gate InferenceProviderMapping conversion -- empty dict {} is falsy so would skip conversion if API returns empty mappings",
+      "failure_scenario": "If the Hub API returns inferenceProviderMapping as an empty dict {} (plausible for models with no registered providers), the conversion loop is skipped. _fetch_inference_provider_mapping returns the raw empty dict, callers get None from .get(provider), and the correct 'not supported' ValueError is raised. This actually works correctly for empty dicts, but the truthiness test is fragile: if the API evolves to return a non-dict truthy value, the .items() call in the conversion loop crashes, or worse, the conversion is skipped and downstream code fails with an opaque AttributeError.",
+      "finding_id": "mf-768d3c921a53cc7e4800"
+    },
+    {
+      "file": "src/huggingface_hub/inference/_providers/fal_ai.py",
+      "line": 81,
+      "summary": "FalAITextToImageTask._prepare_payload_as_dict hardcodes revision='main' when constructing the LoRA weights URL, which fails if the weights live on a different branch/revision",
+      "failure_scenario": "If a registered model's adapter_weights_path points to a LoRA file that was committed to a branch other than 'main' (e.g., 'lora-v2' or a pinned commit SHA), the URL constructed from constants.HUGGINGFACE_CO_URL_TEMPLATE with revision='main' will 404, and the Fal AI inference request will fail. The revision should either be configurable per-mapping or derived from the API response.",
+      "finding_id": "mf-f66423a783269f76b898"
+    },
+    {
+      "file": "src/huggingface_hub/inference/_providers/fal_ai.py",
+      "line": 82,
+      "summary": "FalAITextToImageTask unconditionally sets payload['loras'] and payload['model_name'], overwriting any same-named keys the user passed in parameters",
+      "failure_scenario": "A user calls inference with parameters={'loras': [...custom...], 'model_name': 'my-model'} and the provider has adapter_weights_path set. The **filter_none(parameters) spread includes the user's loras and model_name into the payload dict early, but they are later overwritten by payload['loras'] = [...] and payload['model_name'] = 'stabilityai/stable-diffusion-xl-base-1.0'. The user's custom loras/model are silently discarded, and no error is raised.",
+      "finding_id": "mf-ee74dabf9afbeb1cb3af"
+    },
+    {
+      "file": "tests/test_inference_providers.py",
+      "line": 84,
+      "summary": "Test mocks for _fetch_inference_provider_mapping use inconsistent attribute names: 'providerId' (camelCase) at line 84 vs 'provider_id' (snake_case) at lines 98, 114, 131",
+      "failure_scenario": "The task mismatch test mock uses providerId='mapped-id' while staging/live/lora tests use provider_id='mapped-id'. Since mocker.Mock auto-creates any attribute, tests pass regardless. But this means the task mismatch test does not verify that _prepare_mapping_info correctly handles the real InferenceProviderMapping attribute mapping. A future change to InferenceProviderMapping.__init__ that breaks the providerId->provider_id mapping would pass all tests but fail at runtime.",
+      "finding_id": "mf-56fc0f4d9bb9fc57546d"
+    },
+    {
+      "file": "src/huggingface_hub/inference/_providers/new_provider.md",
+      "line": 51,
+      "summary": "Provider template doc (new_provider.md) still shows old _prepare_payload_as_dict signatures with 'mapped_model: str' instead of 'provider_mapping_info: InferenceProviderMapping'",
+      "failure_scenario": "A developer following the template to add a new provider writes code with `def _prepare_payload_as_dict(self, inputs, parameters, mapped_model: str)` matching the template. At runtime, the call from TaskProviderHelper.prepare_request passes `provider_mapping_info=provider_mapping_info` as a keyword arg, which becomes an unexpected keyword argument for the old signature, raising TypeError.",
+      "finding_id": "mf-85e08838199d9b48e261"
+    }
+  ]
+}

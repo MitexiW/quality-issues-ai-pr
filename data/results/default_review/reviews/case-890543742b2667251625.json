@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 77,
+      "summary": "CancellationToken is unsafely cast to AbortSignal, breaking test-run cancellation entirely",
+      "failure_scenario": "User clicks 'Cancel' in the VS Code Test Explorer during a test run. The token is a vscode.CancellationToken with `isCancellationRequested` / `onCancellationRequested`, but Node's `child_process.exec()` expects `AbortSignal` with `aborted` / `addEventListener('abort', …)`. The signal mismatch means Node never detects the abort request; the subprocess keeps running and the cancel button has no effect. (The existing code in `sqlmesh.ts:239-240` already shows the correct pattern: create an `AbortController`, bridge via `token.onCancellationRequested(() => abortController.abort())`, and pass `abortController.signal`.)",
+      "finding_id": "mf-806043ae73fe69b3c4dd"
+    },
+    {
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 80,
+      "summary": "All tests in a run are marked with the same pass/fail status based on the aggregate exit code, misrepresenting individual test results",
+      "failure_scenario": "Five tests run: four pass and one fails. The sqlmesh CLI returns exit code 1 (non-zero). The loop at lines 80-83 marks ALL five tests with `run.failed(t, …)`. The user sees every test as failed and cannot determine which single test actually broke. The stderr from the aggregate invocation is also smeared across all five test messages.",
+      "finding_id": "mf-7ef873c9c5b5d07ffcbb"
+    },
+    {
+      "file": "vscode/extension/src/extension.ts",
+      "line": 132,
+      "summary": "setupTestController is called on every LSP restart, creating duplicate run profiles that are never disposed",
+      "failure_scenario": "The user changes their Python interpreter (triggering a restart), then changes a VS Code setting (another restart), then manually runs 'sqlmesh.restart'. After three restarts, `controller.createRunProfile(…)` has been called four times total (once initially + three restarts) but only the last `resolveHandler` assignment is active. The Test Explorer UI shows four duplicate 'Run' buttons. Clicking any of them triggers multiple overlapping test runs, and the old run profiles are never disposed, leaking resources.",
+      "finding_id": "mf-c3ed11ffbdc64c08bb75"
+    },
+    {
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 69,
+      "summary": "Test name containing '::' breaks ID parsing, producing a malformed pattern that silently skips the test",
+      "failure_scenario": "A SQLMesh test named `check::integrity` at `/project/models/test.sql` gets the TestItem ID `file:///project/models/test.sql::check::integrity`. Line 69 splits on `::` producing `['file:///project/models/test.sql', 'check', 'integrity']`. Destructuring captures only `uriStr='file:///project/models/test.sql'` and `name='check'`. The pattern passed to sqlmesh CLI becomes `/project/models/test.sql::check` which does not match `check::integrity`. The test is silently omitted from the run.",
+      "finding_id": "mf-d6828dd31a57367b768b"
+    },
+    {
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 74,
+      "summary": "No try/catch around execAsync; if it rejects (spawn failure), run.end() is never called and the test run remains stuck in 'running' state",
+      "failure_scenario": "Between `sqlmeshExec()` succeeding and `execAsync()` executing, the sqlmesh binary becomes unreadable (permission change, filesystem race). `execAsyncCore` rejects via `child.once('error', reject)` and `execAsync` re-throws. Without a try/catch at line 74, the `runTests` async function rejects. `run.end()` on line 85 never executes. VS Code's Test Explorer shows the test run as perpetually 'running', and the user cannot start a new run without reloading the window.",
+      "finding_id": "mf-c9b0ef5723a8bc9faf9f"
+    }
+  ]
+}

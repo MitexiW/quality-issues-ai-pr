@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Open a temporal-range filter on a field whose dataset is empty: `getTemporalRange` (computation/index.ts:436) receives the destructuring default `{min: 0, max: 0}` (or null aggregate values) and `newDate(rangeRes[MIN_ID]).getTime()` throws 'Cannot read properties of null (reading getTime)'; the promise rejects unhandled and the filter panel (SimpleTemporalRange/FilterTemporalRangeRule/useTemporalFilter) stays stuck on the loading spinner. The same crash occurs in lib/op/aggregate.ts:62 (`newDate(x).getTime()`) whenever a locally aggregated temporal measure group (viewQuery.ts pipeline) contains a null/0/NaN value, and in tabs.tsx:720 `dateStringFormatter` for 0/NaN input (which previously returned '' via the isNaN check).",
+      "file": "packages/graphic-walker/src/lib/op/offset.ts",
+      "line": 60,
+      "summary": "The new `if (!v) return null` guard makes the `newOffsetDate` creator return null for the falsy values 0 and NaN (and null/undefined), so `newOffsetDate(offset)(0)` no longer yields the 1970-01-01 date and callers that call `.getTime()` on the result now throw a TypeError."
+    },
+    {
+      "failure_scenario": "A temporal field containing timestamp 0 (1970-01-01T00:00:00Z) is drilled by 'year': before the change the row contributed a value to the 1970 group; now the derived column gets null for that row, so it drops out of the 1970 bucket and any aggregation or vega encoding built on the drilled column silently loses the row.",
+      "file": "packages/graphic-walker/src/lib/op/dateTimeDrill.ts",
+      "line": 29,
+      "summary": "The `if (!v) return null;` guard added to every drill case (and duplicated in dateTimeFeature.ts:37) treats the epoch timestamp 0 as a missing value, silently replacing a legitimate 1970-01-01 drill result with null."
+    },
+    {
+      "failure_scenario": "A data table with a null cell in a temporal column: `fieldValue` (components/dataTable/index.tsx:176, rendered at line 522 via TruncateDector) calls `formatDate(parsedOffsetDate(...)(null))` which now returns the string 'null', so the cell displays the text 'null' (and the copied clipboard value is 'null') instead of a blank; the same text appears in pivot-table tree labels (leftTree.tsx:39, topTree.tsx:39), profiling category values (profiling.tsx:210), and filter distinct-value lists (simple.tsx:308, tabs.tsx:660).",
+      "file": "packages/graphic-walker/src/utils/index.ts",
+      "line": 354,
+      "summary": "formatDate(null) now returns the literal string 'null', which is rendered verbatim in data table cells, pivot-table labels, profiling lists, and filter option lists for any null/undefined/0 temporal value."
+    },
+    {
+      "failure_scenario": "A data source whose rows lack the temporal field key (undefined datum values, e.g. sparse JSON records) is rendered: `undefined !== null` is true, so `toDate(undefined)` is combined with the offset (`null`/Invalid Date plus e.g. `-28800000`), yielding an epoch-adjacent garbage timestamp or NaN in the chart instead of null; the identical gap exists in the timestamp branch at view.ts:101 (`datum[fid]!==null?(datum[fid]${formatOffset(offsetTime)}):null`).",
+      "file": "packages/graphic-walker/src/vis/spec/view.ts",
+      "line": 92,
+      "summary": "The new vega-calculate guard tests only `!==null`, so rows where the temporal field key is absent (undefined) still take the compute branch and produce the same bogus offset-arithmetic result the change was added to eliminate."
+    },
+    {
+      "failure_scenario": "A temporal-range filter with unset/cleared bounds (rule.value [null, null], which the predicate expands to -Infinity..Infinity) is applied to a dataset containing null temporal values: before the change `newOffsetDate(rule.offset)(null)` returned the epoch date and the row passed the range check; now `.getTime()` throws, the catch returns false, and the row is dropped from the filtered view, with a console.error logged for each such row on every filter evaluation.",
+      "file": "packages/graphic-walker/src/lib/filter.ts",
+      "line": 25,
+      "summary": "Because `newOffsetDate` now returns null for null/0 field values, the temporal-range filter predicate throws on every such row; the pre-existing try/catch swallows the error and silently excludes the row while logging console.error per row."
+    }
+  ],
+  "level": null
+}

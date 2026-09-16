@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user visits /pricing and always sees only 'Coming soon'; none of the new plans data, PricingCard grid (lines 68-102), TierPricingTable, or footer ever renders. The change ships ~150 lines of new UI (including the interactive token-tier Select and per-plan data) that can never execute, and the pricing page remains non-functional despite the PR rebuilding it.",
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 66,
+      "summary": "The unconditional `return <div>Coming soon</div>` retained above the new JSX makes the entire newly added pricing UI unreachable dead code."
+    },
+    {
+      "failure_scenario": "Teams has a non-empty tokenTiers array, so selectedTier is initialized to the first tier and `displayPrice` becomes '$20'; with the '/member / month' suffix the card renders '$20 /member / month' and '$50-$400 /member / month' for other tiers, while page.tsx declares Teams basePrice '$30' and defines those tier prices as flat per-month amounts ('10M / month'). The $30 base price is unreachable in the UI and users are shown a per-member price that undercuts the intended pricing.",
+      "file": "apps/web/client/src/app/pricing/pricing-card.tsx",
+      "line": 31,
+      "summary": "The Teams plan's declared $30 base price is never displayed, and flat monthly tier prices are relabeled as per-member prices."
+    },
+    {
+      "failure_scenario": "The new tokenTiers map 10M-240M tokens/month to $20-$400, but the pre-existing TierPricingTable (line 103, tier-pricing.tsx) still lists 'Pro Usage Pricing' as 100-1,200 messages/month for $20-$240 with different price-per-volume math. Once the page is unhidden, visitors see the card (e.g. 120M tokens → $200) next to the table (1,200 messages → $240), with no reconciliation of tokens vs messages or the price schedule.",
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 30,
+      "summary": "The new card tiers contradict the unchanged TierPricingTable rendered on the same page, showing two incompatible pricing schemes."
+    },
+    {
+      "failure_scenario": "For any non-English locale (messages/ko.json, ja.json, zh.json, es.json all exist and are wired through the generated `transKeys`), the pricing page now renders untranslated English ('Pricing', 'Your current plan', 'Billed monthly', feature lists), while the still-present `pricing` block in messages/en.json (lines 103+) becomes stale — it describes a 'Basic' plan and old $0/$20 prices that no longer match the new Free/Pro/Teams data, leaving dead, out-of-sync translations.",
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 75,
+      "summary": "The pricing page drops next-intl (`useTranslations`/`transKeys`) and hardcodes English strings, regressing localization in a repo where all pages are translated."
+    },
+    {
+      "failure_scenario": "Two structurally identical `TokenTier` definitions (page.tsx lines 15-19 and pricing-card.tsx lines 10-14) must be edited in lockstep; adding a field (e.g. an annual price or Stripe price ID for the checkout that the 'Get started' button currently lacks) to one silently diverges the other, with TypeScript only catching mismatches indirectly at the prop boundary.",
+      "file": "apps/web/client/src/app/pricing/pricing-card.tsx",
+      "line": 10,
+      "summary": "The TokenTier interface is duplicated verbatim in page.tsx and pricing-card.tsx instead of a single shared type."
+    }
+  ],
+  "level": null
+}

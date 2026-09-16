@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/zenml/integrations/azure/service_connectors/azure_service_connector.py",
+      "line": 1134,
+      "summary": "Auto-configured Azure connector expires_at is computed by labeling a local-time wall clock as UTC, shifting the token expiry by the machine's UTC offset (the code comment even says 'Convert from local time to UTC' but to_utc_timezone assumes naive input is already UTC).",
+      "failure_scenario": "User in UTC+2 runs connector auto-configuration: datetime.fromtimestamp(token.expires_on) returns naive LOCAL time (e.g. 14:00 for a 12:00 UTC expiry); to_utc_timezone() attaches UTC without converting, storing expires_at 2h in the future of the real expiry. _get_azure_session's buffer check and has_expired() then treat the token as valid for up to 2h after Azure rejects it, so cached sessions/credentials are used against expired tokens (401/auth failures); for negative-offset hosts the connector expires tokens prematurely.",
+      "finding_id": "case-d7154845bbf7bf4e183a-f0001"
+    },
+    {
+      "file": "src/zenml/models/v2/core/schedule.py",
+      "line": 186,
+      "summary": "utc_start_time/utc_end_time switched from astimezone(timezone.utc) (naive datetime treated as local, converted to UTC) to to_utc_timezone (naive assumed already UTC), silently shifting scheduled start/end times by the local offset.",
+      "failure_scenario": "User in UTC+2 creates a schedule with start_time=datetime(2026,9,16,0,0,0) (naive local, stored as-is by ScheduleSchema.from_request). Vertex/Kubeflow/Tekton orchestrators (vertex_orchestrator.py:653, kubeflow_orchestrator.py:771, tekton_orchestrator.py:738) previously sent 2026-09-15T22:00:00+00:00; they now send 2026-09-16T00:00:00+00:00, so the cron pipeline starts at 02:00 local instead of 00:00 local (for UTC-7 users, 7 hours late). Same shift applies to utc_end_time.",
+      "finding_id": "case-d7154845bbf7bf4e183a-f0002"
+    },
+    {
+      "file": "src/zenml/integrations/aws/orchestrators/sagemaker_orchestrator.py",
+      "line": 576,
+      "summary": "SageMaker one-time schedule 'at=' changed from execution_time.astimezone(timezone.utc) to to_utc_timezone(execution_time), so a user-provided naive (local) run-once time is treated as UTC instead of being converted.",
+      "failure_scenario": "User in UTC-7 schedules a run-once pipeline at datetime(2026,9,16,9,0,0) meaning 09:00 local. Old code sent the EventBridge/SageMaker schedule at 16:00 UTC (09:00 local); new code sends 09:00 UTC, firing the pipeline at 02:00 local - 7 hours early. East-of-UTC users get runs shifted late by the offset.",
+      "finding_id": "case-d7154845bbf7bf4e183a-f0003"
+    },
+    {
+      "file": "src/zenml/zen_stores/schemas/base_schemas.py",
+      "line": 34,
+      "summary": "created/updated timestamps (and all other timestamps now produced by utc_now, e.g. device expires, run start/end, last_user_activity) changed from timezone-aware UTC to naive UTC, so API responses serialize them without any offset suffix, breaking consumers that parse offset-less ISO 8601 as local time.",
+      "failure_scenario": "Previously BaseSchema used default_factory=lambda: datetime.now(timezone.utc) and responses serialized e.g. '2026-09-15T12:00:00+00:00', which JS Date parses as UTC. Now they serialize '2026-09-15T12:00:00' with no offset; a dashboard (JS new Date) or third-party client (datetime.fromisoformat) in UTC+2 displays/compares every created/updated/expires/last-activity timestamp 2 hours off from the true instant, and naive values no longer compare against aware datetimes. The wire format of every dated API field changed silently.",
+      "finding_id": "case-d7154845bbf7bf4e183a-f0004"
+    },
+    {
+      "file": "tests/integration/examples/great_expectations/steps/importer.py",
+      "line": 74,
+      "summary": "New UCI CSV loader assumes the remote file parses to exactly 34 columns with no trailing separators, and replaces the string fault-type target with positional column indices from idxmax.",
+      "failure_scenario": "If Faults.NNA (or a future revision of it) has a trailing tab per line or any extra field, read_csv yields 35 columns, df.iloc[:, :-7] leaves 28 feature columns, and 'df.columns = FULL_FEATURE_NAMES[:-7]' (27 names) raises ValueError (length mismatch), failing the integration test; additionally, target values become integer column labels 27-33 instead of the fault-type names ('Pastry', 'Z_Scratch', ...) the previous openml loader produced, so any expectation or assertion keyed on the class-name strings would fail or silently validate the wrong categories.",
+      "finding_id": "case-d7154845bbf7bf4e183a-f0005"
+    }
+  ]
+}

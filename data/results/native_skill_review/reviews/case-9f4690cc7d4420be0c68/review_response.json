@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A crawl of https://example.com with crawlerOptions.allowSubdomains=true: a link to https://blog.example.com/post fails isInternalLink (different hostname) and enters the external branch, which now unconditionally returns { allowed: false, denialReason: EXTERNAL_LINK } at line 458, so the allowSubdomains/isSubdomain block at lines 461-467 is never reached. Previously that block returned the URL. Consequences: (1) extractLinksFromHTML, tryGetSitemap's prefilter, and kickoffGetIndexLinks all drop subdomain links, so the crawl silently misses all subdomain content; (2) in queue-worker.ts:1312-1315 a redirect from example.com to blog.example.com now hits !filterResult.allowed and throws 'External URL not allowed', failing crawl jobs that previously succeeded.",
+      "file": "apps/api/src/scraper/WebScraper/crawler.ts",
+      "line": 458,
+      "summary": "The restructured filterURL returns EXTERNAL_LINK for every external link, making the allowSubdomains branch below it unreachable and silently disabling the allowSubdomains crawl option."
+    },
+    {
+      "failure_scenario": "queue-worker.ts:1371 calls filterLinks with limit Infinity for every scraped page; a page whose HTML yields thousands of rejected links allocates thousands of Map entries that are then discarded, because links.denialReasons is never accessed anywhere - the only consumer (the isCrawlSourceScrape re-check at queue-worker.ts:1443) calls filterLinks a second time and reads that call's own map. The same unused-map work is done in finishCrawlIfNeeded (queue-worker.ts:187, potentially thousands of lastUrls), kickoffGetIndexLinks (queue-worker.ts:952), and tryGetSitemap's _urlsHandler (crawler.ts:317). This adds O(denied-links) time and memory per page scrape for data that is thrown away.",
+      "file": "apps/api/src/scraper/WebScraper/crawler.ts",
+      "line": 125,
+      "summary": "filterLinks now eagerly builds a denialReasons Map entry for every rejected link on every call, but the map is never read in any of the hot call sites."
+    },
+    {
+      "failure_scenario": "A consumer such as queue-worker.ts:1450 that surfaces FilterLinksResult.denialReasons values (or future code switching on DenialReason) receives a raw string that cannot be referenced through the enum, so the enum is not the single source of truth for denial reasons; the message's wording can drift independently of the enum and is duplicated in prose rather than centralized.",
+      "file": "apps/api/src/scraper/WebScraper/crawler.ts",
+      "line": 130,
+      "summary": "The depth-limit denial reason 'Maximum discovery depth reached' is a hardcoded string, the only denial reason filterLinks emits that is not a member of the new DenialReason enum."
+    }
+  ],
+  "level": null
+}

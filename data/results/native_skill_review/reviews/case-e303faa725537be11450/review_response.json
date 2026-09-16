@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User runs curator with backend='litellm' and model_name='klusterai/DeepSeek-V3' (kluster.ai serves far more models than the 4 in _default_rate_limits.json): OnlineStatusTracker.start_tracker (online_status_tracker.py:136) calls external_model_cost(model, provider='klusterai') and the new raise aborts the whole run before any request is sent. Same for backend='inference.net' batch with any of the hundreds of inference.net models not among the 7 listed, or a completion_window not in {'*','24h'}: BaseBatchRequestProcessor._attempt_loading_batch_status_tracker (base_batch_request_processor.py:314) raises ValueError during run setup. Before this diff, provider='default' matched nothing and these paths returned zero cost, so the run proceeded.",
+      "file": "src/bespokelabs/curator/cost.py",
+      "line": 54,
+      "summary": "external_model_cost now raises ValueError for models/completion windows missing from the hardcoded JSON snapshot, crashing runs that previously reported zero cost and completed."
+    },
+    {
+      "failure_scenario": "Running `python examples/providers/inference_net_online.py`: _RequestProcessorFactory.create validates the params against BatchRequestProcessorConfig (where completion_window is a valid field, so validation passes), then _create_config builds OnlineRequestProcessorConfig(model=..., max_retries=1, completion_window='24h', ...) since batch=False; completion_window is only defined on BatchRequestProcessorConfig, so pydantic raises 'completion_window — Extra inputs are not permitted'. The shipped example fails immediately, and any user following it gets the same crash.",
+      "file": "examples/providers/inference_net_online.py",
+      "line": 8,
+      "summary": "The new online example passes completion_window in backend_params, but OnlineRequestProcessorConfig forbids extra fields (extra='forbid'), so curator.LLM construction raises a pydantic ValidationError and the example crashes before any request."
+    },
+    {
+      "failure_scenario": "Run backend='inference.net' online (the PR's own example): process_requests_from_file constructs OnlineStatusTracker(compatible_provider=self.compatible_provider), which evaluates to 'base' for OpenAIOnlineRequestProcessor (the batch counterpart OpenAIBatchRequestProcessor got an override returning self._compatible_provider, the online one did not); external_model_cost(model, provider='base') then returns zeros and the final statistics table reports 'Input Cost per 1M Tokens: $0.0000' instead of the $0.05 in _default_rate_limits.json. The per-request cost processor works, but the pricing wiring added here only functions for the LiteLLM backend.",
+      "file": "src/bespokelabs/curator/request_processor/online/base_online_request_processor.py",
+      "line": 319,
+      "summary": "OpenAIOnlineRequestProcessor never overrides the new compatible_provider property (it inherits the base property returning the literal 'base'), so the tracker cost wiring added in this diff is dead for the inference.net and klusterai online backends and their pricing displays as $0."
+    },
+    {
+      "failure_scenario": "Non-behavioral: two copies of the register-and-cache cost logic exist (cost.py lines 64-88 and 92-116). Any future change to the registration cache, the batch `times` multiplier, or error handling must be applied twice, and the copies already drift from base _LitellmCostProcessor batch semantics (cost_processor_factory is never called with batch=True from the batch processors). A single parameterized class, e.g. _ExternalCostProcessor(provider='klusterai') / (provider='inference.net'), removes the duplication.",
+      "file": "src/bespokelabs/curator/cost.py",
+      "line": 92,
+      "summary": "_InferenceNetCostProcessor is a near-verbatim copy of _KlusterAICostProcessor (identical registration-guard and _wrap logic; only the provider string and class name differ), duplicating logic that must now be maintained in two places."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 276,
+      "summary": "Incomplete rename: parameter 's' renamed to 'inputTextBuilder' in readNumberOrTextFrom(), but 6 references (lines 276,277,282,283,305,311) still use the old name 's' — all are compile errors",
+      "failure_scenario": "Any call to readNumberOrTextFrom() fails to compile: 's' is undefined in this static method.",
+      "finding_id": "mf-b20f77655fe7a86c1730"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 1293,
+      "summary": "Incomplete rename: field 'sb' (inherited from YamlWireOut) was wrongly renamed to 'targetBuffer' in textTo0() at lines 1293,1295,1306 — 'targetBuffer' is undefined in this method",
+      "failure_scenario": "YAML anchor/alias handling fails to compile: 'targetBuffer' is not declared in textTo0().",
+      "finding_id": "mf-2b7be61d1e62bfe891ea"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 856,
+      "summary": "Incomplete rename: field 'sb' (inherited from YamlWireOut) was wrongly renamed to 'targetBuffer' at line 856 in read(String) — 'targetBuffer' is undefined",
+      "failure_scenario": "read(String keyName) fails to compile: 'targetBuffer' is not declared in this method.",
+      "finding_id": "mf-8c0f87de09ccb856e80a"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 1123,
+      "summary": "Incomplete rename: field 'sb' (inherited from YamlWireOut) was wrongly renamed to 'targetBuffer' at line 1123 in reset() — 'targetBuffer' is undefined",
+      "failure_scenario": "reset() fails to compile: 'targetBuffer' is not declared in this method.",
+      "finding_id": "mf-8f0301488c18d1129857"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 2313,
+      "summary": "Incomplete rename: parameter 'type' renamed to 'defaultType' in objectWithInferredType0(), but 4 references (lines 2313,2322,2324,2357) still use the old name 'type' — compile errors",
+      "failure_scenario": "Any call path through objectWithInferredType0() fails to compile: 'type' is undefined.",
+      "finding_id": "mf-1f6725cfdd60839e04fc"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWireOut.java",
+      "line": 362,
+      "summary": "Incomplete rename: parameter 's' renamed to 'text' in needsQuotes(), but 3 references (lines 362,363,379) still use the old name 's' — compile errors",
+      "failure_scenario": "Any call to needsQuotes() fails to compile: 's' is undefined in this method.",
+      "finding_id": "mf-8805da78c05f7501a8a9"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/TextWire.java",
+      "line": 1431,
+      "summary": "Incomplete rename: parameter 'a' renamed to 'destination' in textTo0(), but 2 references (lines 1431,1435) still use the old name 'a' in readText(a, ...) calls — compile errors",
+      "failure_scenario": "TextWire ValueIn textTo0() fails to compile: 'a' is undefined at the readText call sites.",
+      "finding_id": "mf-5941336ee26f3778a242"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/TextWire.java",
+      "line": 3066,
+      "summary": "Incomplete rename: parameter 'clazz' renamed to 'targetSequenceType' in readSequence(), but 4 references (lines 3066,3076,3086,3098) still use the old name 'clazz' — compile errors",
+      "failure_scenario": "Any call to readSequence() fails to compile: 'clazz' is undefined in the else-if branches.",
+      "finding_id": "mf-420fb3cf6c0d066358e0"
+    }
+  ]
+}

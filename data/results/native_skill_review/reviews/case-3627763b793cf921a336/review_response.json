@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Running `pnpm storybook` or building storybook in apps/dashboard fails with a module resolution error: `@/styles/globals.css` resolves to `src/@/styles/globals.css`, which no longer exists after the rename; the storybook preview renders with no global styles.",
+      "file": "apps/dashboard/src/app/layout.tsx",
+      "line": 1,
+      "summary": "Renaming src/@/styles/globals.css to src/global.css updates the app layout import but leaves apps/dashboard/.storybook/preview.tsx importing the now-nonexistent @/styles/globals.css, breaking the Storybook build."
+    },
+    {
+      "failure_scenario": "A user collapses the project sidebar (trigger or Ctrl/Cmd+B); `document.cookie` is set with a 7-day max-age. On reload or navigation to another project page, `SidebarProvider` initializes from `defaultOpen = true` because no code reads `sidebar_state` (grep confirms the cookie name appears only at the write site), so the sidebar is always expanded again — the persistence mechanism the code builds is dead.",
+      "file": "apps/dashboard/src/@/components/ui/sidebar.tsx",
+      "line": 93,
+      "summary": "SidebarProvider writes the sidebar_state cookie on every toggle but nothing ever reads it, so the collapsed/expanded state is silently lost on every reload."
+    },
+    {
+      "failure_scenario": "A user editing a textarea or input on a project page (e.g., project settings form fields, insight/contract text inputs) presses Ctrl+B to bold selected text: `event.preventDefault()` fires and `toggleSidebar()` collapses the sidebar instead, so the text is not bolded; in Firefox, Cmd+B's bookmarks sidebar is also suppressed. The handler never checks `event.target` to skip form fields.",
+      "file": "apps/dashboard/src/@/components/ui/sidebar.tsx",
+      "line": 109,
+      "summary": "The global window keydown handler intercepts Ctrl/Cmd+B everywhere on project pages and calls preventDefault(), hijacking the shortcut from any focused input or browser UI without checking the event target."
+    },
+    {
+      "failure_scenario": "Rendering a link list that contains `{ separator: true }` entries (as the new ProjectSidebarLayout footer does) produces a React 'each child in a list should have a unique key' warning, and if links before/after a separator are conditionally reordered, React can reuse the wrong DOM node for the separator and adjacent NavLinks.",
+      "file": "apps/dashboard/src/@/components/blocks/Sidebar.tsx",
+      "line": 67,
+      "summary": "Separator entries are returned from the mapped link list without a React key, unlike every sibling branch, causing key warnings and fragile reconciliation (same defect in RenderSidebarGroup at blocks/SidebarLayout.tsx line 137)."
+    },
+    {
+      "failure_scenario": "Any `SidebarLink` of the `{ group, links }` shape renders its sub-links with no label or heading in FullWidthSidebarLayout — the passed `groupName` is dead — unlike the `CustomSidebar` renderer (blocks/Sidebar.tsx line 58) which displays the group name; the new renderer's group support is incomplete and the prop is unreferenced dead code.",
+      "file": "apps/dashboard/src/@/components/blocks/SidebarLayout.tsx",
+      "line": 106,
+      "summary": "RenderSidebarGroup accepts and passes a groupName prop (including recursively, line 143) but never destructures or renders it, so grouped links in the new full-width sidebar render with no group label."
+    }
+  ],
+  "level": null
+}

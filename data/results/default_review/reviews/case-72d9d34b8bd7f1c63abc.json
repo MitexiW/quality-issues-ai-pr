@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 824,
+      "summary": "Storing pointers to vector elements (&context_params_list.back()) while growing the same vector via push_back; reallocation invalidates previously stored pointers, so the pointer array passed to contextCreateFromBinaryListAsync contains dangling references when context_bin_map.size() > 1.",
+      "failure_scenario": "Two or more binary files in context_bin_map: the first iteration push_back into context_params_list (capacity 0→1), stores pointer at context_params_ptr_list[0]. The second push_back triggers reallocation (capacity 1→2 or similar), invalidating the pointer at context_params_ptr_list[0]. contextCreateFromBinaryListAsync reads corrupted/garbage context params for the first file. Fix: reserve(context_bin_map.size()) before the loop.",
+      "finding_id": "mf-c87faa265cbbbcfb02f2"
+    },
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 721,
+      "summary": "Null pointer dereference: SharedContext::GetInstance().GetSharedQnnBackendManager() can return nullptr (default shared_ptr), but line 724 calls qnn_backend_manager->ProcessContextFromBinListAsync(...) without a null check.",
+      "failure_scenario": "If SetSharedQnnBackendManager has not been called before the async callback fires (or was ResetSharedQnnBackendManager'd), GetSharedQnnBackendManager() returns a null shared_ptr. Dereferencing it causes a segfault in the callback.",
+      "finding_id": "mf-dba0db6c37516b7f1dbd"
+    },
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 815,
+      "summary": "Use-after-free: notifyParam (it.second.get(), a raw pointer into a vector owned by context_bin_map's unique_ptr) is passed to the async callback. In qnn_execution_provider.cc line 945, context_bin_map.clear() is called after SetupBackend returns, destroying the vector. If the callback fires asynchronously after that, it dereferences freed memory.",
+      "failure_scenario": "contextCreateFromBinaryListAsync is called with the callback. SetupBackend returns, GetCapability clears context_bin_map (destroying the vector notifyParam points to). The async callback fires on another thread, calls ProcessContextFromBinListAsync which dereferences notifyParam as vector<string>* — use-after-free, heap corruption.",
+      "finding_id": "mf-983aa96a5ae9958286af"
+    },
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 1170,
+      "summary": "Data race on ep_context_handle_map_: ProcessContextFromBinListAsync modifies the map under ep_context_handle_map_mutex_, but SetupBackend's early-return path (line 1170) and LoadCachedQnnContextFromBuffer (line 1075) both read the map without any lock.",
+      "failure_scenario": "The async callback fires while the early-return path in SetupBackend for a second session is also iterating and reading ep_context_handle_map_. Unsynchronized concurrent read+write on unordered_map — undefined behavior, potential crash or silent corruption.",
+      "finding_id": "mf-e9195d53a99f4a29b228"
+    },
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 720,
+      "summary": "Error status from async context creation silently ignored: the Qnn_ErrorHandle_t status parameter passed to ContextCreateAsyncCallback by contextCreateFromBinaryListAsync is discarded. Invalid or partially-initialized context handles may be added to the map and context list as if creation succeeded.",
+      "failure_scenario": "contextCreateFromBinaryListAsync reports an error via the callback's status parameter (e.g., QNN_CONTEXT_ERROR_MEMORY_ALLOC). The callback ignores it, still calls ProcessContextFromBinListAsync, which adds the (potentially invalid/null) context handle via AddQnnContextHandle and maps all node names to it. Later inference attempts using this invalid handle crash or produce wrong results.",
+      "finding_id": "mf-d284d02a35c959eb86f9"
+    },
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 827,
+      "summary": "No null-pointer check before calling qnn_interface_.contextCreateFromBinaryListAsync; the same file checks qnn_interface_.contextCreateFromBinary before calling it (line 1109). An older QNN runtime library lacking this function will crash on a null function pointer call.",
+      "failure_scenario": "Code compiled against QNN SDK >= 2.26 headers but linked/loaded against an older QNN runtime library that does not export contextCreateFromBinaryListAsync. The function pointer in qnn_interface_ is null. Calling it on line 827 causes a null function pointer dereference crash.",
+      "finding_id": "mf-79888c62fc8b6161d4a9"
+    },
+    {
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 746,
+      "summary": "Data race on context_map_ and contexts_: ProcessContextFromBinListAsync calls AddQnnContextHandle, which modifies context_map_ (try_emplace at line 2093) and contexts_ (push_back at line 2096). This is only serialized by ep_context_handle_map_mutex_, but other paths like CreateContext (line 894) and LoadCachedQnnContextFromBuffer (line 1120) also call AddQnnContextHandle without any mutex protection.",
+      "failure_scenario": "The async callback fires while Compile is running LoadCachedQnnContextFromBuffer on another thread. Both threads call AddQnnContextHandle concurrently, racing on context_map_ and contexts_. This results in heap corruption or double-free of QNN context handles.",
+      "finding_id": "mf-8746361676c68a45bdb7"
+    }
+  ]
+}

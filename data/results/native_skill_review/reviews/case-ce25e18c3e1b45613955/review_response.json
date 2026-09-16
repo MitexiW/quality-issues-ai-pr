@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "LLM.call(..., available_functions={...}) succeeds once: get_llm_tree runs at start and again at finish, so self.current_crew_tree permanently gains 4 children - two identical '🔧 Using get_weather from LLM available_function' lines plus '🔄 Tool Usage Started' and '✅ Tool Usage Completed' - none of which are ever removed (the agent path in handle_tool_usage_started instead finds/updates one tool_branch and increments tool_usage_counts). In a crew with reasoning enabled, reasoning_handler.py:254 calls LLM.call with available_functions on every step, so the tree grows without bound and the entire tree is re-rendered through the rich Live session on each event.",
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 437,
+      "summary": "get_llm_tree appends a brand-new '🔧 Using <tool> from LLM available_function' child to the shared crew/flow tree on every call, and it is called from both handle_llm_tool_usage_started and handle_llm_tool_usage_finished (and again from handle_llm_tool_usage_error), so each LLM tool call leaves duplicate, never-reused nodes; the new current_llm_tool_tree field (line 20) that would let the finish/error handlers reuse the node is never assigned or read anywhere."
+    },
+    {
+      "failure_scenario": "Agent reasoning (reasoning_handler.py:254 calls LLM.call(..., available_functions={'create_reasoning_plan': ...})) now emits ToolUsageStartedEvent/ToolUsageFinishedEvent with agent_key=None, agent_role=None, tool_class=None and source_fingerprint/source_type=None. A listener registered on ToolUsageStartedEvent that formats the agent (f'[{event.agent_role}] {event.tool_name}') prints '[None] create_reasoning_plan', and one that indexes event.agent_key (dict grouping) raises; CrewAIEventsBus.emit swallows handler exceptions and only prints '[EventBus Error]', so such listeners silently stop recording every LLM-originated tool call. Before this change the schema rejected any ToolUsage event lacking these fields, so the omission could not pass validation.",
+      "file": "src/crewai/utilities/events/tool_usage_events.py",
+      "line": 10,
+      "summary": "Relaxing agent_key/agent_role/tool_class from required to Optional lets the new LLM emitter publish ToolUsage events carrying no agent identity, and ToolUsageEvent.__init__ only derives source_fingerprint/source_type when self.agent is present, so those events are also published with source_type=None."
+    },
+    {
+      "failure_scenario": "The model returns arguments '{\"location\": \"New' (truncated JSON is a common streaming/non-streaming failure) -> json.loads at line 837 raises inside the try -> function_args is still {} -> the emitted ToolUsageErrorEvent(tool_name='get_weather', tool_args={}, error='Tool execution error: ...') is published. Consumers and telemetry for a failed tool call see an empty argument dict (and no ToolUsageStartedEvent at all, since that emit sits after the parse), so the failing call cannot be diagnosed from the event stream. The except block still has tool_call.function.arguments available to populate the real arguments.",
+      "file": "src/crewai/llm.py",
+      "line": 880,
+      "summary": "The new ToolUsageErrorEvent always reports tool_args=function_args, and function_args is still the empty-dict sentinel from line 831 whenever json.loads of the model's arguments fails inside the try, so the error event for the most common tool-call failure carries no arguments even though tool_call.function.arguments still holds them."
+    },
+    {
+      "failure_scenario": "A defect in the routing or in the formatter (an inverted isinstance, passing the wrong formatter arguments, or a formatter method that raises) would pass the suite: tests/llm_test.py::test_handle_streaming_tool_calls and test_handle_streaming_tool_calls_with_error use the mock_emit fixture that replaces CrewAIEventsBus.emit, and tests/utilities/test_events.py only asserts fields of agent-emitted ToolUsage events, leaving event_listener.py:284-323 and console_formatter.py:430-473 as dead code under test even though this is the behavior the change exists to add.",
+      "file": "src/crewai/utilities/events/event_listener.py",
+      "line": 286,
+      "summary": "The new LLM-vs-agent routing and the three handle_llm_tool_usage_* formatter methods are never executed by any test: the only new tests patch CrewAIEventsBus.emit, so the isinstance(source, LLM) branches and everything they call are uncovered."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "An authenticated user selects o4-mini, claude-3-7-sonnet-rea, gemini-2.5-pro-exp-03-25-pro, mistral-small-2503, o3-mini-high, o3-mini-low, or o3-mini-medium and sends a message. getProviderForModel(model) is called with the config id, which is not in MODEL_PROVIDER_MAP (only the SDK id the model's apiSdk delegates to is, e.g. o4-mini -> gpt-4o-mini) and doesn't match the isOllamaModel regexes, so it throws 'Unknown provider for model: o4-mini' and POST /api/chat returns 500. Unauthenticated users skip the lookup and are unaffected; these models worked for everyone before this change.",
+      "file": "app/api/chat/route.ts",
+      "line": 105,
+      "summary": "The new provider lookup keys on the model config id, which is missing from MODEL_PROVIDER_MAP for several in-catalog models, so authenticated chats with those models now throw 'Unknown provider for model' and return 500."
+    },
+    {
+      "failure_scenario": "A deployment follows .env.example (which defines no ENCRYPTION_KEY) and runs with CSRF_SECRET unset or left as the example placeholder. When a user saves an API key in settings, it is encrypted with the literal key 'default-key-change-in-production' (or a guessable placeholder). Anyone who obtains read access to the user_keys table (backup leak, RLS misconfiguration, console breach) can decrypt every stored key with the known constant - no warning or startup check ever fires.",
+      "file": "lib/encryption.ts",
+      "line": 3,
+      "summary": "BYOK encryption silently falls back to a hardcoded, publicly known default key when ENCRYPTION_KEY and CSRF_SECRET are unset, making all stored user API keys decryptable by anyone with database read access."
+    },
+    {
+      "failure_scenario": "The operator rotates CSRF_SECRET or ENCRYPTION_KEY (or one row gets corrupted), so GCM auth fails for stored rows. decryptKey throws inside userKeys?.map, the top-level catch returns 500, and the settings page can no longer load or display any masked key - and there is no UI path to replace the broken rows. Meanwhile chat does not error: getUserKey() swallows the decrypt error and getEffectiveApiKey falls back to the server's env keys, so the user's key is silently ignored with no feedback.",
+      "file": "app/api/user-keys/route.ts",
+      "line": 27,
+      "summary": "decryptKey failures are not handled per-row, so a single undecryptable stored key makes GET /api/user-keys return 500 and breaks the settings page for every key, while chat silently falls back to the server env keys."
+    },
+    {
+      "failure_scenario": "The user clicks Save with an expired/invalid CSRF token, or the upsert fails (RLS policy missing on user_keys, Supabase outage, 401 because the session expired). Each fetch returns 403/500 but the code only console.logs 'Provider settings saved successfully' at the end, so the user believes their API key was stored when it was not.",
+      "file": "app/components/layout/settings/connections/provider-settings.tsx",
+      "line": 100,
+      "summary": "handleSave never checks response.ok on the POST /api/user-keys calls, so failed saves are reported as 'Provider settings saved successfully' with no user-facing error."
+    },
+    {
+      "failure_scenario": "A user wants to remove their stored OpenAI key. The input is prefilled with the masked value, they clear it and press Save. The loop condition `if (key && !key.includes('*'))` skips the empty string, no POST is sent, and the existing row in user_keys is untouched - the old key continues to be fetched by getEffectiveApiKey and used for every subsequent chat. Neither the UI nor POST /api/user-keys provides any delete path.",
+      "file": "app/components/layout/settings/connections/provider-settings.tsx",
+      "line": 99,
+      "summary": "The masked-key skip check makes it impossible to delete a stored BYOK key: clearing the input and saving never sends a request, so the old key remains in the database and keeps being used for chats."
+    },
+    {
+      "failure_scenario": "A user disables the OpenAI switch expecting their BYOK key to stop being used. The switch state is never sent anywhere: keysToSave sends all non-masked inputs regardless of enable state, and neither /api/chat nor /api/user-keys consults any enabled flag, so chat keeps using the stored OpenAI key. Symmetrically, the OpenRouter tab's input is not in keysToSave, so a key typed there is silently discarded on Save.",
+      "file": "app/components/layout/settings/connections/provider-settings.tsx",
+      "line": 98,
+      "summary": "The provider enable switches are decorative: they are never persisted or consulted server-side, so disabling a provider does not stop its stored key from being used, and the OpenRouter field is silently never saved."
+    },
+    {
+      "failure_scenario": "CSRF_SECRET is set to a short value such as 'dev-secret' (plausible given the .env.example placeholder style). The AES-256-GCM key becomes 'dev-secret' plus 22 zero bytes, reducing the effective key to ~10 bytes and making stored keys brute-forceable. Conversely, any two secrets longer than 32 chars that share a 32-char prefix produce the identical key, so knowledge of one deployment's key prefix compromises another.",
+      "file": "lib/encryption.ts",
+      "line": 8,
+      "summary": "The AES key derivation slice(0, 32).padEnd(32, '0') zero-pads short secrets and silently truncates long ones, weakening the effective key and colliding distinct secrets."
+    },
+    {
+      "failure_scenario": "getProviderForModel returns 'ollama' for ollama models and deepseek-r1/deepseek-v3 (via the /^deepseek/ pattern), and the chat route casts it to the narrower user-keys Provider. getEffectiveApiKey then indexes envKeyMap['ollama'], which is undefined and only returns null by accident - the duplication means the two provider unions will drift and any future refactor (e.g. making the map total) breaks silently.",
+      "file": "lib/user-keys.ts",
+      "line": 5,
+      "summary": "The new local Provider type duplicates the existing Provider in lib/openproviders/types.ts but drops the 'ollama' member, and the `provider as Provider` cast in the chat route lets 'ollama' flow into a Record that lacks it."
+    },
+    {
+      "failure_scenario": "Grep of the repo shows only /api/user-keys is fetched by the settings UI; nothing calls /api/providers. The endpoint (including its quirky hasUserKey computation, which reports false whenever a stored key happens to equal the env key) must still be maintained and secured despite having no consumer.",
+      "file": "app/api/providers/route.ts",
+      "line": 5,
+      "summary": "The new /api/providers endpoint is dead code: no client code anywhere calls it, so its CSRF, auth, and hasUserKey logic are never exercised."
+    },
+    {
+      "failure_scenario": "Nothing in the repo imports createEnvWithUserKeys; the env-key map it builds is a second copy of the Record in lib/user-keys.ts getEffectiveApiKey, so any future change to provider env handling must be made (and can be forgotten) in both places.",
+      "file": "lib/openproviders/env.ts",
+      "line": 9,
+      "summary": "createEnvWithUserKeys is exported but has no callers anywhere in the repository - dead helper duplicating the env-key fallback logic already implemented in getEffectiveApiKey."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Process B runs AffinityLock.acquireCore() while another process grabs the paired CPU between B's isCpuFree() pre-check and tryAcquireLockOnFile(id2). tryAcquireLockOnFile(id2) returns null, so line 118 executes releaseLock(id) with locks[id] == null (the field is only assigned in the success branches, lines 109/114); the method does nothing, leaving B's open FileChannel holding an exclusive FileLock on cpu-<id>.lock. locks[id] stays null, but isLockFree(id) now catches OverlappingFileLockException and returns false, so canReserve(id)/acquireLock(id) fail for the rest of the JVM's life and other processes are blocked from that CPU. The same leak occurs when tryAcquireLockOnFile(id2) throws ConcurrentLockFileDeletionException: the retry loop drops the already-acquired lockReference without closing it.",
+      "file": "affinity/src/main/java/net/openhft/affinity/lockchecker/FileLockBasedLockChecker.java",
+      "line": 118,
+      "summary": "Whole-core acquisition calls releaseLock(id) before locks[id] has ever been assigned, so the release is a no-op and the first CPU's FileChannel/FileLock is leaked, permanently marking that CPU as locked."
+    },
+    {
+      "failure_scenario": "AffinityLock.acquireCore(false) (public API) calls this method with wholeCore=true, so FileLockBasedLockChecker.obtainLock acquires locks for both cpuId and cpuId2. The sibling AffinityLock is only given an assignedThread - and therefore only released by LockInventory.release() -> releaseAffinityLock(), which calls LockCheck.releaseLock(al.cpuId()) only - when bindWholeCore() runs, and bindWholeCore() is called exclusively from AffinityLock.bind() when bind == true. After try (AffinityLock lock = AffinityLock.acquireCore(false)) closes on a hyper-threaded Linux host, FileLockBasedLockChecker.locks[cpuId2] is never cleared and cpu-<cpuId2>.lock stays exclusively locked, so LockCheck.isCpuFree(cpuId2) returns false forever and neither this process nor any other process can use the sibling CPU.",
+      "file": "affinity/src/main/java/net/openhft/affinity/LockInventory.java",
+      "line": 85,
+      "summary": "A whole-core lock acquired without binding reserves cpuId2 here but only releases cpuId, leaking the hyper-threaded sibling's file lock for the lifetime of the JVM."
+    },
+    {
+      "failure_scenario": "An application restricts itself with AffinityLock.cpuLayout(VanillaCpuLayout.fromProperties(...)) to a 4-CPU layout on an 8-CPU host (PROCESSORS == 8), then calls AffinityLock.acquireLock(4): isInvalidCpuId(4) returns false, and LockInventory.acquireLock tests `cpuId > logicalCoreLocks.length` (4 > 4 is false) at LockInventory.java:150 before evaluating logicalCoreLocks[4] -> ArrayIndexOutOfBoundsException. The same crash occurs via AffinityLock.acquireLock(new int[]{4}) through LockInventory.tryAcquireLock (LockInventory.java:191/193), so the new validation does not actually cover the boundary it advertises.",
+      "file": "affinity/src/main/java/net/openhft/affinity/AffinityLock.java",
+      "line": 197,
+      "summary": "The new CPU-id guard validates against the static PROCESSORS count rather than the active layout size, so a legal id equal to the configured layout's CPU count still reaches an off-by-one bound check and throws ArrayIndexOutOfBoundsException instead of returning noLock."
+    },
+    {
+      "failure_scenario": "Before this change the make-c profile activated whenever -DdontMake was absent and ran `make` in src/main/c, producing target/classes/libCEInternals.so. Maven's <os><family> matcher compares against the OS family (windows/unix/mac/dos/...), and on Linux that value is `unix`, so this condition can never be satisfied and the profile is now inactive on every platform. make never runs: NativeAffinity.LOADED and JNIClock.LOADED stay false, JNI affinity/rdtsc silently fall back to JNA/System.nanoTime, and the native tests hide it because they self-skip via Assume.assumeTrue(NativeAffinity.LOADED).",
+      "file": "affinity/pom.xml",
+      "line": 114,
+      "summary": "The new make-c activation requires OS family `linux`, which Maven never reports (Linux's family is `unix`), so the native library silently stops being built."
+    },
+    {
+      "failure_scenario": "Applications are encouraged by the requirements (FR7.2) to install their own CpuLayout via AffinityLock.cpuLayout(cpuLayout). Any such class compiled against the previous version does not override pair(int), so LockInventory.set's cpuLayout.pair(i) call (LockInventory.java:113) fails at runtime with AbstractMethodError during AffinityLock.cpuLayout(...) or lock acquisition; recompiling such a class fails with 'does not override abstract method pair(int)'. LockChecker.java:41 has the identical problem for custom LockChecker implementations: the deprecated default added at LockChecker.java:33 preserves callers of the old two-argument method, not existing implementors of the interface.",
+      "file": "affinity/src/main/java/net/openhft/affinity/CpuLayout.java",
+      "line": 57,
+      "summary": "Adding abstract pair(int) to the public CpuLayout interface (and obtainLock(int,int,String) to LockChecker) is a source- and binary-incompatible change that breaks every external implementation."
+    },
+    {
+      "failure_scenario": "On Windows, a thread in a process whose mask is {0..7} calls Affinity.setAffinity({3}); if SetThreadAffinityMask fails to apply the mask (e.g. insufficient access rights) the thread remains on CPU 0, but the read-back mask affinity2 ({0..7}) intersects the requested {3}, so the warning whose message still reads 'Tried to set affinity to {} but was {}' is not logged. Previously any difference between the requested and effective mask triggered the warning, so this change suppresses the only diagnostic for a silently ignored affinity setting.",
+      "file": "affinity/src/main/java/net/openhft/affinity/impl/WindowsJNAAffinity.java",
+      "line": 93,
+      "summary": "The post-set affinity verification was weakened from equals to intersects, so a SetThreadAffinityMask call that did not take effect is no longer reported."
+    }
+  ],
+  "level": null
+}

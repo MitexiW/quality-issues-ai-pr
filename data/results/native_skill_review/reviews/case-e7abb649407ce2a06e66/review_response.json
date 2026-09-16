@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user logs in and lands on /app/design_sessions/new (the default returnTo in loginByGithub/loginByEmail); the nav now shows only New Session and Recents, the organization dropdown offers only organization entries plus 'Create New Organization', and AppBar's ProjectsDropdownMenu renders only when currentProjectId is set, so from any design-session, settings, or organization page there is no clickable path to /app/projects and the list is reachable only by typing the URL.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/GlobalNav.tsx",
+      "line": 118,
+      "summary": "The change deletes the only GlobalNav entry that linked to the projects list (urlgen('projects')), leaving /app/projects unreachable through the UI."
+    },
+    {
+      "failure_scenario": "From /app/design_sessions/<id> the user clicks New Session; navigation to /app/design_sessions/new and then the router.push to the new session all stay under design_sessions/layout.tsx, so CommonLayout (and RecentsSection state) is preserved and no refetch occurs - the nav's Recents list keeps the list captured earlier and omits the session that was just created, defeating the feature's purpose until a full reload or a navigation that crosses into another route group.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/RecentsSection/RecentsSection.tsx",
+      "line": 34,
+      "summary": "Recents are fetched only once on mount (empty dependency array) and never refreshed, so a session just created through the New Session button never appears in the list while the shared layout stays mounted."
+    },
+    {
+      "failure_scenario": "If the Supabase call fails (expired session cookie, RLS/network error), fetchRecentSessions logs the error and returns []; the component then sets sessions=[] and loading=false, showing 'No recent sessions' to a user who may have sessions, with no error indication and no retry path (also returned silently when auth.getUser() fails on line 18).",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/services/fetchRecentSessions.ts",
+      "line": 29,
+      "summary": "Auth failures and query errors are converted into an empty array, so RecentsSection cannot distinguish an error from a genuinely empty list and renders 'No recent sessions'."
+    },
+    {
+      "failure_scenario": "GlobalNav starts with isExpanded=false and is mounted on every /app page (and remounted when moving between the (root), (with-project), design_sessions and settings layouts); because the effect has no isExpanded guard or dependency, each page view issues two Supabase requests for a list the user never expands, and the result is discarded whenever the component unmounts during navigation.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/RecentsSection/RecentsSection.tsx",
+      "line": 21,
+      "summary": "The recents query runs unconditionally on mount even though the section is hidden while the nav is collapsed (the default state), adding an auth.getUser round-trip plus a design_sessions query to every page load."
+    },
+    {
+      "failure_scenario": "Any change to the shared nav-item layout (icon box, label opacity/expansion behavior, hover state) must now be repeated in NewSessionButton, RecentsSection's collapsed branch, and OrganizationItem rather than one LinkItem; the generic component that existed for exactly this markup was deleted in the same diff, so the duplication is newly introduced.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/NewSessionButton/NewSessionButton.tsx",
+      "line": 15,
+      "summary": "NewSessionButton re-implements the markup of the deleted reusable LinkItem (item/iconContainer/labelArea/expandItem/expandLabelArea) instead of extending it, duplicating the same nav-item structure that RecentsSection also copies."
+    },
+    {
+      "failure_scenario": "A user who belongs to Organization A and Organization B and is currently viewing B still sees sessions created in A in the Recents list; clicking one navigates to an A-owned design session while the nav's OrganizationItem continues to show B as the current organization, and the query does not even select organization_id so the mismatch cannot be surfaced.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/services/fetchRecentSessions.ts",
+      "line": 25,
+      "summary": "The recents query filters only by created_by_user_id and never by the selected organization, unlike the rest of the app which scopes data through the organization cookie."
+    },
+    {
+      "failure_scenario": "Hovering the collapsed Recents icon paints the same --pane-background-active highlight used by every clickable nav item, but the element has no onClick or href, so the user sees an affordance that does nothing when clicked.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/RecentsSection/RecentsSection.tsx",
+      "line": 38,
+      "summary": "The collapsed Recents indicator is a non-interactive div that still carries itemStyles.item, so it inherits the clickable-looking .item:hover background while only cursor is overridden (and that override depends on stylesheet order against .item's cursor: pointer)."
+    },
+    {
+      "failure_scenario": "After opening one of the recent sessions, every entry in the list renders identically with no active styling, whereas the previous Projects nav item highlighted itself whenever pathname equalled its href; the current-session affordance is silently lost with the deleted component.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/RecentsSection/RecentsSection.tsx",
+      "line": 73,
+      "summary": "The deleted LinkItem's pathname-based active state (usePathname + .active/.activeIcon from LinkItem.module.css) was not reimplemented, so none of the new nav links indicates the currently open page."
+    },
+    {
+      "failure_scenario": "Every recents request transfers a column (and every consumer of RecentSession must keep the field in sync) that no rendering path reads; either drop it from the select/type or use it to distinguish project-scoped entries.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/services/fetchRecentSessions.ts",
+      "line": 24,
+      "summary": "project_id is selected from design_sessions and declared on RecentSession but is never consumed by the RecentsSection UI."
+    },
+    {
+      "failure_scenario": "Dead guard: a reader must evaluate a condition that can never be false to understand when the label collapses; the class can be applied unconditionally in this branch.",
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/RecentsSection/RecentsSection.tsx",
+      "line": 55,
+      "summary": "Inside the expanded-only branch the condition `isExpanded && itemStyles.expandLabelArea` is always true because the early return on line 36 already guarantees isExpanded."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/flynt/utils/utils.py",
+      "line": 175,
+      "summary": "unicode_escape_map extracts the string literal body from the full .format() expression, not from just the string literal — the slice -len(quote) strips characters from the end of the whole call expression, so the body includes trailing .format(...) garbage",
+      "failure_scenario": "For '\"Result: {}\".format(x)', body becomes 'Result: {}'.format(x' instead of 'Result: {}'. If a format argument contains a unicode escape (e.g. .format('\\u00B0')), the regex finds it in the garbage text and creates a false mapping entry. That mapping then gets applied to the f-string output, and if the decoded character appears inside an f-string expression ({...}), the naive sub replaces it with the escape sequence — introducing a backslash into f-string expression syntax which is a SyntaxError in Python < 3.12. The file-level ast.parse in _fstringify_file catches this, causing the entire file conversion to be skipped with a warning.",
+      "finding_id": "mf-cebdd6427cc3301ad641"
+    },
+    {
+      "file": "src/flynt/utils/utils.py",
+      "line": 192,
+      "summary": "apply_unicode_escape_map uses naive re.sub on the entire f-string and can corrupt \\n and \\t escape sequences that fixup_transformed injected into the output (at line 148-149 of utils.py)",
+      "failure_scenario": "fixup_transformed replaces real newlines (U+000A) with '\\n' (chr 92 + chr 110) in the output at line 148. If the mapping contains '\\' (from a '\\u005c' escape in the format string) or 'n' (from '\\u006e'), re.sub replaces characters inside these escape sequences. For example, replacing '\\' in '\\n' with '\\u005c' produces '\\u005cn' in source, which Python parses as literal backslash-n (two chars '\\n'), not the newline (U+000A) that the original code had — silently changing program output.",
+      "finding_id": "mf-067ae68bed41b516bb41"
+    },
+    {
+      "file": "src/flynt/code_editor.py",
+      "line": 170,
+      "summary": "apply_unicode_escape_map modifies the converted output AFTER transform_func already validated it with ast.parse, and the modified output is used without re-validation",
+      "failure_scenario": "transform_chunk (called via transform_func at line 168) validates new_code against ast.parse at transform.py line 53 before returning. The apply_unicode_escape_map call at line 170 runs after this check and can introduce invalid syntax (e.g. backslashes into f-string expressions). If the resulting syntax error matches a pattern that ast.unparse would handle at the expression level, the invalid code passes undetected into the output until the later file-level ast.parse check in _fstringify_file catches it — but by then the file's entire conversion is unrecoverable.",
+      "finding_id": "mf-c5144267e18d3c989e0d"
+    },
+    {
+      "file": "src/flynt/utils/utils.py",
+      "line": 195,
+      "summary": "contains_unicode_escape is dead code — defined but never imported or called anywhere in the codebase",
+      "failure_scenario": "The function was added alongside unicode_escape_map and apply_unicode_escape_map but has no callers. It increases maintenance burden and may mislead future developers into thinking it is used for input validation before the mapping is applied.",
+      "finding_id": "mf-9fee80ce80403f935798"
+    }
+  ]
+}

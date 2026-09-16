@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Org has `replay-ai-summaries` and `gen-ai-features` and has already acknowledged Seer. The setup-check query (hook sets `retry: false`, `staleTime: 0`) returns a transient 502 or network error; `setupAcknowledgement.orgHasAcknowledged` becomes `Boolean(undefined) === false`. The component then renders the 'Seer access is required… View Seer Settings' CTA (ai.tsx:61-83), the summary query stays disabled via the `enabled` gate at ai.tsx:42, and there is no retry path — before this diff the summary loaded purely from local feature flags with no network dependency. Even on success, every load flashes this CTA while the setup-check request is in flight (pending also yields `orgHasAcknowledged === false`), whereas `askSeer.tsx` explicitly handles the pending state with a 'Loading Seer' indicator.",
+      "file": "static/app/views/replays/detail/ai/ai.tsx",
+      "line": 61,
+      "summary": "The new CTA gate `!setupAcknowledgement.orgHasAcknowledged` cannot distinguish 'not yet acknowledged' from 'setup-check request pending or failed', so any failure of the new `/organizations/{slug}/seer/setup-check/` request permanently disables replay summaries for the view and shows a misleading 'Seer access is required' CTA to orgs that already acknowledged."
+    },
+    {
+      "failure_scenario": "An org with `hideAiFeatures: true` (Seer disabled via org settings or DE-region default) still has both `replay-ai-summaries` and `gen-ai-features` flags. `useActiveReplayTab` (`static/app/utils/replays/hooks/useActiveReplayTab.tsx:40-43`) picks `defaultTab = TabKey.AI`, but the diff-changed `getReplayTabs` in focusTabs.tsx omits the AI entry, so the `Tabs` component renders no selected item; `FocusArea` (focusArea.tsx:15-21) switches on the active tab and renders `<Ai />`, which shows 'AI features are not available for this organization.' The user opens a replay and lands in a tab that does not exist in the tab bar. Before the diff both files used the identical two-flag gate, so this divergence is introduced by changing only focusTabs' gate.",
+      "file": "static/app/views/replays/detail/layout/focusTabs.tsx",
+      "line": 29,
+      "summary": "The AI tab is now hidden when `areAiFeaturesAllowed` is false (`!organization.hideAiFeatures && gen-ai-features`), but `useActiveReplayTab` still computes the default tab from the raw two-flag check, so an org with both flags and `hideAiFeatures` true lands on the hidden AI tab with no selected tab in the tab bar."
+    },
+    {
+      "failure_scenario": "A user in an org that has not acknowledged Seer clicks 'View Seer Settings' on a deployment without customer-domain settings routing (the orgless settings route in routes.tsx:1034-1043 only applies when `USING_CUSTOMER_DOMAIN`). Under the `path=\":orgId/\"` settings route (routes.tsx:1045), `/settings/seer/` resolves `seer` as an `:orgId` with no matching child route (the org-level Seer page is `path=\"seer/\"` at routes.tsx:1003), so the user is taken to a broken/not-found settings page instead of the Seer settings. Every other org-level Seer link in the codebase uses the slug-qualified form, e.g. `static/app/views/settings/projectSeer/index.tsx:167` (`/settings/${organization.slug}/seer/`), and `organization` is already available in the component to build it.",
+      "file": "static/app/views/replays/detail/ai/ai.tsx",
+      "line": 75,
+      "summary": "The 'View Seer Settings' LinkButton points to `/settings/seer/`, omitting the org slug, which matches no route in the path-based settings tree (`/settings/:orgId/seer/`) and 404s, unlike the canonical `/settings/${organization.slug}/seer/` used elsewhere."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "An ONNX model with a QLinearGlobalAveragePool node whose channels_last attribute is 1 (channels-last layout) previously ran: the old code permuted X to (0,2,3,1) before pooling and returned a quantized result. With the new code the same model raises 'AssertionError: unsure what this does' at op execution time.",
+      "file": "extra/onnx_ops.py",
+      "line": 542,
+      "summary": "QLinearGlobalAveragePool drops support for channels_last=1, which the previous implementation handled, now asserting channels_last == 0 and crashing models that previously worked"
+    },
+    {
+      "failure_scenario": "A QLinearConv node with a float32 bias tensor B: conv2d computes int32 accumulation and then ret.add(float32 bias), promoting the output to float32 (mixed int/float binary ops promote to least_upper_dtype in tinygrad). The old code fed this float y through _quantize_linear and produced a correct quantized output; the new code hits 'AssertionError: quantized op should've done math in int' instead.",
+      "file": "extra/onnx_ops.py",
+      "line": 518,
+      "summary": "The new assert dtypes.is_int(out.dtype) in _qlinearop_quantized makes QLinearConv crash on inputs the old code quantized successfully whenever the conv emits a float result (e.g. a float32 bias B)"
+    }
+  ],
+  "level": null
+}

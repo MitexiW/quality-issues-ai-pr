@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "docs/docs.json",
+      "line": 137,
+      "summary": "Firecrawl Search Tool sidebar entry was replaced (not augmented) by Oxylabs, orphaning the still-existing firecrawlsearchtool.mdx page from sidebar navigation while the overview page still links to it",
+      "failure_scenario": "A user navigating the docs sidebar under 'Web Scraping & Browsing' no longer sees Firecrawl Search Tool. The firecrawlsearchtool.mdx page file still exists on disk at docs/tools/web-scraping/firecrawlsearchtool.mdx and the overview page at docs/tools/web-scraping/overview.mdx line 28 still shows a Card linking to it, but there is zero sidebar entry for it anywhere in docs.json — the page is effectively hidden from discovery unless the user clicks through from the overview CardGroup.",
+      "finding_id": "mf-3031a0f84aa94686e61a"
+    },
+    {
+      "file": "docs/tools/web-scraping/oxylabsscraperstool.mdx",
+      "line": 89,
+      "summary": "Wrong domain description in OxylabsAmazonSearchScraperTool parameters: 'Domain localization for Bestbuy' should say 'Amazon' (this is an Amazon search tool, not Bestbuy)",
+      "failure_scenario": "A developer reading the OxylabsAmazonSearchScraperTool parameter docs sees 'Domain localization for Bestbuy' for the domain parameter and is confused about whether this is an Amazon or Bestbuy tool, or worse, configures a Bestbuy domain for an Amazon search query.",
+      "finding_id": "mf-472ee5c1ab66a8861050"
+    },
+    {
+      "file": "docs/tools/web-scraping/oxylabsscraperstool.mdx",
+      "line": 7,
+      "summary": "Typo in frontmatter description: 'Google Seach' should be 'Google Search'",
+      "failure_scenario": "The published documentation page displays 'Google Seach' as one of the available scraper sources, a visible typo that reduces trust in documentation accuracy.",
+      "finding_id": "mf-6e0e928ef0cc7b376605"
+    }
+  ]
+}

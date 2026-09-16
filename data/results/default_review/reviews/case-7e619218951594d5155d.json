@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/llm.py",
+      "line": 226,
+      "summary": "The o1 workaround rewrites system messages to role \"assistant\" (they must go to \"user\"/\"developer\"), so the agent's role/goal/backstory and strict output-format instructions are presented to the model as its own prior output instead of directives.",
+      "failure_scenario": "User runs an agent with model \"o1-preview\". CrewAgentExecutor builds messages with the system prompt (role, goal, backstory, 'You MUST use the exact format...') and passes its persistent self.messages list by reference into LLM.call; the block mutates those dicts in place, permanently converting the stored system message to an assistant turn. o1 then treats the instructions as self-generated text, ignores them, and returns free-form answers that fail the Thought/Action/Final Answer format checks, causing the executor's format-error loop and wrong task output.",
+      "finding_id": "case-7e619218951594d5155d-f0001"
+    },
+    {
+      "file": "docs/concepts/memory.mdx",
+      "line": 277,
+      "summary": "The Vertex AI embedder example uses '=' instead of ':' inside the config dict (\"project_id\"=\"YOUR_PROJECT_ID\" etc.), which is invalid Python.",
+      "failure_scenario": "A user copies the documented snippet into their script and runs it: Python raises SyntaxError: invalid syntax at the first `\"project_id\"=\"YOUR_PROJECT_ID\"` line, so the example can never run as documented.",
+      "finding_id": "case-7e619218951594d5155d-f0002"
+    },
+    {
+      "file": "docs/concepts/memory.mdx",
+      "line": 256,
+      "summary": "The Azure and Vertex AI examples set the config key \"model_name\", but EmbeddingConfigurator.configure_embedder reads only config.get(\"model\") (src/crewai/utilities/embedding_configurator.py), so the chosen model is silently dropped and model_name=None is passed to the chroma embedding functions.",
+      "failure_scenario": "User follows the Azure example: configure_embedder builds OpenAIEmbeddingFunction(api_key=..., api_base=None, api_type=None, api_version=None, model_name=None) — chroma sends model=None to the API, and the embed request fails with a 400 ('you must provide a model parameter') or silently uses an unintended model; the user's text-embedding-3-small / textembedding-gecko choice is ignored.",
+      "finding_id": "case-7e619218951594d5155d-f0003"
+    },
+    {
+      "file": "docs/concepts/memory.mdx",
+      "line": 249,
+      "summary": "The Azure example declares \"provider\": \"openai\" while passing api_base/api_version/api_type in config, but _configure_openai only forwards api_key and model_name (the configurator has a dedicated \"azure\" provider for those); the Vertex example's project_id/region are likewise never forwarded by _configure_vertexai.",
+      "failure_scenario": "User follows the Azure docs: the embedder silently targets api.openai.com instead of their Azure endpoint with an Azure API key (auth failure / 401 on first memory save), and for Vertex the project_id/region they configured are dropped, so GoogleVertexEmbeddingFunction has no project and embedding calls fail at runtime.",
+      "finding_id": "case-7e619218951594d5155d-f0004"
+    },
+    {
+      "file": "src/crewai/agents/agent_builder/base_agent.py",
+      "line": 118,
+      "summary": "Removing Agent's own max_iter field (default 20) silently changes every Agent's default iteration cap to BaseAgent's 25, and tightening the type from Optional[int] to int makes max_iter=None a ValidationError for BaseAgent subclasses; docs/concepts/agents.mdx still documents the default as 20.",
+      "failure_scenario": "An existing user creates Agent(role=..., goal=..., backstory=...) without max_iter: agents that would previously give their best answer after 20 iterations now run up to 25 (25% more LLM calls and cost on stuck tasks, different outputs). A third-party BaseAgent subclass constructed with max_iter=None (previously accepted) now raises pydantic.ValidationError at construction.",
+      "finding_id": "case-7e619218951594d5155d-f0005"
+    },
+    {
+      "file": "src/crewai/flow/flow.py",
+      "line": 709,
+      "summary": "In kickoff(), when inputs contains an \"id\" but no persistence is configured, neither initialization branch runs, so every other input is silently dropped and the flow starts with default state (pre-existing logic, but this exact block is part of the reviewed hunk).",
+      "failure_scenario": "flow.kickoff({\"id\": \"resume-session\", \"topic\": \"science\"}) on a Flow with _persistence=None: the first block is skipped (persistence is None) and the final `if inputs is not None and \"id\" not in inputs` is also False, so _initialize_state is never called; the flow executes with empty state and the \"topic\" input is lost.",
+      "finding_id": "case-7e619218951594d5155d-f0006"
+    },
+    {
+      "file": "src/crewai/flow/flow.py",
+      "line": 714,
+      "summary": "The nested `if \"id\" in inputs:` inside the restoration block is a dead condition — the enclosing `if inputs and \"id\" in inputs and self._persistence is not None` already guarantees it — adding a redundant check in the reformatted code.",
+      "failure_scenario": "Maintenance cost only: the inner condition can never be False, so the id-override block reads as conditional when it is unconditional; a future refactor of the outer condition would silently change behavior of the id override.",
+      "finding_id": "case-7e619218951594d5155d-f0007"
+    }
+  ]
+}

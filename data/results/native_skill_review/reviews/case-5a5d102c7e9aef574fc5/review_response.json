@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "create_logged_model in FileStore now produces IDs like '550e8400-e29b-41d4-a716-446655440000' (no m- prefix, contains hyphens). The Databricks tracking server validates model_uuid in the CreateLoggedModel RPC and rejects IDs that don't match the m-<32 hex chars> convention (the format shown in examples/demos/mlflow-3/genai.py: '# m-123802d4ba324f4d8baa456eb8b5c061'), so model logging fails with INVALID_PARAMETER_VALUE on Databricks, and client-side handling keyed on the prefix (e.g. the startswith(\"m-\") check that _download_artifact_from_uri used, models:/<model_id> URI resolution) no longer recognizes the IDs.",
+      "file": "mlflow/store/tracking/file_store.py",
+      "line": 1997,
+      "summary": "LoggedModel IDs are generated as str(uuid.uuid4()) instead of the documented m-<32hex> format, breaking the model ID contract"
+    },
+    {
+      "failure_scenario": "Logging a model against a SqlAlchemyStore (including the Databricks REST tracking backend) sends a model_uuid like '123e4567-e89b-12d3-a456-426614174000' in the CreateLoggedModel RPC; the server-side validation of the m-<32hex> model UUID format rejects it, so mlflow.<flavor>.log_model fails, and any external tooling or prefix-keyed lookup that expects documented m- IDs breaks.",
+      "file": "mlflow/store/tracking/sqlalchemy_store.py",
+      "line": 1743,
+      "summary": "Same model ID format regression as file_store: model_id = str(uuid.uuid4()) drops the m- prefix and keeps hyphens"
+    },
+    {
+      "failure_scenario": "With mlflow.sklearn.autolog() on a GridSearchCV/RandomizedSearchCV, the caller (mlflow/sklearn/__init__.py:1649) passes the main model's ID, so all child runs (up to max_tuning_runs parameter combinations, including suboptimal ones) write their cross-validated metrics into the main LoggedModel's metric history; previously only the child run whose params matched the best estimator logged metrics, and only to the best estimator's own LoggedModel. This contradicts the PR's own removal of LoggedModel metric logging (record_model_id, model_id from register_prediction_result/log_post_training_metric, and the deleted test assertions in test_sklearn_autolog.py that verified the old selective behavior).",
+      "file": "mlflow/sklearn/utils.py",
+      "line": 882,
+      "summary": "_create_child_runs_for_parameter_search now logs every child run's metrics to the main LoggedModel via a pass-through model_id, replacing the old best-estimator-only targeting"
+    },
+    {
+      "failure_scenario": "The config rule \"mlflow/*\" = [\"databricks\"] exists because 'Databricks SDK/Agents should not be imported at the top level' (pyproject.toml), but the common form `from databricks.sdk import WorkspaceClient` at the top of an mlflow/* file passes node.module='databricks.sdk', which is not in ['databricks'], so it is no longer flagged. The same PR already exploits this by hoisting a databricks.sdk import to top level in databricks_sdk_models_artifact_repo.py, and future violations (eager SDK loading in the mlflow import chain) will pass lint undetected.",
+      "file": "dev/clint/src/clint/linter.py",
+      "line": 440,
+      "summary": "Forbidden-top-level-import check changed from module.startswith(lib) to exact equality, so submodule imports silently escape the rule"
+    },
+    {
+      "failure_scenario": "The repo's clint config forbids top-level databricks SDK imports under mlflow/* ('Databricks SDK/Agents should not be imported at the top level'); the pre-change linter would have flagged this line. As written, importing mlflow.store.artifact now eagerly imports databricks.sdk (previously deferred to the first _is_dir call), adding import-time cost and import-cycle risk to artifact-repository resolution for every user.",
+      "file": "mlflow/store/artifact/databricks_sdk_models_artifact_repo.py",
+      "line": 4,
+      "summary": "The databricks SDK import was hoisted from inside _is_dir to module top level, violating the repo's own forbidden-top-level-import policy"
+    },
+    {
+      "failure_scenario": "A legitimate `if TYPE_CHECKING: import databricks` (or `from fastapi import FastAPI` in a mlflow/gateway/providers/* file) now fails clint with ForbiddenTopLevelImport even though the import never executes at runtime, producing false-positive CI failures; the same guard removal at line 426 affects ImportFrom nodes. The guard existed precisely to exempt type-only imports from a rule that targets runtime import behavior.",
+      "file": "dev/clint/src/clint/linter.py",
+      "line": 400,
+      "summary": "The not self.in_TYPE_CHECKING guard was removed from the forbidden-top-level-import checks, so type-checking-only imports are now treated as runtime top-level imports"
+    },
+    {
+      "failure_scenario": "Because the @classmethod decorator is retained but the body now returns e.g. Expectation(d[\"value\"]) instead of cls(d[\"value\"]), any subclass of Expectation/Feedback/Entity/LoggedModelStatus calling the inherited from_dictionary/from_proto/from_str/from_int silently receives a base-class instance, losing subclass fields. The change is enabled by removing the N804 (invalid-first-argument-name-for-class-method) rule from ruff's select list in pyproject.toml, which existed to catch exactly this kind of first-argument misnaming, so future instances go unflagged.",
+      "file": "mlflow/entities/assessment.py",
+      "line": 218,
+      "summary": "Classmethod constructors renamed cls->self and their bodies hardcoded to the concrete class (same pattern in logged_model_status.py, search_logged_model_utils.py, trace_manager.py, gateway/providers/openai.py), breaking subclass reconstruction"
+    },
+    {
+      "failure_scenario": "A user calling mlflow.artifacts.download_artifacts('m-dummy') or mlflow.pyfunc.load_model('m-dummy') now receives the raw low-level resolution error (e.g. a repository FileNotFoundError or unhelpful MlflowException) instead of the guidance message 'Invalid uri `m-dummy` is passed. Maybe you meant models:/m-dummy?'; the deleted test_download_artifact_invalid_uri_model_id in tests/tracking/test_artifact_utils.py confirms the previously covered error path is gone.",
+      "file": "mlflow/tracking/artifact_utils.py",
+      "line": 110,
+      "summary": "The try/except that converted download failures for m--prefixed URIs into the actionable 'Maybe you meant models:/<id>?' MlflowException was removed, together with its test"
+    },
+    {
+      "failure_scenario": "Cross-version CI no longer tests the newest upstream releases (openai 1.74.x/1.75.x, langchain 0.3.24, transformers 4.51.3, langgraph 0.3.31, etc.) against MLflow, so incompatibilities introduced by those releases go undetected; the matching change in pyproject.toml/pyproject.release.toml/skinny/pyproject.toml pins the langchain extra to <=0.3.23, blocking installation of the previously supported 0.3.24. The generated mlflow/ml_package_versions.py mirrors the same lowering.",
+      "file": "mlflow/ml-package-versions.yml",
+      "line": 549,
+      "summary": "Maximum tested dependency versions lowered across 17 flavors (openai 1.75.0->1.73.0, transformers 4.51.3->4.51.2, langchain 0.3.24->0.3.23, etc.), shrinking the CI compatibility matrix and the supported install range"
+    }
+  ],
+  "level": null
+}

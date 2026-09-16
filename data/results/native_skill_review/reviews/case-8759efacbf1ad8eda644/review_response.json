@@ -1,0 +1,83 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User edits the Install/Run/Build command in Project settings; ProjectManager.saveProjectSettingsToStorage() calls api.settings.upsert.mutate with {projectId, settings}. drizzle-orm 0.43 maps insert value keys to columns and throws 'Column name settings doesn't exist' (the table only has project_id/run_command/build_command/install_command — compare user/user.ts:23-26 which spreads {...input.settings, userId}). The mutation rejects on every call, so commands never persist; since updateProjectSettings() doesn't await the save, the rejection is also unhandled.",
+      "file": "apps/web/client/src/server/api/routers/settings.ts",
+      "line": 37,
+      "summary": "settings.upsert passes the whole input object {projectId, settings:{...}} to drizzle's .values(), but 'settings' is not a table column, so every save of project settings fails."
+    },
+    {
+      "failure_scenario": "In ProjectTab (settings-modal/project/index.tsx:19-53) the onChange callbacks are inline arrow functions, so their identity changes on every render. User types into the project Name field: handleChange calls setLocalValue (schedules re-render) and schedules the debounce; the re-render creates a new debounce and the effect cleanup runs debouncedOnChange.cancel() on the old one, killing the timer before the 500ms delay elapses. Result: updatePartialProject({name}) and updateProjectSettings(...) never execute — name and command edits typed in Settings are silently never saved.",
+      "file": "apps/web/client/src/hooks/use-debounce-input.tsx",
+      "line": 17,
+      "summary": "The debounced onChange can never fire: callers pass inline callbacks, so every re-render recreates the debounce via useMemo and the cleanup effect cancels the pending timer — and each keystroke itself triggers that re-render via setLocalValue."
+    },
+    {
+      "failure_scenario": "createCommit sets isSaving, sends analytics, then hits the finally block and returns undefined. checkoutCommit (line 86) evaluates !res?.success (true for undefined) && res?.errorReason !== COMMIT_EMPTY (true) and returns false, so the Restore button always shows 'Failed to restore' and never reaches the 'Restored to backup!' path; VersionsTab.handleNewBackup likewise always logs 'Failed to create commit'. Combined with listCommits returning [] without assigning this.commits, the entire Versions UI (Create backup / Restore / New backup) can never succeed.",
+      "file": "apps/web/client/src/components/store/project/version.ts",
+      "line": 56,
+      "summary": "createCommit's success path has no return statement (falls through to return undefined), so checkoutCommit always returns false and the Versions tab's New backup flow always treats the backup as failed."
+    },
+    {
+      "failure_scenario": "For a project whose home page has no metadata (e.g., a pages-router project or an app-router page without a metadata export — PageNode.metadata is optional), each keystroke in the Site tab Title input calls setTitle, re-renders SiteTab, produces a new {} for initialMetadata, and the effect at use-metadata-form.ts:44-46 runs setTitle('Title')/setDescription(default), snapping the input back to the default. The user cannot enter a site title or description, and the save button persists the default values.",
+      "file": "apps/web/client/src/components/ui/settings-modal/site/index.tsx",
+      "line": 32,
+      "summary": "Passing initialMetadata: homePage?.metadata ?? {} creates a fresh object literal on every render, and use-metadata-form's effect on [initialMetadata] then resets the title/description state after every render, wiping the user's input on each keystroke."
+    },
+    {
+      "failure_scenario": "SiteTab.handleSave always sets updatedMetadata.metadataBase = new URL(url) when missing; for a page.tsx containing 'use client' with no page-level layout.tsx, updatePageMetadataInSandbox writes layoutContent = `export const metadata: Metadata = {..., \"metadataBase\": \"https://...\"}`. The generated file has a string where the Metadata type requires URL|null, so `tsc`/`next build` fails in the user's project. The sibling path updateMetadataInFile (line ~340 of the diff) explicitly special-cases metadataBase into `new URL(...)`, showing the string form was not intended.",
+      "file": "apps/web/client/src/components/store/editor/pages/helper.ts",
+      "line": 814,
+      "summary": "The newly generated layout.tsx for 'use client' pages embeds metadata via JSON.stringify, emitting metadataBase as a plain string, which violates Next's Metadata type (metadataBase: URL | null) and breaks the user's project build."
+    },
+    {
+      "failure_scenario": "On the home page (/) and /projects, SettingsModal is rendered with showProjectTabs={false}, so tabs only contains PREFERENCES. Opening Settings via the avatar dropdown sets settingsOpen = true; tabs.find(tab => tab.label === editorEngine.state.settingsTab) is undefined because the default (SITE) tab is only appended by ProjectSettingsTabs inside the project editor. The right-hand content area renders nothing until the user manually clicks Preferences.",
+      "file": "apps/web/client/src/components/store/editor/state/index.ts",
+      "line": 20,
+      "summary": "Changing the settingsTab default from PREFERENCES to SITE makes the Settings modal open with an empty content panel on screens where project tabs are not rendered."
+    },
+    {
+      "failure_scenario": "User A creates a pending verification for domain X (customDomains row exists). User B now calls create for X: instead of the previous BAD_REQUEST rejection, the upsert returns A's existing row and inserts a customDomainVerification tied to B's projectId. If B's verification completes (A's request is abandoned or still pending), verify() marks the shared customDomains row verified and inserts publishedDomains for B, hijacking the domain. Previously this was blocked by returning no row on conflict and throwing.",
+      "file": "apps/web/client/src/server/api/routers/domain/verify.ts",
+      "line": 28,
+      "summary": "Switching the domain insert from onConflictDoNothing to onConflictDoUpdate removes the 'Domain already exists. Please verify it first.' guard, letting a second project attach a verification request to a domain row already claimed by another project and complete verification for it."
+    },
+    {
+      "failure_scenario": "For a project with a verified custom domain but no preview domain, PageTab.handleSave builds metadataBase and openGraph.url from the sandbox URL instead of the user's custom domain, so search-engine metadata for that page points to the wrong canonical URL. The duplicated `domainsManager.domains.preview?.url` shows the second fallback was meant to be `domainsManager.domains.custom?.url`.",
+      "file": "apps/web/client/src/components/ui/settings-modal/site/page.tsx",
+      "line": 15,
+      "summary": "Copy-paste bug: baseUrl falls back preview?.url ?? preview?.url ?? sandbox.url — the custom domain is never consulted (contrast site/index.tsx:16 which uses preview ?? custom ?? sandbox)."
+    },
+    {
+      "failure_scenario": "When the page has 'use client' and its existing layout.tsx also starts with 'use client' (client layouts are valid in Next.js), the metadata write unshifts the import above the directive, so 'use client' is no longer the first statement; Next.js errors ('use client' directive must precede other statements) and the user's build fails after saving site metadata.",
+      "file": "apps/web/client/src/components/store/editor/pages/helper.ts",
+      "line": 875,
+      "summary": "updateMetadataInFile unshifts `import type { Metadata } from 'next'` to the top of the file, placing it before a 'use client' directive when the target file is a client component, which breaks the directive."
+    },
+    {
+      "failure_scenario": "User changes the Build command in the new Project tab; ProjectManager.saveProjectSettingsToStorage stores it, but the only reader of projectSettings.commands.build is the Project tab's own input (project/index.tsx:15). publish() in custom-domain-section.tsx:43 and preview-domain-section.tsx:40 still send buildScript: DefaultSettings.COMMANDS.build, so the configured command is silently ignored and deployments behave differently from what the settings UI promises.",
+      "file": "apps/web/client/src/app/project/[id]/_components/top-bar/publish/dropdown/custom-domain-section.tsx",
+      "line": 43,
+      "summary": "The newly added editable Build/Run/Install commands are persisted to project_settings but never consumed: publishing still passes DefaultSettings.COMMANDS.build, so editing the build command in Project settings has no effect on deployments."
+    },
+    {
+      "failure_scenario": "MetadataForm never renders ImagePicker or Favicon, so onImageSelect/onFaviconSelect are never invoked; SiteTab/PageTab handleSave branches for uploadedImage (openGraph image upload) and uploadedFavicon (icons update) can never trigger, and the added files site/image.tsx, site/favicon.tsx, plus ImagePickerRef/FaviconRef/getImageUrl are dead code that still requires maintenance.",
+      "file": "apps/web/client/src/components/ui/settings-modal/site/metadata-form.tsx",
+      "line": 120,
+      "summary": "The entire Imagery section added by this change (ImagePicker, Favicon, getImageUrl) is wrapped in a commented-out JSX block, making the new favicon/open-graph image upload flows unreachable dead code."
+    },
+    {
+      "failure_scenario": "grep shows no references to ProjectSettingsManager outside its definition file. It re-implements settings.get/settings.upsert with slightly different semantics (e.g., null settings guard) than ProjectManager.restoreProjectSettings/updateProjectSettings, so the settings persistence logic exists twice with only one instance actually used — future fixes to settings handling must be applied in two places, and the unused path can drift into inconsistency.",
+      "file": "apps/web/client/src/components/store/project/settings.ts",
+      "line": 7,
+      "summary": "ProjectSettingsManager is exported but never instantiated anywhere in the codebase, duplicating the restore/update/save logic now living in ProjectManager."
+    },
+    {
+      "failure_scenario": "Rows backfilled by the schema change (default true) keep the delete warning enabled for existing users, while users created through createDefaultUserSettings get shouldWarnDelete: false — so identical editor behavior differs depending on account age, and the Preferences toggle's displayed value comes straight from the row (toUserSettings maps the column through), making the inconsistency user-visible. The two defaults should agree.",
+      "file": "packages/db/src/schema/user/settings.ts",
+      "line": 17,
+      "summary": "The new should_warn_delete column defaults to true in the DB schema while the code-level default (DefaultSettings.EDITOR_SETTINGS.shouldWarnDelete, used by createDefaultUserSettings) was flipped to false, giving old and new users opposite defaults for the same feature."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "TestFileReader_Cancellation (io_test.go:107-110) cancels the context before calling Run. Run returns immediately and executes defer close(fr.outputChan); the spawned goroutine then scans line 1, sees ctx.Done, sends ctx.Err() to the buffered errChan, and executes fr.outputChan <- line on the closed channel (line 149), crashing the test binary with panic: send on closed channel. The same crash occurs whenever an engine/library caller cancels while a line is in flight, and the missing return also lets the goroutine block forever on the full errChan, leaking it.",
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 144,
+      "summary": "After ctx cancellation the FileReader reader goroutine does not return; it keeps looping and sends on fr.outputChan, which Run has already closed via its defer (line 133), panicking with \"send on closed channel\" (or leaking a goroutine blocked on the cap-1 errChan)."
+    },
+    {
+      "failure_scenario": "With piped input (`mcpengine-proxy -mode http < requests.jsonl`), FileReader queues lines into the 1000-slot stdinToPost buffer and then hits EOF and calls cancel(); HTTPPostSender's select (lines 223-227) may pick ctx.Done, and even when it picks a message, http.NewRequestWithContext(ctx, ...) at line 233 uses the just-cancelled context, so client.Do fails and the request is never posted/no response is written. Before this change EOF only closed outputChan and the sender drained every queued message. The integration tests had to replace real temp files with the never-EOF testutil.BlockReader (mcpengine_integration_test.go:75, 225, 334, 380) to keep this abort from failing them, so no test covers the drain path anymore.",
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 156,
+      "summary": "On normal input EOF FileReader cancels the engine-wide context immediately, so HTTPPostSender aborts in-flight/subsequent posts and messages already read from the input are silently dropped."
+    },
+    {
+      "failure_scenario": "TestFileReader_EmptyFile (io_test.go:74-80) asserts err == io.EOF; the reader goroutine sends io.EOF to errChan and then calls cancel(), so Run's select at line 160 usually sees both errChan and ctx.Done ready and picks pseudo-randomly, returning context.Canceled roughly half the time and failing the test with \"Unexpected error: context canceled\". Any caller that distinguishes clean EOF from cancellation via the returned error gets a nondeterministic result.",
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 160,
+      "summary": "Run nondeterministically returns context.Canceled instead of io.EOF when the input is exhausted, because the reader goroutine calls cancel() (line 156) immediately after enqueueing io.EOF, leaving both select cases ready."
+    },
+    {
+      "failure_scenario": "On Windows (or any filesystem that refuses deletion of open files) the t.Cleanup at line 47 calls os.Remove on a file that is still open, the call returns an error, and t.Errorf marks the test failed; on Unix each of the four integration tests leaks one fd and the *os.File stays reachable for the rest of the run. Adding tmpFile.Close() to t.Cleanup would fix both.",
+      "file": "mcpengine-proxy/testutil/reader.go",
+      "line": 43,
+      "summary": "CreateTempBlockReader never closes the temp file it creates, leaking a file descriptor per call and making the cleanup's os.Remove operate on an open file."
+    },
+    {
+      "failure_scenario": "Three of the four exported Run methods ignore the new cancel parameter, so all callers/tests must fabricate a CancelFunc just to satisfy the signature, and the only caller (FileReader, line 156) uses it on the normal EOF path, which is what causes the premature-abort behavior above. Simpler form: keep Run(ctx) and have runWorkersAndWait cancel the context when the file-reader worker returns (or after draining its channel), rather than threading cancel through every worker.",
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 204,
+      "summary": "The worker interface now forces every worker to accept a context.CancelFunc it never uses (HTTPPostSender line 204, OutputProxy line 372, SSEWorker line 428), giving any worker the power to tear down all siblings instead of keeping shutdown ownership in the engine."
+    },
+    {
+      "failure_scenario": "Running the proxy and closing its stdin produces `{\"level\":\"error\",\"msg\":\"Error reading input\",\"err\":\"EOF\"}` from line 162 (production logger in cmd/main.go) plus the engine's \"Worker exited with error\" at line 101 for err=EOF, making normal shutdown indistinguishable from a genuine read failure in logs/alerts; io.EOF should be handled/logged as normal termination.",
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 162,
+      "summary": "FileReader.Run logs io.EOF at error level on the normal input-exhaustion path, so every clean stdin close emits a spurious error entry."
+    }
+  ],
+  "level": null
+}

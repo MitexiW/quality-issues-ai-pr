@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "webviews/components/header.tsx",
+      "line": 149,
+      "summary": "Missing try/finally in CancelCodingAgentButton.cancel: if cancelCodingAgent rejects, setBusy(false) is never called and the button spinner runs forever",
+      "failure_scenario": "User clicks 'Cancel Coding Agent'. setBusy(true) fires, showing the spinner. The underlying cancelCodingAgent message-passing promise rejects (e.g., network fault, extension deactivation, timeout). The rejected promise unwinds without running setBusy(false). The button remains disabled with a spinning icon permanently until the webview is reloaded. The CheckoutButton.onClick in the same file (line 248) correctly wraps the async body in try/finally for exactly this reason.",
+      "finding_id": "mf-84869a37090263a9e055"
+    },
+    {
+      "file": "webviews/components/contextDropdown.tsx",
+      "line": 43,
+      "summary": "onHideAction is recreated every render; removeEventListener in the else branch passes a fresh function reference that never matches the one added, leaking click+keydown listeners on document with every open/close cycle",
+      "failure_scenario": "User opens the dropdown (split-right click). Two listeners (click, keydown) are added to document via addEventListener wrapping the current render's onHideAction. User clicks outside to dismiss. The effect re-runs with expanded=false and calls removeEventListener with a newly-created function wrapping a newly-created onHideAction -- a different reference from the one that was added. The old listeners remain permanently. Repeat 50 open/close cycles: 100 leaked listeners fire on every document click/keydown (all no-ops, but waste memory and add per-event overhead). The effect also has no cleanup function returned, so listeners from the final expanded=true state survive component unmount.",
+      "finding_id": "mf-4e79a0440b5544fc746a"
+    }
+  ]
+}

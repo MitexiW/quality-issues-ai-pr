@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Providers/ConstructorProvider.cs",
+      "line": 51,
+      "summary": "Silent attribute data loss: (attributes as IReadOnlyList<AttributeStatement>) ?? [] drops all attributes when a non-IReadOnlyList IEnumerable is passed (e.g. LINQ Where() result); same bug at line 73. ConstructorProvider.Update at line 105 correctly uses ?? [.. attributes] as fallback.",
+      "failure_scenario": "Caller passes attributes: someList.Where(a => a.Type == typeof(ObsoleteAttribute)) to the constructor — the as cast returns null for the LINQ iterator, and [] replaces all attributes with an empty list, silently discarding them. ConstructorProvider.Update in the same file uses the correct [.. attributes] fallback, proving the fix was known but not applied uniformly.",
+      "finding_id": "mf-c439c42426d53acd5554"
+    },
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Providers/MethodProvider.cs",
+      "line": 52,
+      "summary": "Same silent attribute data loss in MethodProvider constructors (lines 52, 74) and Update (line 106): (attributes as IReadOnlyList<AttributeStatement>) ?? [] drops non-IReadOnlyList enumerables.",
+      "failure_scenario": "Same as above — any caller passing a LINQ query or iterator result for attributes gets them silently dropped. MethodProvider.Accept at line 124 also copies updated.Attributes without verifying it is non-null, so a visitor returning a mock with uninitialized Attributes would propagate null to CodeWriter methods that access .Attributes.Count, causing NullReferenceException.",
+      "finding_id": "mf-7c951dfb9a9153ce38e2"
+    },
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Providers/FieldProvider.cs",
+      "line": 69,
+      "summary": "Same silent attribute data loss in FieldProvider constructor (line 69) and new Update method (line 130). Additionally, FieldProvider.Update only re-initializes _parameter (the Lazy<ParameterProvider>) when 'name' changes (line 104), but not when only type/wireInfo/description/attributes change — causing stale cached parameter if AsParameter was already evaluated.",
+      "failure_scenario": "Data loss: same as above. Stale parameter: field is created with Type=int, AsParameter is accessed and caches a ParameterProvider with Type=int. Then field.Update(type: stringType) changes Type to string, but _parameter's Lazy already holds the old ParameterProvider, so AsParameter returns a ParameterProvider with Type=int.",
+      "finding_id": "mf-50b8ede407331b77e188"
+    },
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Providers/PropertyProvider.cs",
+      "line": 127,
+      "summary": "Same silent attribute data loss in PropertyProvider constructor (line 127) and Update (line 303). Additionally, PropertyProvider.Update does not invalidate cached _variable (AsVariableExpression), _asMember (MemberExpression implicit conversion), or _parameter (AsParameter) when type/name change, unlike FieldProvider.Update which does handle _variable and _asMember.",
+      "failure_scenario": "Data loss: same as above. Stale caches: property.Update(type: newType, name: 'newName'); then AsVariableExpression returns a VariableExpression still holding the old type and old name; the implicit MemberExpression cast returns old name.",
+      "finding_id": "mf-16005ca736b240fbe252"
+    },
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Providers/ParameterProvider.cs",
+      "line": 100,
+      "summary": "Same silent attribute data loss in ParameterProvider constructor (line 100) and Update (line 303). Additionally, the Attributes property lost its default = [] initializer when visibility was widened from internal to public, relying solely on constructors to initialize it.",
+      "failure_scenario": "Data loss: same as above. Missing default: if any reflection-based or deserialization-based construction path creates a ParameterProvider without going through a constructor that sets Attributes (e.g. FormatterServices.GetUninitializedObject), Attributes stays null and CodeWriter.WriteParameter at line 436 would throw NullReferenceException on accessing Attributes.Count.",
+      "finding_id": "mf-ec283b5d77dffd93c54a"
+    },
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Providers/TypeProvider.cs",
+      "line": 465,
+      "summary": "TypeProvider.Update uses the correct [.. attributes] fallback (line 465), unlike the other 9 locations in ConstructorProvider, MethodProvider, FieldProvider, PropertyProvider, and ParameterProvider constructors/Updates that silently drop non-IReadOnlyList enumerables via ?? [].",
+      "failure_scenario": "This location is correct, but its existence proves the correct pattern was known. The 9 wrong locations in the other files should be changed to match this pattern (using [.. attributes] or OrDefaultIfEmpty equivalent as fallback).",
+      "finding_id": "mf-cc4dca0b8ea26c398f28"
+    },
+    {
+      "file": "packages/http-client-csharp/generator/Microsoft.TypeSpec.Generator/src/Writers/CodeWriter.cs",
+      "line": 8,
+      "summary": "Unused import: using System.Reflection.Metadata; was added but no type from this namespace is referenced anywhere in the file. Likely an IDE auto-complete mistake (confused with System.Diagnostics.CodeAnalysis where ExperimentalAttribute lives).",
+      "failure_scenario": "No crash, but the unused import pollutes the namespace, may cause confusion during maintenance, and suggests the wrong namespace was added instead of System.Diagnostics.CodeAnalysis if ExperimentalAttribute references were intended here.",
+      "finding_id": "mf-17fad82d710bc4efa01e"
+    }
+  ]
+}

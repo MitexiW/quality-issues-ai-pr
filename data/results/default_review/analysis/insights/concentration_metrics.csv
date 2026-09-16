@@ -1,0 +1,3 @@
+group,pr_n,introduced_quality_alert_n,affected_pr_n,affected_pr_percent,zero_alert_pr_percent,maximum_alerts_per_pr,gini,top_1_percent_pr_n,top_1_percent_alert_share_percent,top_5_percent_pr_n,top_5_percent_alert_share_percent,top_10_percent_pr_n,top_10_percent_alert_share_percent,top_5_pr_alert_share_percent
+ai,3087,775,251,8.130871396177518,91.86912860382247,74,0.9613183276382748,31,48.25806451612903,154,87.48387096774194,309,100.0,20.129032258064516
+human,2317,1419,264,11.394044022442815,88.60595597755719,186,0.9593241485323267,23,51.656095842142356,116,86.5398167723749,232,97.74489076814659,26.145172656800565

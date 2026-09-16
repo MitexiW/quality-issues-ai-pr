@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Prebid core defines syncsPerBidder: 0 as 'no limit' — src/userSync.js:219 skips the cap check only when `usConfig.syncsPerBidder !== 0` (see also test/spec/userSync_spec.js:197 'should not limit the number of syncs per bidder when set to 0'). A publisher who sets `pbjs.setConfig({userSync: {syncsPerBidder: 0, filterSettings: {iframe: {bidders: '*', filter: 'include'}}}})` gets a sync URL of `https://s.ad.smaato.net/i/?adExInit=p` with no `&maxUrls` parameter, so the Smaato endpoint applies its own server-side default cap instead of the publisher's configured unlimited value.",
+      "file": "modules/smaatoBidAdapter.js",
+      "line": 213,
+      "summary": "The truthiness check on userSync.syncsPerBidder treats 0 as unset, so publishers who set syncsPerBidder to 0 (unlimited, per Prebid core semantics) never get the maxUrls parameter forwarded to the Smaato iframe sync endpoint."
+    },
+    {
+      "failure_scenario": "The branch added by this change — `getUserSyncs({pixelEnabled: false, iframeEnabled: false})` falling through the two conditionals to `return []` (modules/smaatoBidAdapter.js:201-229) — has no coverage: no test in the describe passes a truthy syncOptions object with both flags false. A regression that returned a sync in that branch (e.g., dropping the `else if`) would pass the entire suite while changing runtime behavior for every caller that supplies a syncOptions object with both sync types disabled.",
+      "file": "test/spec/modules/smaatoBidAdapter_spec.js",
+      "line": 1679,
+      "summary": "The test renamed to 'when pixelEnabled and iframeEnabled false then returns no syncs' still calls getUserSyncs() with no arguments, so it exercises the syncOptions-undefined early path rather than the newly added fall-through branch where syncOptions is truthy and both flags are false."
+    },
+    {
+      "failure_scenario": "Redundant repeated deepAccess lookups of the userSync config on every getUserSyncs call; a single `const userSyncConfig = config.getConfig('userSync')` read before the condition would evaluate the object once and keep the `&maxUrls` value consistent across the two uses, instead of the current triple lookup.",
+      "file": "modules/smaatoBidAdapter.js",
+      "line": 213,
+      "summary": "config.getConfig('userSync') is invoked three times (twice in the condition, once in the template literal) for one value, and the first `config.getConfig('userSync') &&` guard is dead code in production because userSync defaults are registered via config.setDefaults (src/userSync.js:32-34), making the object always truthy."
+    }
+  ],
+  "level": null
+}

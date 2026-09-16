@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "State has no session and the user sends a message while /api/start-task is down: sendMessage() returns null, so the branch at line 207 creates {role: \"assistant\"}. MessageItem (MessageItem.tsx:13) tests message.role === MessageType.ASSISTANT, i.e. 'assistant' === 'ASSISTANT' -> false, so the error text is rendered by UserMessage with the user avatar instead of the bot. The same literals at line 185 violate Message.role: MessageType (src/types/index.ts:17), a TS2322 error, and next.config.ts does not disable type checking, so next build fails.",
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 185,
+      "summary": "Optimistic messages are built with lowercase role strings ('user'/'assistant') while Message.role is the Prisma MessageType union ('USER'|'ASSISTANT') that MessageItem compares against, so the values never match."
+    },
+    {
+      "failure_scenario": "/api/start-task creates tasks with status PENDING (start-task/route.ts:24 and schema default) and the only status write anywhere is completeTask() setting COMPLETED (agentTask.ts:125). A user opening the app with empty localStorage (fresh browser) calls GET /api/latest-task, which matches nothing and returns {task:null}; useChatSession logs 'No active tasks found' and ChatContainer renders 'No messages yet...' even while the most recent task is actively running or has just finished, so the persisted session can never be restored.",
+      "file": "bytebot-agent/src/app/api/latest-task/route.ts",
+      "line": 11,
+      "summary": "The new endpoint filters on task statuses (IN_PROGRESS/NEEDS_HELP/NEEDS_REVIEW) that no code path in the repository ever assigns, and the COMPLETED fallback is commented out, so it always answers { task: null }."
+    },
+    {
+      "failure_scenario": "triggerAgentWithMessage() returns immediately after setAutopilot(true) (runAgent is fire-and-forget), so with worker concurrency 1 the next job starts while task A's loop is still awaiting Anthropic: triggerAgentWithMessage(B) calls setCurrentTaskId(B). When A's pending response comes back with no tool_use (A's final answer), completeTask() updates the task whose id is currently stored, i.e. B, to COMPLETED and breaks the loop; B's job handler has already returned, so B is reported as completed although the agent never performed any action for it.",
+      "file": "bytebot-agent/src/agent/agentTask.ts",
+      "line": 124,
+      "summary": "completeTask() updates the module-global currentTaskId, which can already belong to a different task by the time the still-running runAgent loop finishes, so the wrong task is marked COMPLETED."
+    },
+    {
+      "failure_scenario": "Task A ends with a text-only response; completeTask() runs, the loop breaks, runAgent() returns, but isOnAutopilot stays true (setAutopilot(false) is never called anywhere). The user submits task B: triggerAgentWithMessage -> setAutopilot(true) hits 'if (isOnAutopilot === value) return' (agentTask.ts:60), so runAgent() is not invoked, B's job is queued and its user message is stored, but the agent never processes it — the chat then polls forever with no progress.",
+      "file": "bytebot-agent/src/agent/agentTask.ts",
+      "line": 474,
+      "summary": "The new completion point exits the run loop without clearing the module-level isOnAutopilot flag, so triggerAgentWithMessage()'s setAutopilot(true) early-returns for every later task and no new agent loop is ever started."
+    },
+    {
+      "failure_scenario": "Given a task whose first stored message contains an image or tool_result block (raw Anthropic shape {type:'image',source:{media_type,data}} / {type:'tool_result',content:[...]}), the seeded object is rendered by MessageItem, which only understands the transformed shape (block.image, block.type==='text'), so the block renders as nothing; because the id is added to processedMessageIds (line 130), the transformed version returned by /api/messages for the same id is filtered out and the content is permanently missing from the chat.",
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 125,
+      "summary": "The session-restore path seeds MessageItem with the raw Prisma message row from /api/latest-task, bypassing the /api/messages transformation, and marks it processed so the correctly transformed copy is discarded."
+    },
+    {
+      "failure_scenario": "In the old code an image tool result was rendered as the literal text '[Image]' and never sent; the new branch pushes {type:'image', image:{media_type, data}} with the complete base64 PNG. The polling client's anchor is frozen at the lastMessageId captured when startPolling() ran (startPolling early-returns while isPollingRef is true, so lastMessageId=null stays in the interval closure), so every 2 s GET /api/messages?taskId=... returns the full history — for a task with dozens of 1280x720 screenshots that is tens of MB per poll, on every open tab.",
+      "file": "bytebot-agent/src/app/api/messages/route.ts",
+      "line": 126,
+      "summary": "The transformed response now embeds full base64 screenshot payloads, and the client re-requests the whole task history every 2 seconds, so the entire screenshot set is re-transferred on each poll."
+    },
+    {
+      "failure_scenario": "If /api/start-task ever answers 200 with a JSON body that has no task field (or data.task is otherwise missing), line 199's data.task.id throws; there is no catch clause, so the promise rejects unhandled, isLoading is reset in finally, and the user sees no error message at all (the old page.tsx caught this and appended 'Sorry, there was an error processing your request...').",
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 180,
+      "summary": "handleSend replaced the previous try/catch with try/finally, so any exception raised after the await is no longer converted into a chat error message."
+    },
+    {
+      "failure_scenario": "page.tsx destructures only messages/input/setInput/isLoading/isLoadingSession/handleSend, and Header.tsx:15-24 has the 'New Conversation' button commented out (along with its currentTaskId/onNewConversation props), so the reset path (clearing messages, processedMessageIds and the localStorage key) is unreachable; users with a saved task ID can never start a fresh session from the UI and the function rots unused.",
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 222,
+      "summary": "startNewConversation is returned by the hook but never consumed; the only entry point for it is commented out, leaving dead code and no way in the UI to reset the session."
+    },
+    {
+      "failure_scenario": "src/types/index.ts:4-11 already defines ContentBlock {type:'text'|'image'; text?; image?:{media_type;data}}, and MessageItem consumes Message.content (ContentBlock[]|string). The new local interface duplicates it, so any future shape change (e.g. adding a block kind) must be made in two places or the API response silently diverges from the type MessageItem compiles against.",
+      "file": "bytebot-agent/src/app/api/messages/route.ts",
+      "line": 44,
+      "summary": "TransformedContentBlock re-declares the exact shape already exported as ContentBlock from @/types."
+    },
+    {
+      "failure_scenario": "MessageItem is rendered by the 'use client' page and uses MessageType.ASSISTANT as a value, so the @prisma/client module graph is bundled for the browser even though the repository already defines its own Message type (and Prisma explicitly documents that its client is not browser-safe); this risks client build/bundle failures ('Module not found: Can't resolve fs'-class errors from the generated runtime) and is avoidable by comparing against the string literal or re-exporting the enum constant from @/types.",
+      "file": "bytebot-agent/src/components/messages/MessageItem.tsx",
+      "line": 6,
+      "summary": "A client component imports the Prisma client package at value level just to compare an enum value, pulling a server-only runtime into the browser bundle."
+    }
+  ],
+  "level": null
+}

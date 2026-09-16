@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Scrape https://example.org/dir/page containing <base href=\"https://cdn.example.com/\"> and <a href=\"assets/style.css\"> with formats:[\"links\"]: htmlTransform (Rust lib.rs:280-282, 365-371, or JS fallback removeUnwantedElements.ts:106, 183) removes the base and rewrites the href to https://example.org/dir/assets/style.css, so extractLinks returns the page-origin URL instead of https://cdn.example.com/assets/style.css — the added base-href code changes nothing about production output.",
+      "file": "apps/api/src/scraper/scrapeURL/lib/extractLinks.ts",
+      "line": 43,
+      "summary": "Base-href resolution added to extractLinks never takes effect in the real scrape pipeline: deriveHTMLFromRawHTML runs htmlTransform first, which strips the <head> (removing <base>) and rewrites every a[href] to an absolute URL against the page URL, so the document.html passed to extractLinks contains no base element and no relative hrefs."
+    },
+    {
+      "failure_scenario": "HTML with <base href=\"about:blank\"> (or javascript:void(0), or http:/cdn.example.com/ — a form extract_links explicitly normalizes for anchors at lib.rs:41-45 but extract_base_href does not) and <a href=\"page.php\">: new URL('page.php', 'about:blank') throws, the catch returns '', and the links output loses every relative link the page had, where previously all of them were resolved against the page URL.",
+      "file": "apps/api/src/scraper/scrapeURL/lib/extractLinks.ts",
+      "line": 11,
+      "summary": "new URL(baseHref) accepts any absolute URL including opaque, non-hierarchical ones (about:, javascript:, data:, mailto:, localhost:8080/, single-slash http:/host) as the resolution base, after which every relative href fails to resolve and is silently dropped instead of falling back to the page URL."
+    },
+    {
+      "failure_scenario": "POST /v1/crawl with url https://example.org/a/b/c/d and maxDepth: 0: previously 400 \"URL depth exceeds the specified maxDepth\"; now accepted, maxCrawledDepth = 0 + 4 via getAdjustedMaxDepth (crawl-redis.ts:397), and filterLinks (crawler.ts:159) admits sibling/shallower links up to depth 4 — the crawl traverses pages despite maxDepth: 0, and negative maxDepth is no longer rejected either.",
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 660,
+      "summary": "crawlRequestSchema no longer validates getURLDepth(url) <= maxDepth and its three integration tests were deleted; since maxDepth has no lower bound in crawlerOptions, deep seed URLs with maxDepth 0/1 (or negative) are now accepted and getAdjustedMaxDepth adds the seed depth back onto the crawl budget."
+    },
+    {
+      "failure_scenario": "A page with <base href=\"https://cdn.example.com/\">: crawl-mode link discovery resolves <a href=\"assets/style.css\"> against the page URL while the new resolveUrlWithBaseHref path (where it ever sees the raw HTML) resolves it against the CDN base, so the same page yields different URL sets depending on the code path — and the crawl path never gets the behavior this PR claims to add.",
+      "file": "apps/api/src/scraper/scrapeURL/lib/extractLinks.ts",
+      "line": 57,
+      "summary": "Base-href support was added to only one of the two parallel link-extraction implementations: the WebScraper crawler's extractLinksFromHTML (crawler.ts:478-537, used by crawl link discovery and queue-worker.ts:1289) still resolves relative hrefs against the page URL and ignores <base>, leaving crawl and scrape link semantics uncoordinated."
+    },
+    {
+      "failure_scenario": "Every scraped/crawled page with formats:[\"links\"] pays for a second full HTML parse plus an extra FFI round-trip to extract a base-href value that, per the current pipeline, is always empty in production — pure overhead; a single Rust function returning {links, baseHref} would parse the document once.",
+      "file": "apps/api/src/scraper/scrapeURL/lib/extractLinks.ts",
+      "line": 42,
+      "summary": "extractLinksRust now makes two FFI calls that each re-parse the entire HTML document (extract_links and extract_base_href both call parse_html().one(html) in lib.rs), doubling per-page parsing cost on the scrape hot path."
+    },
+    {
+      "failure_scenario": "Delete extract_base_href and all resolveUrlWithBaseHref logic: every new test still passes because they assert raw extraction values (\"page.php\", \"/absolute\", \"assets/style.css\") that are unchanged by the feature; the defect that the feature is inert in the real pipeline (first finding) therefore ships with green CI.",
+      "file": "apps/api/src/lib/__tests__/html-transformer.test.ts",
+      "line": 98,
+      "summary": "The six new \"base href\" tests exercise the lib-level extractLinks (html-transformer.ts:123-132), which returns raw hrefs and performs no base resolution, so they pass identically with or without the base-href feature and never exercise the code that was added."
+    }
+  ],
+  "level": null
+}

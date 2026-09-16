@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run the default path `await run_demo_loop(agent)` (stream=True) with a real model, type \"hello\". `Runner._run_single_turn_streamed` (run.py:730) queues RawResponsesStreamEvent for every text delta and then `RunImpl.stream_step_result_to_queue` (_run_impl.py:885-908) queues a RunItemStreamEvent for the same MessageOutputItem, both of which `stream_events()` yields. A reply of \"Hello!\" renders on the terminal as \"Hello!Hello!\" on one line — every assistant reply appears doubled.",
+      "file": "src/agents/repl.py",
+      "line": 55,
+      "summary": "In streaming mode the assistant's message is printed twice: once char-by-char from ResponseTextDeltaEvent deltas (line 47) and again in full when the message_output_item event fires (line 55), and both prints use end=\"\" so the duplicate text is concatenated directly onto the streamed text."
+    },
+    {
+      "failure_scenario": "Run `await run_demo_loop(agent)` (stream=True) with an agent that never hands off. Every turn begins with a blank line and \"[Agent updated: Assistant]\" before the real output, falsely telling the user a handoff occurred; the banner appears on every single turn, not just on handoffs.",
+      "file": "src/agents/repl.py",
+      "line": 57,
+      "summary": "Streaming mode prints a false \"[Agent updated: <name>]\" banner at the start of every turn because Runner._run_streamed_impl unconditionally queues an AgentUpdatedStreamEvent for the starting agent at the beginning of each run (src/agents/run.py:521) and the loop prints it without checking whether the agent actually changed."
+    },
+    {
+      "failure_scenario": "User asks a question that takes the model tens of seconds to stream, presses Ctrl-C to abort. The KeyboardInterrupt escapes from `async for event in result.stream_events()` (stream_events only catches asyncio.CancelledError, not KeyboardInterrupt) or from `await Runner.run(...)`, terminating the process with a traceback — inconsistent with the graceful exit the same handler provides when Ctrl-C is pressed at the prompt.",
+      "file": "src/agents/repl.py",
+      "line": 32,
+      "summary": "KeyboardInterrupt is only caught around the blocking input() call, so pressing Ctrl-C while the model is generating (streaming loop at line 44 or await Runner.run at line 60) propagates out of run_demo_loop and crashes the program instead of exiting the loop."
+    },
+    {
+      "failure_scenario": "An agent whose tool usage loops past 10 turns on a single input raises MaxTurnsExceeded from Runner.run (or is re-raised by stream_events() in streaming mode); run_demo_loop has no per-turn try/except, so the REPL crashes with a traceback and the user's whole multi-turn conversation state is discarded.",
+      "file": "src/agents/repl.py",
+      "line": 44,
+      "summary": "Any exception raised during a turn — MaxTurnsExceeded (default 10), a guardrail tripwire, or a model error — propagates out of run_demo_loop and kills the entire REPL session, losing the accumulated conversation history."
+    },
+    {
+      "failure_scenario": "No concrete runtime failure itself; the concrete cost is that the two user-visible output defects on the default stream=True path are invisible to CI, since FakeModel's stream_response yields no text deltas and the test never enters the streaming branch at all.",
+      "file": "tests/test_repl.py",
+      "line": 19,
+      "summary": "The only test invokes run_demo_loop with stream=False, so the default streaming path — where the duplicated message printing (line 47 + 55) and the spurious agent-updated banner (line 57) live — is never exercised and those defects ship undetected."
+    }
+  ],
+  "level": null
+}

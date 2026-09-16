@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Any caller runs `await app.generate_llms_text(url)` on AsyncFirecrawlApp. The method signature (lines 3971-3977) only declares url, max_urls, show_full_text, experimental_stream. The diff added `cache=cache` to the inner call at line 4012, but `cache` is not a parameter, not local, and no module-level `cache` exists (verified by grep across firecrawl.py), so Python raises `NameError: name 'cache' is not defined` on every invocation before any HTTP request is made — the primary async SDK entry point for LLMs.txt generation is completely broken. (The sync FirecrawlApp method and both async_generate_llms_text methods did get the parameter; only this async wrapper was missed.)",
+      "file": "apps/python-sdk/firecrawl/firecrawl.py",
+      "line": 4012,
+      "summary": "AsyncFirecrawlApp.generate_llms_text passes cache=cache but its signature was never given a cache parameter, so every call raises NameError"
+    },
+    {
+      "failure_scenario": "The controller (generate-llmstxt.ts) enqueues job data with `generationId` only; `job.data.generateId` is undefined. In the touched function, lines 639, 661, 672, and 693 pass `job.data.generateId` to updateGeneratedLlmsTxt, which calls getGeneratedLlmsTxt(undefined) → Redis key \"generation:undefined\" → null → early return. All worker-level status writes after the service call are dead code, so the only thing keeping the polled status correct is the service's own update — any path where that update is skipped or fails leaves clients polling `check_generate_llms_text_status` on a record that stays \"processing\" forever. Pre-existing in the function, but the added line 656 (`cache: job.data.request.cache`) sits in the same option object and the diff re-exposes the wrong-variable bug.",
+      "file": "apps/api/src/services/queue-worker.ts",
+      "line": 661,
+      "summary": "processGenerateLlmsTxtJobInternal updates status with job.data.generateId, a field the controller never sets (it sets generationId), so worker-side completion/failure updates silently no-op"
+    },
+    {
+      "failure_scenario": "The only functions in the file (getLlmsTextFromCache at line 20 and saveLlmsTextToCache at line 61) both call normalizeUrlOnlyHostname; normalizeUrl is never referenced. The unused import is dead code introduced by this change; since apps/api tsconfig.json does not enable noUnusedLocals, the TypeScript compiler will not flag it, so it silently accumulates and misleads future readers about which normalization is applied to cache keys.",
+      "file": "apps/api/src/lib/generate-llmstxt/generate-llmstxt-supabase.ts",
+      "line": 3,
+      "summary": "Diff adds normalizeUrl to the import but the file only uses normalizeUrlOnlyHostname, leaving a dead import"
+    }
+  ],
+  "level": null
+}

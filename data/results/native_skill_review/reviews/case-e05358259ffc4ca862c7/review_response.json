@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Bridge::processMessage runs synchronously on whichever thread calls the exported GuiGetDisassembly (Bridge.cpp:1127-1130 has no lock around the switch). While the user runs `commentlist` or `findall` (DBG command thread loops over GuiGetDisassembly: src/dbg/commands/cmd-user-database.cpp:105, src/dbg/commands/cmd-searching.cpp:239), hovering the dump view makes the GUI thread call GuiGetDisassembly too (CPUDump.cpp:425 tooltip path), and plugin/script threads can call it as well. Both threads then execute mDisasm->DisassembleAt(), concurrently mutating ZydisTokenizer members (mInst, mSuccess, mIsNop, mMnemonicType) and the Zydis wrapper's mDecoder/mInstr/mInstrText buffers (zydis_wrapper.h:128-133) -> torn token vectors, wrong instruction text returned to callers, or a crash. Additionally, saving tokenizer settings on the GUI thread runs configUpdatedSlot -> UpdateConfig()/UpdateArchitecture() -> mZydis.Reset(), resetting the decoder in the middle of another thread's decode. The baseline was safe because each call constructed a stack-local QZydis, so no state was shared between threads.",
+      "file": "src/gui/Src/Bridge/Bridge.cpp",
+      "line": 543,
+      "summary": "The shared QZydis instance mDisasm is used concurrently from multiple threads without any synchronization, racing on ZydisTokenizer's mutable state and on Zydis decoder buffers."
+    },
+    {
+      "failure_scenario": "User changes Options -> Disassembler -> Maximum module name size and saves. SettingsDialog::on_spinMaximumModuleNameSize_valueChanged (SettingsDialog.cpp:1116-1119) does not set bTokenizerConfigUpdated, so saveSettings (SettingsDialog.cpp:489-492) skips emitting Config()->tokenizerConfigUpdated(), Bridge's mDisasm keeps the mMaxModuleLength captured at startup, and GuiGetDisassembly output (dump tooltips, commentlist, search result listings) keeps truncating module names at the old limit until some unrelated tokenizer setting happens to fire the signal. The baseline re-read ConfigUint(\"Disassembler\", \"MaxModuleSize\") on every call, so the new value took effect immediately.",
+      "file": "src/gui/Src/Bridge/Bridge.cpp",
+      "line": 208,
+      "summary": "The MaxModuleSize setting snapshot goes stale: the shared tokenizer only re-reads it in UpdateConfig(), which runs solely on the tokenizerConfigUpdated signal, but changing that setting never emits the signal."
+    },
+    {
+      "failure_scenario": "On a fresh start with 'Uppercase', 'Argument spaces', '0x prefix values' or 'No current module text' enabled in the saved config, GuiGetDisassembly output uses the tokenizer's default-initialized flags (mUppercase=false, mArgumentSpaces=false, mValueStyle=ValueStyleDefault, mNoCurrentModuleText=false in ZydisTokenizer.h:182-190) because the QZydis constructor does not call UpdateConfig(). The codebase's established pattern applies the config at construction (Disassembly.cpp:33 calls tokenizerConfigUpdatedSlot() right after creating its QZydis, and that slot calls mDisasm->UpdateConfig() at Disassembly.cpp:148-153). The output then silently switches formatting style the first time the user changes any tokenizer setting.",
+      "file": "src/gui/Src/Bridge/Bridge.cpp",
+      "line": 285,
+      "summary": "The new shared QZydis is never initialized with the current tokenizer configuration: UpdateConfig() is only called from configUpdatedSlot on a future signal emission, so until the first settings change it formats with default flags instead of the user's saved settings."
+    }
+  ],
+  "level": null
+}

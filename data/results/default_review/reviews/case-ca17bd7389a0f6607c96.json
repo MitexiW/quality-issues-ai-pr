@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "src/tools/device.ts",
+      "line": 274,
+      "summary": "list_devices 'Next Steps' text references stale tool names build_ios_dev_ws, test_ios_dev_ws, get_ios_dev_app_path_ws that were renamed in this PR",
+      "failure_scenario": "User runs list_devices, sees advice to call build_ios_dev_ws. They try it and get 'tool not found' because the tool was renamed to build_dev_ws in this same PR. All three recommended tools have wrong names.",
+      "finding_id": "mf-432d4765c70aa6a3e1e5"
+    },
+    {
+      "file": "src/utils/build-utils.ts",
+      "line": 304,
+      "summary": "iOS device build success 'Next Steps' references stale tool names get_ios_device_app_path_... and get_ios_bundle_id that were renamed in this PR",
+      "failure_scenario": "User successfully builds for iOS device, sees next-steps advice referencing get_ios_device_app_path_workspace and get_ios_bundle_id. Both were renamed (to get_device_app_path_ws and get_app_bundle_id). Calling the stale names fails.",
+      "finding_id": "mf-faef77c4299a278dd427"
+    },
+    {
+      "file": "src/utils/build-utils.ts",
+      "line": 313,
+      "summary": "Simulator build success 'Next Steps' references stale tool name get_ios_bundle_id renamed to get_app_bundle_id in this PR",
+      "failure_scenario": "User successfully builds for simulator, sees next-steps advising get_ios_bundle_id. The tool was renamed to get_app_bundle_id. Calling the old name fails with 'tool not found'.",
+      "finding_id": "mf-2b6425af3e08467cd46f"
+    },
+    {
+      "file": "src/tools/device_log.ts",
+      "line": 135,
+      "summary": "stopDeviceLogCapture kills the child process with SIGTERM then immediately reads the log file without waiting for process exit, risking truncated log output",
+      "failure_scenario": "A device log capture session is active with buffered output in the child process's pipe. stopDeviceLogCapture sends SIGTERM (line 136), deletes the session (line 139), and immediately reads the log file (lines 145-146). The child process's 'close' handler (line 89) fires asynchronously; pending stdout/stderr chunks may not have flushed to disk yet. The returned log content is truncated.",
+      "finding_id": "mf-979c09a87a8923105ccf"
+    },
+    {
+      "file": "src/tools/app_path.ts",
+      "line": 289,
+      "summary": "platformMap Record<string, XcodePlatform> duplicated in 4 locations across app_path.ts and test_ios_device.ts; should be extracted to a shared utility",
+      "failure_scenario": "When a new platform is added, each of the 4 copies of platformMap (app_path.ts lines 289 and 331; test_ios_device.ts lines 67 and 118) must be updated individually. Risk of one copy being missed, leading to silent platform-not-found failures for that tool path.",
+      "finding_id": "mf-eb45c7bcaa83571a357d"
+    },
+    {
+      "file": "src/tools/device.ts",
+      "line": 142,
+      "summary": "DeviceCtlDevice interface omits hardwareProperties.udid and hardwareProperties.cpuType fields that the code accesses, making the TypeScript types inaccurate",
+      "failure_scenario": "The devicectl JSON output includes hardwareProperties.udid and hardwareProperties.cpuType.name, but the declared TypeScript interface (lines 53-57) lacks these fields. If Apple changes the JSON schema and the fields move or are renamed, TypeScript provides no compile-time warning. The code silently falls back to device.identifier for udid or omits cpuArchitecture.",
+      "finding_id": "mf-6f792eaad63f416680f5"
+    },
+    {
+      "file": "src/tools/build_ios_device.ts",
+      "line": 64,
+      "summary": "build_dev_ws and build_dev_proj tool descriptions claim multi-platform support but hardcode XcodePlatform.iOS, so only iOS device builds are actually supported",
+      "failure_scenario": "A user with a watchOS project reads 'Builds an app from a workspace for a physical Apple device' and tries build_dev_ws. The build runs with platform=iOS regardless of the project's actual target, producing a mismatched-platform build.",
+      "finding_id": "mf-683c1481aef67b560a8f"
+    },
+    {
+      "file": "src/tools/build_ios_simulator.ts",
+      "line": 61,
+      "summary": "_handleSimulatorBuildLogic hardcodes XcodePlatform.iOSSimulator despite tool rename to generic 'simulator' implying multi-platform support",
+      "failure_scenario": "User sees build_sim_name_ws described as building 'for a specific simulator' but passing a watchOS simulator name fails because the code always passes platform=iOS Simulator to xcodebuild.",
+      "finding_id": "mf-24c5034247eed73f6904"
+    }
+  ]
+}

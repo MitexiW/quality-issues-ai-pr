@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 592,
+      "summary": "claudeResponse.Usage dereferenced without nil check in HandleClaudeResponseData; the old completion path was safe (used info.PromptTokens + CountTextToken) but this safe path is removed, making the nil-dereference risk unconditional",
+      "failure_scenario": "An API response (e.g., from AWS Bedrock with a malformed or edge-case response) that passes the error check but has no usage field will cause a nil pointer panic on claudeResponse.Usage.InputTokens.",
+      "finding_id": "mf-03e9790a4a38f693e1cc"
+    },
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 450,
+      "summary": "claudeResponse.Delta.Text accessed in FormatClaudeResponseInfo without checking that claudeResponse.Delta itself is non-nil for content_block_delta events",
+      "failure_scenario": "A stream event of type content_block_delta with a nil Delta pointer (malformed or unexpected API response) causes a nil pointer dereference panic when accessing claudeResponse.Delta.Text.",
+      "finding_id": "mf-f0f9cb00251f93881e95"
+    },
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 311,
+      "summary": "claudeResponse.Delta.StopReason dereferenced in StreamResponseClaude2OpenAI without nil-checking claudeResponse.Delta or StopReason for message_delta events",
+      "failure_scenario": "A message_delta stream event with a nil Delta or a nil StopReason pointer crashes with a nil pointer dereference at stopReasonClaude2OpenAI(*claudeResponse.Delta.StopReason).",
+      "finding_id": "mf-c17ceb1af70da45d069a"
+    },
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 507,
+      "summary": "ResponseText2Usage error is silently discarded (claudeInfo.Usage, _ = ...) and the result is dereferenced (*claudeInfo.Usage) on the next line when ShouldIncludeUsage is true, risking nil pointer panic if token counting fails",
+      "failure_scenario": "If service.ResponseText2Usage returns an error (e.g., unknown model name), claudeInfo.Usage becomes nil; then helper.GenerateFinalUsageResponse dereferences *claudeInfo.Usage and panics.",
+      "finding_id": "mf-99252b0b49937ab3bee2"
+    },
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 34,
+      "summary": "Dead code: RequestOpenAI2ClaudeComplete function is defined but has zero callers after the diff removed the only call site in ConvertOpenAIRequest",
+      "failure_scenario": "The function (approximately 25 lines) is still compiled and shipped, adding unused binary size and maintenance burden. Any future refactor might waste time updating it.",
+      "finding_id": "mf-5b1d6e5df936d06b3ffe"
+    },
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 304,
+      "summary": "Unused parameter: StreamResponseClaude2OpenAI accepts reqMode int but no longer branches on it; callers in claude/adaptor.go, vertex/adaptor.go, and aws/relay-aws.go still pass values that are ignored",
+      "failure_scenario": "Future maintainers may spend time tracing what requestMode values are valid and whether the parameter still has meaning, when it no longer affects any code path.",
+      "finding_id": "mf-122602026d1728afad47"
+    },
+    {
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 387,
+      "summary": "Unused parameter: ResponseClaude2OpenAI accepts reqMode int but never uses it in its body; called from HandleClaudeResponseData with the ignored value",
+      "failure_scenario": "Same as above -- dead parameter adds confusion for future readers and could mislead someone adding a new branch that checks the mode expecting it to be meaningful.",
+      "finding_id": "mf-e261d5e3263818db3e67"
+    }
+  ]
+}

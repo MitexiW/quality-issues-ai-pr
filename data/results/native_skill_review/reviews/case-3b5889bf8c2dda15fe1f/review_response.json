@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run `npm run dev` with an open multi-hop question (e.g. the README's 'who will be president of US in 2028?'). The model takes a 'reflect' action with questionsToAnswer=['2028 election candidate polls','2028 election rules']; dedupQueries returns {unique_queries:[...], tokens:42}; `newGapQuestions.length` is undefined so line 442's guard is false, `gaps.push(...newGapQuestions)` at line 451 is never reached, and the agent logs 'No new questions to ask'. The agent can never decompose the question, so it loops on the original question until totalTokens reaches the 1,000,000 budget and getResponse returns undefined (no answer produced, full budget spent). The dedup call's tokens are also never added to totalTokens, undercounting the budget. The diff changed dedupQueries' return shape (src/tools/dedup.ts:98) and updated the search-branch call site (line 474) but left this one untouched.",
+      "file": "src/agent.ts",
+      "line": 440,
+      "summary": "The reflect branch still calls dedupQueries expecting a string[] but dedupQueries now returns {unique_queries, tokens}, so newGapQuestions becomes an object, its .length is undefined, and every reflect action falls into the 'No new questions to ask' else-branch instead of enqueuing sub-questions."
+    },
+    {
+      "failure_scenario": "Developer sets only GEMINI_API_KEY (the README setup) and runs `npm run rewrite 'best pizza brooklyn'` (package.json script → ts-node src/tools/query-rewriter.ts). Before this change query-rewriter.ts checked only GEMINI_API_KEY and ran fine; now the `import { ... } from \"../config\"` at src/tools/query-rewriter.ts:2 triggers the `if (!JINA_API_KEY) throw new Error(\"JINA_API_KEY not found\")` at src/config.ts:22 during module load, and the CLI exits before doing anything. Same regression for running src/tools/evaluator.ts standalone.",
+      "file": "src/config.ts",
+      "line": 22,
+      "summary": "config.ts now throws at import time when JINA_API_KEY is missing, so every module importing config (evaluator.ts, query-rewriter.ts, agent.ts) hard-fails at startup without the Jina key even though the evaluator and rewrite tools never use Jina."
+    },
+    {
+      "failure_scenario": "A maintainer bumps MODEL_NAME in src/config.ts (e.g. to 'gemini-2.0-flash') to upgrade the agent. In a single agent run the main loop, evaluator, and query-rewriter use the new model while dedupQueries (src/tools/dedup.ts:45-49) and analyzeSteps (src/tools/error-analyzer.ts:47-51) silently keep calling gemini-1.5-flash, producing mixed-model behavior and three places to update; the same proxy-setup/dotenv/apiKey block is now duplicated in four files.",
+      "file": "src/tools/dedup.ts",
+      "line": 45,
+      "summary": "The config extraction was applied only to evaluator.ts and query-rewriter.ts; dedup.ts and error-analyzer.ts keep their own hardcoded `modelName = 'gemini-1.5-flash'` and duplicated proxy/dotenv/apiKey bootstrap, so MODEL_NAME in config.ts is not the single source of truth it appears to be."
+    },
+    {
+      "failure_scenario": "Run `npm run rewrite 'sourdough starter troubleshooting'` (package.json 'rewrite' script). rewriteQuery now returns {keywords:[...], tokens:123} and main() logs 'Rewritten Keywords: { keywords: [...], tokens: 123 }' instead of the array printed before this change; any script that parsed that CLI's stdout as a JSON array breaks. Same output-contract drift in src/tools/dedup.ts:122 ('Unique Queries:' now logs an object) and src/tools/evaluator.ts:105 ('Evaluation Result:' now logs an object).",
+      "file": "src/tools/query-rewriter.ts",
+      "line": 108,
+      "summary": "The standalone main() entry points of the changed tools were not updated for the new {..., tokens} return shapes, so the documented `npm run rewrite` CLI now prints the wrapper object instead of the keyword array it printed before."
+    }
+  ],
+  "level": null
+}

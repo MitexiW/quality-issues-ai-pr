@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/sentry/notifications/notifications/rules.py",
+      "line": 69,
+      "summary": "get_key_from_rule_data raises IndexError (or TypeError) if rule.data['actions'] is an empty list [] or None, because dict.get() only returns the default [{}] when the key is absent, not when it is present but falsy or empty",
+      "failure_scenario": "A Rule is created with data={'actions': []} (empty actions list, e.g. via direct ORM create or a migration edge case). When the opsgenie client calls get_key_from_rule_data(rule, 'workflow_id'), rule.data.get('actions', [{}]) returns the actual [] (not the default), then [][0] raises IndexError, crashing the Opsgenie notification pipeline. Similarly, if data['actions'] is None, None[0] raises TypeError. The callers at client.py:48 and client.py:61 do not catch either exception; they only assert the result is not None, which never executes once the crash occurs.",
+      "finding_id": "mf-fd90fa8ed7f2d0b8cebe"
+    },
+    {
+      "file": "src/sentry/notifications/notifications/rules.py",
+      "line": 68,
+      "summary": "get_key_from_rule_data return type annotation is 'str' but dict.get() can return None (when key is missing from the first action dict) or any stored type (e.g. int from pre-migration rules)",
+      "failure_scenario": "A type checker like mypy would flag the mismatch. At runtime, callers in client.py assert the result is not None (catching the None case), but future callers that trust the 'str' annotation without a None guard would propagate None downstream, potentially causing AttributeError on string methods like .upper() or .isnumeric(). Also, if a legacy rule stores workflow_id as an integer, the function returns int not str, and callers expecting string-specific operations would break.",
+      "finding_id": "mf-e2c0b19c64ba611122ea"
+    },
+    {
+      "file": "src/sentry/rules/actions/integrations/create_ticket/utils.py",
+      "line": 72,
+      "summary": "build_description_workflow_engine_ui still accepts workflow_id: int, but create_link_to_workflow (called from it at line 77) was changed by this PR to expect str",
+      "failure_scenario": "A static type checker will flag that an int is passed to a str parameter. At runtime the f-string in create_link_to_workflow coerces int to str, so no immediate crash. However, if create_link_to_workflow is later extended with string-specific operations (e.g. .isnumeric(), .upper()), passing an int would raise AttributeError. The build_description_workflow_engine_ui signature should be updated to workflow_id: str to match the new contract, or the value from data.get('workflow_id') (which may now be a string per the workflow-engine migration) should be explicitly coerced.",
+      "finding_id": "mf-b0b282fdfd9832ba9af6"
+    }
+  ]
+}

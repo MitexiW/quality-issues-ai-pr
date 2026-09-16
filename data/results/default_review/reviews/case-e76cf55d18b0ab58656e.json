@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "airbyte-integrations/connectors/destination-postgres/src/main/kotlin/io/airbyte/integrations/destination/postgres/typing_deduping/PostgresSqlGenerator.kt",
+      "line": 84,
+      "summary": "Enabling (or disabling) unconstrained_number is a silent no-op for all pre-existing final tables because schema-mismatch detection compares only the JDBC TYPE_NAME (\"numeric\" for both numeric(38,9) and unconstrained numeric) against PostgresDestinationHandler.toJdbcTypeName(NUMBER) = \"numeric\", so no soft reset is ever triggered by the precision change",
+      "failure_scenario": "Destination upgraded 2.4.2 → 2.4.3 with existing final table `users` whose `number` column is numeric(38,9). User sets unconstrained_number=true. Next sync: JdbcDestinationHandler.existingSchemaMatchesStreamConfig sees intended 'numeric' == actual 'numeric' → isSchemaMismatch=false → no soft reset. The INSERT still casts raw values to unconstrained numeric but stores them into the numeric(38,9) column, so 15-decimal values keep being silently rounded to 9 decimals with no _airbyte_meta error or warning — the advertised option never takes effect (and toggling it off later on a table created with the flag is likewise ignored) until a manual full refresh recreates the table",
+      "finding_id": "case-e76cf55d18b0ab58656e-f0001"
+    },
+    {
+      "file": "airbyte-integrations/connectors/destination-postgres/src/main/kotlin/io/airbyte/integrations/destination/postgres/PostgresDestination.kt",
+      "line": 166,
+      "summary": "hasUnconstrainedNumber is a verbatim copy of hasDropCascadeMode (lines 161-164); both should be replaced by a single generic helper like getBooleanConfig(config, key) to avoid a third copy for the next boolean option",
+      "failure_scenario": "Concrete cost is maintenance duplication, not a crash: two near-identical private methods in the same class that must each independently handle the missing-key and non-boolean-node cases; any future connector option added to spec.json will need a third copy, and a fix applied to one (e.g., input validation) can silently diverge from the other",
+      "finding_id": "case-e76cf55d18b0ab58656e-f0002"
+    }
+  ]
+}

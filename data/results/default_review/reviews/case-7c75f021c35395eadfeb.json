@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 140,
+      "summary": "getattr(target_sa, relation.back_populates) raises TypeError when back_populates is None for unidirectional relationships — a regression from the old code which used session.get() + session.refresh() and did not require back_populates",
+      "failure_scenario": "SQLAlchemy model defines orders: Mapped[list['Order']] = relationship() without back_populates. The auto-generated list resolver crashes with TypeError: getattr(): attribute name must be string because getattr(target_sa, None) is called.",
+      "finding_id": "mf-8834ee74b07773fb6d6c"
+    },
+    {
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 144,
+      "summary": "The pagination query select(target_sa).join(back_attr).where(primary_col == entity_id) has no ORDER BY clause, making paginated results non-deterministic — items can appear on different pages or be missed across requests",
+      "failure_scenario": "A client calls page 1 (page_size=20) then page 2 on the same relationship resolver. Because the database returns rows in arbitrary order, item X appears on page 1 in the first call but also on page 2 in a subsequent call, or is entirely missed by both pages.",
+      "finding_id": "mf-17ce49705ee5d32e8b59"
+    },
+    {
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 147,
+      "summary": "For self-referential one-to-many relationships (e.g. Employee.subordinates), where(primary_col == entity_id) filters by the target table's own PK instead of the FK, returning the wrong entity — the old session.get() + getattr() approach handled this correctly",
+      "failure_scenario": "Employee model with id, manager_id (FK to self), manager and subordinates relationships. Calling the subordinates resolver with entity_id=1 returns employee with id=1 (if they have a manager) instead of employees where manager_id=1.",
+      "finding_id": "mf-95fbc4ad5338f9588f62"
+    },
+    {
+      "file": "tests/test_examples.py",
+      "line": 10,
+      "summary": "The mutable_crud/app.py example was removed from the EXAMPLES smoke-test list, losing automated regression coverage for this example",
+      "failure_scenario": "A future change to EnrichMCP or EnrichModel breaks the mutable_crud example (e.g., removing a deprecated API it relies on). CI does not detect this because the example is no longer tested.",
+      "finding_id": "mf-868d9c1b7c5e2dabe8f7"
+    }
+  ]
+}

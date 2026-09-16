@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The change replaced `\"tools/web-scraping/firecrawlsearchtool\"` with `\"tools/web-scraping/oxylabsscraperstool\"` as the last item of the group's pages array. `docs/tools/web-scraping/firecrawlsearchtool.mdx` still exists, and the Firecrawl Search Tool card in `docs/tools/web-scraping/overview.mdx` (line 28) still links to `/tools/web-scraping/firecrawlsearchtool`, but no entry anywhere in docs.json references that page anymore, so Mintlify drops it from the sidebar/navigation and the overview card becomes a dead link to an unserved page.",
+      "file": "docs/docs.json",
+      "line": 137,
+      "summary": "The new Oxylabs page entry replaces the existing firecrawlsearchtool entry in the Web Scraping & Browsing navigation instead of being appended, removing the Firecrawl Search Tool page from the docs navigation."
+    },
+    {
+      "failure_scenario": "A user reading the Amazon Search tool's parameter list is told `domain` localizes for 'Bestbuy' (a different retailer with different domain values), so they cannot tell what value to pass (e.g. 'com', 'nl') for Amazon, and the parameter's actual effect on the Amazon search request is misdocumented.",
+      "file": "docs/tools/web-scraping/oxylabsscraperstool.mdx",
+      "line": 89,
+      "summary": "The `domain` parameter of `OxylabsAmazonSearchScraperTool` is documented as 'Domain localization for Bestbuy.', a copy-paste error from a Best Buy tool."
+    },
+    {
+      "failure_scenario": "A user who copies the advanced example verbatim configures the Oxylabs Universal scraper to accept only status codes 808 and 909. Real HTTP responses (200, 201, 404, ...) never match those values, so every scraping job is treated as unsuccessful and fails (or the API rejects the value), despite the user following the documented example.",
+      "file": "docs/tools/web-scraping/oxylabsscraperstool.mdx",
+      "line": 228,
+      "summary": "The Universal Scraper advanced example sets `successful_status_codes` to `[808, 909]`, values outside the valid HTTP status-code range (100-599 per RFC 9110)."
+    },
+    {
+      "failure_scenario": "The typo is in the `description` field, which Mintlify surfaces in SEO meta tags, social previews, and search-result snippets, so users see 'Google Seach' as the official description of the tool's supported sources.",
+      "file": "docs/tools/web-scraping/oxylabsscraperstool.mdx",
+      "line": 7,
+      "summary": "The page's frontmatter description contains the typo 'Google Seach' instead of 'Google Search'."
+    },
+    {
+      "failure_scenario": "`AAAAABBBBCC` is 11 characters, but real Amazon ASINs are 10 alphanumeric characters and the page's own parameter list (line 37) says '10-symbol ASIN code'. A user who copies the example (lines 30 and 66) submits an invalid ASIN, contradicting the documented constraint and causing the request to be rejected or to return no product.",
+      "file": "docs/tools/web-scraping/oxylabsscraperstool.mdx",
+      "line": 30,
+      "summary": "The Amazon product examples call `tool.run(query=\"AAAAABBBBCC\")` with an 11-character value while the same page documents `query` as a '10-symbol ASIN code'."
+    }
+  ],
+  "level": null
+}

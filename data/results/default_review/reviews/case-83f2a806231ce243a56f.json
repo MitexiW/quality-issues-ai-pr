@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "app/routes/barcode+/$value.tsx",
+      "line": 89,
+      "summary": "Unhandled TypeError when personalOrganization is undefined: organizations.find for type 'PERSONAL' returns undefined if user has only TEAM organizations, then accessing .id crashes",
+      "failure_scenario": "A user who belongs only to TEAM-type organizations (no PERSONAL org) scans a barcode whose organizationId differs from their current selection. Line 88 resolves to undefined || undefined.id, throwing 'Cannot read properties of undefined (reading id)' and causing a server crash.",
+      "finding_id": "mf-3326a96cb3ecb10e0aa0"
+    },
+    {
+      "file": "app/modules/barcode/service.server.ts",
+      "line": 430,
+      "summary": "replaceBarcodes is not atomic: deleteBarcodes executes before createBarcodes without a transaction wrapper, risking data loss",
+      "failure_scenario": "An asset with existing barcodes is updated with new barcode values. deleteBarcodes succeeds, removing all barcodes. createBarcodes then fails with a unique constraint violation (duplicate value). The function re-throws the error, but the asset is now left with zero barcodes — the previous ones are irrevocably deleted.",
+      "finding_id": "mf-a553de59c7908142e51e"
+    },
+    {
+      "file": "app/modules/barcode/service.server.ts",
+      "line": 208,
+      "summary": "updateBarcode skips format validation when only 'value' changes without 'type', allowing invalid barcode values to be stored",
+      "failure_scenario": "A Code39 barcode exists with value 'ABC123'. The update endpoint is called with { id: '...', value: 'ABC-123!' } but no type. Because the guard at line 208 requires both type AND value, validation is bypassed. The invalid value (containing symbols not allowed in Code39) is persisted and will cause display/post-processing failures.",
+      "finding_id": "mf-5f3d72cdea770697ae51"
+    },
+    {
+      "file": "app/atoms/qr-scanner.ts",
+      "line": 107,
+      "summary": "Duplicate-scan error entries omit the 'type' field, so downstream code cannot distinguish asset vs kit duplicates",
+      "failure_scenario": "Two barcodes both linked to asset 'Laptop-5' are scanned. The second scan creates an entry with error 'This asset is already in the list.' and codeType, but type is undefined. The scanner drawer's GenericItemRow receives an entry where item.type is undefined, losing context about whether the duplicate is an asset or kit.",
+      "finding_id": "mf-15148e13a8eb2c7f65b7"
+    },
+    {
+      "file": "app/components/code-preview/add-barcode-form.tsx",
+      "line": 1196,
+      "summary": "useEffect has onRefetchData and onSuccess callbacks in deps but parent passes inline (unmemoized) functions, causing the effect to re-evaluate on every render",
+      "failure_scenario": "AddBarcodeDialog defines handleSuccess as an inline arrow function (new reference every render). When fetcher.state becomes 'idle' after a successful submission, the effect fires, calls onRefetchData and onSuccess. If the parent re-renders during the submission, the effect re-fires because onSuccess changed, potentially calling onClose/onSuccess multiple times and closing the dialog prematurely or triggering duplicate refetches.",
+      "finding_id": "mf-33eb50ee9a61533687ee"
+    },
+    {
+      "file": "app/components/forms/barcodes-input.tsx",
+      "line": 2169,
+      "summary": "Direct array mutation via barcodes.splice(i, 1) before setBarcodes call; React may not detect the change in concurrent mode",
+      "failure_scenario": "User removes a barcode row. The splice mutates the existing barcodes array, then setBarcodes([...barcodes]) creates a new array. In React strict mode or concurrent rendering, the mutation of the in-use state array before the setState call could cause stale renders or the UI to temporarily show incorrect data.",
+      "finding_id": "mf-09c9e7fe424d79ef3c49"
+    },
+    {
+      "file": "app/modules/barcode/validation.ts",
+      "line": 134,
+      "summary": "BarcodeSchema Zod schema calls validateBarcodeValue without uppercasing value, but Code39 validator requires uppercase via /^[A-Z0-9]*$/, so lowercase inputs will be rejected",
+      "failure_scenario": "If BarcodeSchema is ever used for server-side validation (currently unused), a Code39 barcode value like 'abc123' would fail validation with 'Code39 barcode must contain only uppercase letters' despite being a valid Code39 barcode. Every other code path (createBarcode, createBarcodes, updateBarcode, parseBarcodesFromImportData) uppercases before calling validateBarcodeValue, making the Zod schema inconsistent.",
+      "finding_id": "mf-3f652f11a3ad75b57265"
+    },
+    {
+      "file": "app/modules/barcode/service.server.ts",
+      "line": 845,
+      "summary": "parseBarcodesFromImportData blocks import for barcodes already linked to items but silently allows import of unlinked existing barcode values, risking unique constraint violations later",
+      "failure_scenario": "An import CSV contains a barcode value that already exists as an unlinked (orphaned) barcode in the DB. The function only checks linked barcodes (line 824: barcode.assetId || barcode.kitId), so the unlinked existing barcode passes validation. When createAsset is called, the Prisma create fails with a P2002 unique constraint on (organizationId, value), causing the entire import to fail with a generic error instead of a helpful validation message.",
+      "finding_id": "mf-37ba5543b102cdd07e1d"
+    }
+  ]
+}

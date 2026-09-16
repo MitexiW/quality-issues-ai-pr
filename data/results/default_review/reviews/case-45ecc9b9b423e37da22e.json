@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "dace/sdfg/nodes.py",
+      "line": 1467,
+      "summary": "In the new interface path, 'implementation' keyword argument is not extracted from kwargs — it is silently ignored for implementation selection and leaks into expansion_kwargs passed to transformation.apply(), risking TypeError or wrong behavior.",
+      "failure_scenario": "A user following the docstring calls node.expand(state, implementation='tiled', tile_size=16). state_or_impl defaults to None because no second positional arg is given. The 'implementation' kwarg ends up in expansion_kwargs unchanged. target_implementation falls back to self.implementation (the wrong implementation). Then transformation.apply(actual_state, sdfg, implementation='tiled', tile_size=16) is called, passing 'implementation' as a kwarg to the expansion static method. If the expansion does not accept **kwargs (e.g., ExpandAdd.expansion in the test addlib), this raises TypeError: expansion() got an unexpected keyword argument 'implementation'.",
+      "finding_id": "mf-a9cb5a58c0f51c24a928"
+    },
+    {
+      "file": "dace/sdfg/nodes.py",
+      "line": 1436,
+      "summary": "The *args parameter was removed from expand() signature and from the transformation.apply() call, silently dropping any positional arguments callers may pass.",
+      "failure_scenario": "External code or a subclass override that passes positional arguments to expand(sdfg, state, extra_arg1, extra_arg2) will compile fine but those extra positional arguments will be silently discarded instead of forwarded to transformation.apply() and the expansion method. No existing in-repo callers are affected, but any external library or custom expansion relying on positional *args forwarding will see silently different behavior.",
+      "finding_id": "mf-22f74f8f0c84638055d2"
+    },
+    {
+      "file": "dace/sdfg/state.py",
+      "line": 2571,
+      "summary": "expand_library_node accesses node.implementations without guarding against nodes that lack the attribute (e.g., UnregisteredLibraryNode), causing an unhandled AttributeError instead of a clear error message.",
+      "failure_scenario": "If expand_library_node is called with an UnregisteredLibraryNode instance (a valid nd.LibraryNode subclass with no implementations dict), the expression 'implementation not in node.implementations' raises AttributeError: 'UnregisteredLibraryNode' object has no attribute 'implementations', bypassing the intended ValueError/KeyError error handling.",
+      "finding_id": "mf-fb6eac006fcc7d7290b5"
+    },
+    {
+      "file": "dace/sdfg/nodes.py",
+      "line": 1441,
+      "summary": "Docstring advertises the second parameter as 'implementation' in examples (e.g., expand(state, implementation=None, **kwargs)), but the actual signature parameter is state_or_impl — users who follow the docstring and use the keyword form will hit the bug in finding 1.",
+      "failure_scenario": "The docstring at line 1441 says 'New interface: expand(state, implementation=None, **kwargs)' and the example at line 1451 says 'result = node.expand(state, 'pure')'. A user who prefers keyword arguments writes node.expand(state, implementation='pure'). Since state_or_impl is the real parameter name, 'implementation' goes into **kwargs, triggering the kwarg-leakage bug from finding 1.",
+      "finding_id": "mf-20c7c147fd4209d83f15"
+    }
+  ]
+}

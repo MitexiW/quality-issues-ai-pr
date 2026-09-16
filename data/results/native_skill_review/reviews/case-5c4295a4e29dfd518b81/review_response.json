@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "center/Dockerfile defines ENV GRAFANA_ENABLED/PUSHGATEWAY_ENABLED (lines 18-20) but no CLAMAV_ENABLED, and a repo-wide search finds CLAMAV_ENABLED only in start.sh. On `docker run` of the image built from this Dockerfile, `${CLAMAV_ENABLED}` expands to an empty command word, `sh start.sh` (ENTRYPOINT) fails with `syntax error near unexpected token ';'`, the interpreter aborts the script at line 15 and `java -jar /app.jar` on line 20 never runs, so the container exits and the Center service is completely down.",
+      "file": "center/deploy_startup/start.sh",
+      "line": 15,
+      "summary": "The new `if ${CLAMAV_ENABLED}; then` guard references a variable the image never defines, so with the shipped Dockerfile the script aborts on a shell syntax error before the Java app is launched."
+    },
+    {
+      "failure_scenario": "start.sh only starts clamd when CLAMAV_ENABLED is truthy, and the repo's uber image (center/uber_image/start.sh) runs the same center.jar with no clamd at all; if clamd is absent, `this.client.isReachable(3000)` is false and scan() throws HydraLabRuntimeException('ClamAV is shutdown'). The calls at PackageSetController.java:136/155/429 then make every package set and attachment upload fail, so disabling ClamAV as the toggle implies loses the whole upload feature instead of just the virus check. The same rejection hits the first uploads after a container start while clamd is still loading its signature database.",
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 67,
+      "summary": "The scanner fails closed and hard-codes an in-container clamd, so every upload is rejected whenever clamd is not running - including the deployment modes the scripts themselves advertise."
+    },
+    {
+      "failure_scenario": "Spring accepts uploads up to 1024MB (center/src/main/resources/application.yml:18), but this file's own documentation says files larger than the default MaxFileSize 'won't be scanned' (line 539) and that such files are flagged only when AlertExceedsMax is enabled (lines 661-666, left commented => default no). A 500MB APK/ZIP containing malware is streamed successfully and clamd returns ScanResult.OK without inspecting the content, so the file is stored and later distributed as clean; older clamav packages with 25M/100M defaults widen the unscanned range.",
+      "file": "center/deploy_startup/clamAV/clamd.conf",
+      "line": 108,
+      "summary": "StreamMaxLength is raised to 2048M while MaxFileSize/MaxScanSize stay at their defaults and AlertExceedsMax is unset, so exactly the large uploads the stream limit was raised for are skipped by clamd and reported clean."
+    },
+    {
+      "failure_scenario": "Thread A executes `instance = new ClamAVScanner()` (line 33) on the first upload and is preempted before line 34; thread B checks `instance == null` outside the lock, sees the non-null volatile reference, and calls scan(), which dereferences `this.client` at line 44 -> NullPointerException. Two simultaneous users uploading right after startup is enough. The NPE is not a HydraLabRuntimeException, so it escapes the catch blocks of the first upload endpoint as a bare 500. If the ClamavClient constructor ever throws, the object with client == null stays cached and every later call NPEs until restart.",
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 33,
+      "summary": "Unsafe lazy initialization: the volatile instance is published before its client field is assigned, so a concurrent caller can obtain the half-constructed singleton and NPE."
+    },
+    {
+      "failure_scenario": "/api/package/addAgentPackage in this same controller (line 250) still calls attachmentService.verifyAndSaveFile with no scan, and StorageController.uploadFile (center/src/main/java/com/microsoft/hydralab/center/controller/StorageController.java:66) writes uploads with LocalStorageIOUtil.copyUploadedStreamToFile with no scan. An infected agent JAR uploaded through addAgentPackage is stored in the package store and later distributed to agents/devices, so the newly added protection is bypassable through the same API surface.",
+      "file": "center/src/main/java/com/microsoft/hydralab/center/controller/PackageSetController.java",
+      "line": 136,
+      "summary": "The scan was added to only three upload paths, leaving the other file-upload endpoints able to persist unscanned content."
+    },
+    {
+      "failure_scenario": "clamav-client reports scan failures (socket error, daemon killed mid-transfer, protocol/limit error response) with its own unchecked ClamavException, and `client.scan(is)` at line 45 is not wrapped or caught. In the uploadFile endpoint (PackageSetController.java:136) only HydraLabRuntimeException and IOException are caught, so the exception reaches Spring's default error handling and the caller receives a generic HTTP 500 error body instead of the Result error JSON every other failure path returns, with no way to tell a daemon failure from a real virus finding.",
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 45,
+      "summary": "The actual scan call has no error handling, so a runtime failure or protocol error from the ClamAV client escapes and bypasses the controller's Result-based error contract."
+    },
+    {
+      "failure_scenario": "start.sh runs as root and clamd never drops privileges because the only User directive is commented; the Dockerfile block at lines 35-37 creates and chowns /var/run/clamav to clamav for nothing. A memory-safety or parser bug in the AV engine reached from an uploaded file then executes as root in the container instead of under the intended unprivileged clamav account.",
+      "file": "center/deploy_startup/clamAV/clamd.conf",
+      "line": 202,
+      "summary": "User clamav remains commented out, so the clamd started as root by start.sh parses untrusted uploads with root privileges and the Dockerfile's clamav-owned state directory is dead configuration."
+    },
+    {
+      "failure_scenario": "freshclam runs only inside the docker build at line 33; the crontab additions in this Dockerfile contain only pushgatewayDataClean, restartMonitorService and splitLog, so a running container never updates /var/lib/clamav. Malware first seen after the image was built is not detected by the new scan even though cron is running and could refresh it. The build also becomes dependent on the ClamAV CDN: an unreachable or rate-limited mirror fails freshclam and therefore the whole image build.",
+      "file": "center/Dockerfile",
+      "line": 33,
+      "summary": "The virus database is fetched once at image build time and never refreshed at runtime, so detection signatures are frozen at the image build date."
+    },
+    {
+      "failure_scenario": "Every other center integration is configured through application.yml and @Value, but this class bakes in host, port (duplicated by clamd.conf line 87) and the 3000ms reachability timeout, and getInstance() builds the ClamavClient itself so no test double can be injected. Deployments that do not run a daemon inside the application container - such as the repo's uber image, which runs the same center.jar without clamav installed - have no way to point the scanner at a sidecar or remote clamd, which is the root cause of the upload failures those deployments hit.",
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 34,
+      "summary": "The daemon address is hard-coded as localhost:3310 in a static singleton instead of using the center's externalized configuration, making the scanner unusable against any other clamd and untestable."
+    },
+    {
+      "failure_scenario": "verifyAndSaveFile performs the fileTypes allow-list check (common/src/main/java/com/microsoft/hydralab/common/util/AttachmentService.java:265-276) only after the scan call on line 429, while Spring permits request bodies up to 1024MB. A user posting a ~1GB file with a disallowed suffix (for example a .bin upload to the COMMON_FILE path, which only allows .zip) makes the center stream the entire body to clamd - which writes it to a temp file and scans it - before returning 'error file type'; repeating this consumes clamd scan time and disk per rejected request.",
+      "file": "center/src/main/java/com/microsoft/hydralab/center/controller/PackageSetController.java",
+      "line": 429,
+      "summary": "Files are scanned before the upload's suffix validation, so content that is immediately rejected is still fully streamed to and scanned by clamd."
+    }
+  ],
+  "level": null
+}

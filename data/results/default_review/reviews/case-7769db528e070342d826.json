@@ -1,0 +1,74 @@
+{
+  "findings": [
+    {
+      "file": "src/models/eval.ts",
+      "line": 513,
+      "summary": "totalCount uses count(*) (all result rows) but filteredCount uses COUNT(DISTINCT test_idx) — mismatched units displayed as 'X of Y results' in the UI",
+      "failure_scenario": "An eval with 10 test cases and 3 prompts per case produces totalCount=30 (result rows) but filteredCount=10 (distinct test indices). The UI shows '10 of 30 results' even though there are only 10 test cases.",
+      "finding_id": "mf-7b13d633a68230180fe4"
+    },
+    {
+      "file": "src/app/src/pages/eval/components/ResultsTable.tsx",
+      "line": 380,
+      "summary": "numTests defined as testPassCount + testFailCount, excluding testErrorCount — inflates pass rate, per-test cost, avg tokens, and avg latency in the header",
+      "failure_scenario": "An eval with 80 pass / 10 fail / 10 error results displays '88.89% passing (80/90 cases)' instead of '80% passing (80/100 cases)', and per-test cost is inflated by dividing total cost by 90 instead of 100.",
+      "finding_id": "mf-5f591305b752997b2784"
+    },
+    {
+      "file": "src/app/src/pages/eval/components/ResultsTable.tsx",
+      "line": 779,
+      "summary": "When filteredResultsCount is 0, pageCount = 0 and maxPageIndex = -1, allowing safeRowPageIndex = -1 and a negative pagination.pageIndex",
+      "failure_scenario": "URL contains rowId parameter while filters produce zero results. pagination.pageIndex is set to -1, which React Table's manual pagination does not handle — could cause rendering errors or infinite loops.",
+      "finding_id": "mf-e46d3cd4669b40cf3dca"
+    },
+    {
+      "file": "src/app/src/pages/eval/components/Eval.tsx",
+      "line": 66,
+      "summary": "setEvalId(id) called before fetchEvalData; on fetch failure, evalId is left pointing to the failed eval while table/config may be stale from a previous successful load",
+      "failure_scenario": "User navigates to eval A (loads correctly), then to eval B (fails/404). Store keeps evalId=B but table/config from eval A. UI shows eval A's data labeled as eval B, and subsequent operations use the wrong evalId.",
+      "finding_id": "mf-3a42851508ebcf6e4e43"
+    },
+    {
+      "file": "src/database/tables.ts",
+      "line": 131,
+      "summary": "testCaseMetadataIdx indexes json_extract(metadata, '$') instead of json_extract(test_case, '$.metadata'), and is duplicated by metadataIdx on line 137 — search on test_case.metadata has no index coverage",
+      "failure_scenario": "Search queries filtering on test_case metadata ('json_extract(test_case, $.metadata) LIKE %...%') get no index assistance, causing full table scans. The two duplicate indexes on json_extract(metadata, '$') waste storage and write overhead.",
+      "finding_id": "mf-1fdcb096be9a926af5b9"
+    },
+    {
+      "file": "src/app/src/pages/eval/components/ResultsTable.tsx",
+      "line": 372,
+      "summary": "Header stats read prompt.metrics from server, which are absent for evals created before this PR — old evals display '0.00% passing (0/0 cases)' with zero token/cost/latency stats",
+      "failure_scenario": "A user views an eval created before the PR deployment. The eval's saved prompts have no metrics object. All header stats show 0 or empty values — '0.00% passing (0/0 cases)', $0.00 cost, 0 tokens, 0ms latency — despite valid results existing.",
+      "finding_id": "mf-4a64a88a3fb3c1611239"
+    },
+    {
+      "file": "src/providers/bam.ts",
+      "line": 46,
+      "summary": "BAMModerations interface drops the social_bias field and changes structure from {input: {enabled: boolean}} to {input?: boolean} — breaking existing BAM provider moderation configs",
+      "failure_scenario": "A user has a promptfoo config with BAM provider and moderations: { social_bias: { input: { enabled: true, threshold: 0.7 } } }. After this change, social_bias is silently dropped from the API request, and the nested enabled boolean is no longer parsed correctly, disabling content moderation.",
+      "finding_id": "mf-b77a250627043adcb48c"
+    },
+    {
+      "file": "src/app/src/pages/eval/components/store.ts",
+      "line": 111,
+      "summary": "comparisonEvalIds stored in zustand persist middleware survives page reloads — stale eval IDs from deleted evals cause all table requests to fail with 404",
+      "failure_scenario": "User adds a comparison eval, closes the browser. Days later, that comparison eval has been deleted. On page reload, the stale comparisonEvalIds are sent to the /eval/:id/table endpoint. The server returns 404 for the entire request, and the main eval table also fails to load.",
+      "finding_id": "mf-e74e30addb9f4dfcd1d9"
+    },
+    {
+      "file": "src/app/src/pages/eval/components/ResultsView.tsx",
+      "line": 179,
+      "summary": "Search debounce increased from 200ms to 1000ms, making search feel 5x slower with server-side processing on top",
+      "failure_scenario": "User types a search query. Previously debounced at 200ms (near-instant feedback), now debounced at 1000ms (1-second delay) plus network round-trip. Combined with server-side search, total latency exceeds 1 second, degrading UX significantly.",
+      "finding_id": "mf-01a355e579cd8bfe5fdb"
+    },
+    {
+      "file": "src/redteam/providers/iterative.ts",
+      "line": 267,
+      "summary": "Grader.getResult now unconditionally passes goal instead of conditionally passing newInjectVar for intent plugin — combined with simplified IntentGrader rubric, this changes the evaluated prompt for intent-based red team tests",
+      "failure_scenario": "An intent-based red team test with pluginId='intent' previously passed the dynamic newInjectVar (the crafted jailbreak prompt) to the grader. Now it passes goal (the high-level intent). Combined with the IntentGrader rubric change removing multi-turn context, the grader evaluates a different input, potentially producing different pass/fail results.",
+      "finding_id": "mf-de5ac4e12266821e0fde"
+    }
+  ]
+}

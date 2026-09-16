@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/agent.py",
+      "line": 203,
+      "summary": "Repeated kickoff() calls cause knowledge source chunks to grow unboundedly via extend() in source.add()",
+      "failure_scenario": "If crew.kickoff() is called twice on the same Crew (e.g., retry, testing), set_knowledge() re-creates a Knowledge object and calls add_sources() again. Each source.add() appends new chunks to the source's self.chunks via extend() without clearing first. After N calls the chunks list is Nx the original size. While KnowledgeStorage.save() deduplicates by SHA-256 hash (so the vector store stays correct), the source objects leak memory and _save_documents() wastes CPU scanning a growing list.",
+      "finding_id": "mf-06b7cfb8376e61c6005b"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 647,
+      "summary": "Date format validation uses substring matching, allowing invalid format strings to pass validation",
+      "failure_scenario": "The check any(code in self.date_format for code in valid_format_codes) uses substring inclusion. A format string like '100% done' passes validation because '%d' is a substring of '100% done', but datetime.now().strftime('100% done') raises ValueError. The exception is caught and logged as a warning, so the date is silently not injected rather than the user being alerted to their invalid configuration. A proper check would verify that strftime can actually format the string.",
+      "finding_id": "mf-eea54fa1fe69ad1b5155"
+    },
+    {
+      "file": "src/crewai/knowledge/knowledge.py",
+      "line": 65,
+      "summary": "Useless try/except in add_sources() that catches Exception and immediately re-raises",
+      "failure_scenario": "The block 'try: ... except Exception as e: raise e' is a semantic no-op that adds no error handling, logging, cleanup, or rollback. It suggests the developer intended to add error handling but never implemented it. When called from the new site in set_knowledge(), if any source.add() raises a non-ValueError/non-TypeError exception, it propagates through the no-op handler unchanged.",
+      "finding_id": "mf-48fba73bd72a59fe286d"
+    },
+    {
+      "file": "tests/agent_test.py",
+      "line": 1635,
+      "summary": "Dead mock setup — patch('crewai.knowledge') never intercepts Knowledge creation in agent.py",
+      "failure_scenario": "The test patches crewai.knowledge (the module) and sets mock_knowledge_instance.search.return_value and MockKnowledge.add_sources.return_value. But agent.py imports Knowledge directly from crewai.knowledge.knowledge, bypassing the module-level patch. These mock configurations are dead code that never take effect. The test passes only because of VCR cassette replay; without VCR, the real Knowledge class (with an empty storage, since add_sources is separately mocked) would produce different behavior.",
+      "finding_id": "mf-bb6d77d335bdd11f8152"
+    }
+  ]
+}

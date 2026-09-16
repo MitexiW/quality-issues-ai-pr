@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Crew with Task(async_execution=True) runs each task in a threading.Thread (crew.py:823-859). Agent A finishes, pauses (Live stopped, _live=None, flag True) and blocks in _ask_human_input's input(). Agent B emits TaskCompleted/ToolUsage/LLM events whose handlers call formatter.print(crew_tree); print() sees self._live is None (line 101) and executes Live(tree, refresh_per_second=4).start(), hiding the cursor and redrawing the full tree every 250 ms on top of the 'Final Result' text and the user's typed feedback, corrupting the prompt. resume_live_updates() only clears the flag, leaving that Live running for the rest of the crew run. The same happens with raw LLM stream-chunk prints and blank print() calls from other threads, which the pause also does not gate.",
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 123,
+      "summary": "pause_live_updates() only stops the current Live session once; print() never checks _live_paused, so the next Tree printed by any concurrently running agent starts a brand-new Live that redraws the terminal over the human-input prompt — the exact interference this change was added to prevent, and resume_live_updates() never stops that stray Live."
+    },
+    {
+      "failure_scenario": "Two agents in one crew both have human_input=True and their tasks run in parallel threads. Agent A pauses (stops Live, _live_paused=True). Agent B's pause_live_updates() is skipped because the flag is already set, so any Live that a concurrent event started between A's pause and B's pause keeps refreshing during B's input(). B's user answers first; B's finally calls resume_live_updates() -> flag False while A is still blocked in input(). Events from B's continued execution then start Live sessions that overwrite A's still-active prompt, and A's own later resume call is a silent no-op.",
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 129,
+      "summary": "_live_paused is a single non-refcounted boolean on the process-global event_listener.formatter singleton, so overlapping _ask_human_input sessions make the second pause a no-op and let the first session to finish clear the flag while another session is still waiting in input()."
+    },
+    {
+      "failure_scenario": "Crew with two async tasks: agent A blocks in _ask_human_input's input() after pause_live_updates() has stopped the Live session. Agent B is mid-LLM-call and each LLMStreamChunkEvent handler executes the builtin print(content, end='', flush=True) (event_listener.py:358), which bypasses ConsoleFormatter entirely. Raw token text is written to the terminal on top of A's 'HUMAN FEEDBACK' prompt and the characters the user is typing, scrambling the input line — the pause mechanism offers no protection against this output path.",
+      "file": "src/crewai/agents/agent_builder/base_agent_executor_mixin.py",
+      "line": 129,
+      "summary": "The new pause/resume wiring does not gate the LLMStreamChunkEvent handler's direct print(content, end='', flush=True) in event_listener.py:358, so streamed LLM tokens from a concurrently running agent still interleave raw text with the human-input prompt, defeating the change's stated purpose of interference-free input."
+    },
+    {
+      "failure_scenario": "Non-behavioral: a regression in which flow-tree Live rendering interferes with human input (or pause/resume is never wired into the flow event path) passes the suite because no Flow code path is imported or executed anywhere in the file; the duplicated pause/resume unit tests in the two files can drift, giving false confidence that both the agent and flow rendering paths are protected.",
+      "file": "tests/test_flow_human_input_integration.py",
+      "line": 6,
+      "summary": "The new 'Flow human input integration' test suite never instantiates or executes a Flow — every test drives CrewAgentExecutorMixin._ask_human_input or the formatter directly — so the flow-tree rendering path (start_flow/update_method_status -> print(flow_tree) with Live) is never exercised, and the pause/resume unit coverage duplicates tests/utilities/test_console_formatter_pause_resume.py."
+    }
+  ],
+  "level": null
+}

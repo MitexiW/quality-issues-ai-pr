@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Whenever the artifact URI is not a bare local path: on Windows `resolve_uri_if_local('./mlruns')` (mlflow/utils/uri.py:431-441) turns the default artifact root into a `file:///C:/...` URI; with `mlflow.set_tracking_uri('file:///tmp/mlruns')` (a pattern used in tests/spark/test_spark_model_export.py:397) or any remote store (s3://, dbfs:), `mlflow.get_artifact_uri('model')` also returns a URI string. `_get_flavor_configuration(model_path=<uri>)` calls `Model.load(<uri>)`, which rejects `file:`-scheme paths that don't literally exist (mlflow/models/model.py:697-701 -> MlflowException 'Could not find an \"MLmodel\" configuration file at file://...'), and even if it passed, `os.path.join(uri, 'code')` / `os.path.exists(saved_code_path)` / `open(...)` would point at a nonexistent path. Result: every `test_log_model_with_code_paths` (xgboost, sklearn, lightgbm, shap, h2o, keras, transformers, fastai, catboost, statsmodels, spark, dspy, diviner, spacy, paddle, pytorch, onnx, prophet, pmdarima, langchain, sentence_transformers) fails. On Linux with the default relative './mlruns' root the URI happens to be a plain local path, which silently masks the regression.",
+      "file": "tests/helper_functions.py",
+      "line": 420,
+      "summary": "_compare_logged_code_paths was changed to take a local `model_path` and the `model_path = _download_artifact_from_uri(model_uri)` resolution was deleted, but all 23 call sites (including the xgboost one added by this same change at tests/xgboost/test_xgboost_model_export.py:534) still pass the value of `mlflow.get_artifact_uri(...)`/`model_info.model_uri`, so a URI string is now fed to Model.load/os.path.join/os.path.exists/open."
+    },
+    {
+      "failure_scenario": "Step 1 creates the sync branch with `git merge master` precisely so mlflow-3 gains master's commits as ancestors (and .github/workflows/sync.py:80 relies on that to short-circuit with 'Already up to date' on the next run). If the PR is landed with rebase-and-merge, the merge commit is dropped/flattened and the branch's commits are rewritten, so mlflow-3 no longer contains master's commits as ancestors: the next scheduled sync re-merges every already-synced master commit, re-surfaces the same conflicts, and duplicates commits under new SHAs.",
+      "file": ".github/workflows/sync.md",
+      "line": 30,
+      "summary": "The sync procedure now tells maintainers to merge the master->mlflow-3 sync PR with 'rebase and merge' instead of 'Create a merge commit', which destroys the merge ancestry that the sync branch is built to carry."
+    },
+    {
+      "failure_scenario": "`ChatCompletionMessage.model_dump()` (called directly here, versus `to_dict()`/`model_dump(exclude_unset=True)` used by mlflow/openai/utils/chat_schema.py:23 and asserted by tests/groq/test_groq_autolog.py:173,242) emits keys for optional fields that were never set. The new tests only pass because the fixtures explicitly set every field (content, role, function_call, tool_calls, reasoning); if groq adds an optional field to ChatCompletionMessage (as it did with `reasoning`), the stored attribute includes it as null while `message.to_dict()` omits it, so the assertions at lines 173/242 fail, and in production every Groq trace carries null-valued keys that mlflow's ChatMessage schema (mlflow/types/chat.py:91-117) does not define.",
+      "file": "mlflow/groq/_groq_autolog.py",
+      "line": 51,
+      "summary": "The Groq autolog serializes the response message with `model_dump()` (every pydantic field, including unset ones) while the rest of the repo and the new tests use the exclude-unset form, so fields the API did not return are written into `mlflow.chat.messages` as nulls."
+    }
+  ],
+  "level": null
+}

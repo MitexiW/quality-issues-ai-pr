@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 729,
+      "summary": "Removed inject_tool_args from post_model_hook_router breaks InjectedState/InjectedStore for v2+post_model_hook path",
+      "failure_scenario": "create_react_agent(version='v2') with post_model_hook and a tool that uses InjectedState or InjectedStore annotation. When pending tool calls exist after post_model_hook runs, the router sends raw tool_calls (missing state/store args) via Send to tools. The tool_node's _parse_input for 'tool_calls' input type returns early without calling inject_tool_args, so the tool is invoked without the injected state/store values, causing a missing-argument error (e.g. TypeError for missing 'state' parameter).",
+      "finding_id": "mf-058e832c8806425a1a0d"
+    },
+    {
+      "file": "libs/langgraph/langgraph/graph/schema_utils.py",
+      "line": 40,
+      "summary": "SchemaCoercionMapper.__new__ caches by (schema, max_depth) only, silently ignoring differing type_hints across callers",
+      "failure_scenario": "A nested BaseModel type appears as a field in a parent schema (coerced first via _build_coercer with default get_type_hints) and is later used as a standalone state schema via _pick_mapper (which passes enhanced type_hints from the compiler). The cached instance from the first call is returned, and the enhanced type_hints meant for the state schema are silently discarded. This causes Annotated generic types in the nested model's fields to be resolved incorrectly, leading to wrong coercion behavior for those fields.",
+      "finding_id": "mf-30c27c8d8d1672d216cb"
+    },
+    {
+      "file": "libs/langgraph/langgraph/pregel/__init__.py",
+      "line": 215,
+      "summary": "Dead code: isinstance(channels, str) on *args vararg parameter is always False",
+      "failure_scenario": "Maintenance hazard — the condition can never be True because *channels: str is always a tuple. The append branch (meant for single-channel semantics carried over from the old Channel.subscribe_to signature) can never execute. The extend branch always runs, which works correctly for tuples.",
+      "finding_id": "mf-8c86b293fd029c88268f"
+    },
+    {
+      "file": "libs/langgraph/langgraph/pregel/__init__.py",
+      "line": 296,
+      "summary": "NodeBuilder.build() always wraps writes in ChannelWrite, creating a truthy no-op writer even when no write_to() was called",
+      "failure_scenario": "A pure-trigger node built via NodeBuilder().subscribe_only('x').build() has node property returning ChannelWrite([]) instead of None. In prepare_next_tasks (algo.py line 848), the check 'if node := proc.node' sees a truthy ChannelWrite instead of None, creating and executing a PregelExecutableTask that does nothing — wasted task execution in every graph step for nodes that exist only as triggers.",
+      "finding_id": "mf-f71c8e3477540beee169"
+    }
+  ]
+}

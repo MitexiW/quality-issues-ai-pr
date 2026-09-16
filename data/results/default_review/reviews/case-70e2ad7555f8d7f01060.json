@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "modules/condorxBidAdapter.js",
+      "line": 10,
+      "summary": "Removed [650, 1168] from SUPPORTED_AD_SIZES, causing bid requests for that ad size to be rejected by isBidRequestValid when they were previously accepted",
+      "failure_scenario": "A publisher has ad slots of size 650x1168 configured for the condorx bidder. Since [650, 1168] is no longer in SUPPORTED_AD_SIZES, isValidAdSize([650, 1168]) returns false, isBidRequestValid returns false, and the bid request is dropped silently — no bids are returned for that ad slot. The engageya adapter in the same codebase still lists [650, 1168] as a supported size, confirming this is a real ad dimension in use.",
+      "finding_id": "mf-32f1da67ee4840c13231"
+    }
+  ]
+}

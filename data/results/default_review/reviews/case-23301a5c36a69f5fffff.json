@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "frontend/packages/db/supabase/migrations/20250520100200_add_schemas_tables.sql",
+      "line": 4,
+      "summary": "Missing UNIQUE constraint on (building_schema_id, number) allows duplicate version numbers under concurrent writes; the application-layer optimistic concurrency check at createNewVersion.ts line 96 is read-then-write and not atomic.",
+      "failure_scenario": "Two users edit the same building schema simultaneously. Both POST requests pass the version-number check (both see actualLatestVersionNumber=3), both compute nextVersionNumber=4, and both INSERT succeeds. The table now has two rows with number=4 for the same building_schema_id, corrupting the version lineage.",
+      "finding_id": "mf-692162bb0bca480990a7"
+    },
+    {
+      "file": "frontend/apps/app/libs/schema/applyPatchOperations.ts",
+      "line": 30,
+      "summary": "JSON Pointer escape sequences (~0 for literal ~, ~1 for literal /) are not decoded before using path segments as object keys, violating RFC 6901.",
+      "failure_scenario": "A key named 'nested/key' in the building schema causes fast-json-patch's compare() at createNewVersion.ts line 76 to generate a reverse_patch with path '/nested~1key'. When that reverse_patch is later applied, applyPatchOperations looks up the literal key 'nested~1key' (not 'nested/key'), silently operating on the wrong key or doing nothing.",
+      "finding_id": "mf-bd61f509a6ea92b113b1"
+    },
+    {
+      "file": "frontend/apps/app/libs/schema/operationsSchema.ts",
+      "line": 38,
+      "summary": "operationsSchema validates and accepts 'move', 'copy', and 'test' operations, but applyPatchOperations throws on these operation types via its .otherwise() clause, making the validator inconsistent with the implementation.",
+      "failure_scenario": "A client sends a valid JSON Patch containing a 'move' operation. The route handler validates it successfully (operationsSchema accepts it), calls createNewVersion, which calls applyPatchOperations(newContent, patch) at line 73. applyPatchOperations hits the .otherwise() clause and throws 'Operation type 'move' is not implemented'. Worse, if such an operation is persisted to the DB, every future attempt to replay history at line 68 will fail identically, permanently blocking new versions for that schema.",
+      "finding_id": "mf-8de636b6a4d824fe0ccb"
+    },
+    {
+      "file": "frontend/apps/app/libs/schema/applyPatchOperations.ts",
+      "line": 15,
+      "summary": "getOrCreateObject silently overwrites a primitive intermediate value with an empty object when traversing a path, instead of throwing an error as the JSON Patch spec requires.",
+      "failure_scenario": "Building schema content is { 'name': 'John' }. A buggy or malicious client sends operation { op: 'add', path: '/name/first', value: 'Jane' }. getOrCreateObject finds that target['name'] is 'John' (a string, not a record), silently replaces it with {}, and the value 'John' is irretrievably lost. The result is { name: { first: 'Jane' } }.",
+      "finding_id": "mf-783e4201e0c38a5b364a"
+    },
+    {
+      "file": "frontend/apps/app/app/api/buildingSchemas/versions/route.ts",
+      "line": 22,
+      "summary": "No try/catch around createNewVersion() call; DB failures and other thrown errors bubble up as opaque Next.js 500 responses with no structured error body.",
+      "failure_scenario": "The Supabase database is temporarily unreachable. createNewVersion throws 'Failed to fetch building schema: ...'. The route handler has no catch block, so Next.js returns a generic 500 Internal Server Error page. The client receives no JSON error payload and cannot distinguish this from other server crashes.",
+      "finding_id": "mf-1234318698a18b1af6e4"
+    },
+    {
+      "file": "frontend/apps/app/libs/schema/applyPatchOperations.ts",
+      "line": 23,
+      "summary": "Custom applyPatchOperations reimplements functionality already provided by the fast-json-patch library (which is added as a dependency in this same PR), but with fewer features and known bugs.",
+      "failure_scenario": "The fast-json-patch library's applyPatch() function supports all six JSON Patch operation types (add, remove, replace, move, copy, test) and correctly decodes JSON Pointer escapes. The hand-rolled applyPatchOperations supports only three, misses escape decoding, and silently overwrites primitives. Maintenance cost: 57 lines of duplicate code that must be kept in sync with the library.",
+      "finding_id": "mf-a6f6b210cf0df21589db"
+    }
+  ]
+}

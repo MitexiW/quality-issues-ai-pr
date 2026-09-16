@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Wizard runs on any Next.js project and writes app/handler/[...stack]/page.tsx containing `return <StackHandler fullPage app={stackServerApp} routeProps={props} />` with no StackHandler import. TypeScript builds fail with \"Cannot find name 'StackHandler'\" and JS builds throw ReferenceError at render, so every freshly initialized Next.js project is broken out of the box (old code at git HEAD line 243 shows the import was previously included).",
+      "file": "packages/init-stack/index.mjs",
+      "line": 451,
+      "summary": "The generated Next.js handler page uses <StackHandler> but the rewritten template dropped the `import { StackHandler } from \"@stackframe/stack\";` line that the old template emitted."
+    },
+    {
+      "failure_scenario": "Running the wizard's own `test-run-js` flow (sv create --types ts + init-stack --js --client) produces stack/client.ts whose StackClientApp constructor reads the identifier INSERT_YOUR_PUBLISHABLE_CLIENT_KEY_HERE. svelte-check/tsc fails with \"Cannot find name\" and vite dev throws ReferenceError when the module evaluates, so the generated project cannot start until the user manually edits the file; the wizard's e2e never compiles the output, so it passes green.",
+      "file": "packages/init-stack/index.mjs",
+      "line": 427,
+      "summary": "For `--js --client`, the generated stack/client file contains `publishableClientKey: INSERT_YOUR_PUBLISHABLE_CLIENT_KEY_HERE` — an unquoted, undefined identifier."
+    },
+    {
+      "failure_scenario": "`npx -y create-next-app@latest my-app && npx @stackframe/init-stack@latest my-app` — package.json has \"next\": \"16.x\", which matches neither includes(\"14\") nor includes(\"15\") nor \"latest\". The wizard either throws \"unsupported version of Next.js (found 16.x)\" interactively or, in the new CI test (test-run-next runs with STACK_DISABLE_INTERACTIVE and no --next flag), assertInteractive() throws and the script exits 1, failing the e2e test the PR adds.",
+      "file": "packages/init-stack/index.mjs",
+      "line": 296,
+      "summary": "The rewritten wizard still hard-rejects any Next.js version that is not 14/15/\"latest\", so it refuses current `create-next-app@latest` projects (Next 16), breaking both the documented npx flow and the PR's own new non-interactive test-run-next."
+    },
+    {
+      "failure_scenario": "`pnpm -C packages/init-stack run init-stack` (or `npm run init-stack` in the package) executes with cwd = packages/init-stack and fails immediately with \"Cannot find module '.../packages/init-stack/init-stack/index.mjs'\" — the package contains only the root index.mjs (and the published files list includes only root index.mjs), so the script is broken for local dev and in the published package alike.",
+      "file": "packages/init-stack/package.json",
+      "line": 10,
+      "summary": "The `init-stack` script was changed from `node index.mjs` to `node init-stack/index.mjs`, a path that does not exist in the package."
+    },
+    {
+      "failure_scenario": "On CI, the combined stdout/stderr of create-next-app's install output plus three more wizard runs exceeds child_process.exec's default 1MB maxBuffer, so the callback receives \"stdout maxBuffer length exceeded\", the child is killed mid-run, and the test fails (leaving test-run-output dirty); likewise, four sequential npm-registry-dependent initializations routinely exceed the 120_000ms test timeout, so the test fails even when the wizard works correctly.",
+      "file": "apps/e2e/tests/general/setup-wizard.test.ts",
+      "line": 8,
+      "summary": "The test switched from running one project initialization (test-run-auto) to `test-run`, which performs four full initializations (sv create, npm init, create-next-app with its own npm install, plus a neon registry install) under Node's default 1MB exec maxBuffer and a 120s vitest timeout."
+    },
+    {
+      "failure_scenario": "The wizard's own test-run-node flow creates a CJS package (npm init -y) and init-stack --js --server generates stack/server.js containing `import { StackServerApp } from \"@stackframe/js\"; export const stackServerApp = ...`. Running `node stack/server.js` or importing it throws \"SyntaxError: Cannot use import statement outside a module\", so the file the wizard just told the user to reference (\"reference them in stack/server.js\") is unusable in the project it generated it for.",
+      "file": "packages/init-stack/index.mjs",
+      "line": 402,
+      "summary": "For a plain Node.js project (no tsconfig.json), the wizard writes stack/server.js using ESM `import`/`export` syntax, but a bare `npm init -y` project has no \"type\": \"module\", so the generated file cannot be loaded."
+    },
+    {
+      "failure_scenario": "Running non-interactively (STACK_DISABLE_INTERACTIVE=true) with `--js` but without --client/--server reaches inquirer.prompt against a non-TTY/EOF stdin; instead of failing fast with the standard UserError (\"STACK_DISABLE_INTERACTIVE is set, but wizard requires interactivity to complete. Make sure you supplied all required command line arguments!\"), the wizard hangs on the prompt or crashes with a raw inquirer readline error that gives no hint about the missing flags.",
+      "file": "packages/init-stack/index.mjs",
+      "line": 510,
+      "summary": "getServerOrClientOrBoth is the only interactive prompt path that does not call assertInteractive() first, unlike getProjectType, getProjectPath, and promptPackageManager."
+    }
+  ],
+  "level": null
+}

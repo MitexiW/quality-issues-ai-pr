@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "vnext/Microsoft.ReactNative/Fabric/platform/react/threading/TaskDispatchThread.cpp",
+      "line": 71,
+      "summary": "runSync() deadlocks if called after quit(): runAsync silently returns when running_ is false, but runSync still blocks on promise.get_future().wait() forever",
+      "failure_scenario": "ReactInstanceWin::Destroy() calls jsMessageThread->quitSynchronous() which sets running_=false. If any code subsequently calls MessageQueueThreadImpl::runOnQueueSync() — the TOCTOU between isRunning() check and runSync() allows entering the deadlock path — runAsync returns immediately without posting the task (running_ is false), the promise is never set, and the calling thread hangs permanently.",
+      "finding_id": "mf-bbbc394edc6ee883ecdd"
+    },
+    {
+      "file": "vnext/Microsoft.ReactNative/Fabric/platform/react/threading/MessageQueueThreadImpl.cpp",
+      "line": 17,
+      "summary": "runOnQueue() and runOnQueueSync() silently drop work when the thread is not running, losing pending tasks after quitSynchronous()",
+      "failure_scenario": "A caller queues a cleanup task via runOnQueue() after quitSynchronous() has stopped the thread, or a task is in-flight between isRunning() check and actual quit. The task is silently dropped — its captured resources (shared_ptrs, callbacks) are destroyed without execution, potentially leaking state that relied on the task completing. The old dispatch-queue design processed pending tasks via Shutdown(PendingTaskAction::Complete) before tearing down.",
+      "finding_id": "mf-ed30c34330cfb8f8efa6"
+    },
+    {
+      "file": "vnext/Microsoft.ReactNative/Modules/Animated/NativeAnimatedModule.cpp",
+      "line": 59,
+      "summary": "Unused context capture in lambda after JSDispatcher removal — context variable captured but never referenced in getValue callback",
+      "failure_scenario": "The lambda at getValue:59 captures `context = pThis->m_context` but the body only calls `callback(value)`, never using context. This retains the ReactContext reference in every callback lambda, wasting memory (sizeof ReactContext per callback) and keeping the context alive longer than necessary. Same pattern repeats at startAnimatingNode:131.",
+      "finding_id": "mf-287108fd178e4ee3fd5d"
+    },
+    {
+      "file": "vnext/Microsoft.ReactNative.Cxx/JSI/JsiAbiApi.cpp",
+      "line": 228,
+      "summary": "JsiAbiRuntime constructor acquires recursive_mutex lock, then calls GetFromJsiRuntime which acquires the same lock recursively — a design smell that forced the mutex to be recursive",
+      "failure_scenario": "The constructor (line 228) takes s_jsiRuntimeMapMutex via lock_guard, then calls GetFromJsiRuntime (line 252) which also takes the same mutex via lock_guard. This works only because the mutex is recursive (line 226). If the mutex were ever changed to a regular std::mutex, this would deadlock instantly. The recursive lock also masks the fact that GetFromJsiRuntime is called while the constructor already holds invariants it may not expect. Refactoring to an internal unlocked lookup helper would eliminate the need for recursion.",
+      "finding_id": "mf-7e64ca77892dd1a19552"
+    }
+  ]
+}

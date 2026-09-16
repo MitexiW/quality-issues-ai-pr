@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Non-runtime condition: this switch frees buffers and json objects for ACT_JSON_PASSING etc., but with only a `default:` left, GCC/Clang no longer warn when a new value is added to the param-passing enum (the presence of a default suppresses both -Wswitch and -Wswitch-enum). The next param-passing type added to the enum will silently skip cleanup in releaseDoActionParams — a memory leak with no compile-time signal, where previously the CI build's warnings-as-errors policy would have forced the switch to be updated. The same lost-guard pattern is applied to ~25 switches across this diff; this one is the most safety-relevant because its cases release resources.",
+      "file": "action.c",
+      "line": 1196,
+      "summary": "Replacing the explicit `case ACT_STRING_PASSING:`/`case ACT_MSG_PASSING:` labels with `default:` in releaseDoActionParams removes the compiler's enum-coverage checking (-Wswitch/-Wswitch-enum, enforced with -Werror by the project's AX_COMPILER_FLAGS CI setup) from the one switch that frees per-type resources."
+    },
+    {
+      "failure_scenario": "Concrete condition: configure.ac turns AX_COMPILER_FLAGS warnings into errors for git builds (sed converts -Wno-error= flags to hard -W: \"we *really* want to have this error out during CI testing!\"), and -Wswitch-default fires on any switch lacking a default. The diff left runtime/librsksi_read.c:856 (`rsksi_tlvRecDecode`, `switch(rec->tlvtype)` with no default — the file is not referenced by any Makefile.am today), runtime/nsd_gtls.c:485 (`print_info`, `switch(cred)` over the enum gnutls_credentials_type_t, inside `#if 0`), and tests/syslog_caller.c:61 (`switch(fmt)`, no default; the testbench tool currently builds without RSRT_CFLAGS) unpatched. Wiring any of these units into a build (e.g., re-enabling the gnutls session-print block, hooking up the KSI reader, or adding RSRT_CFLAGS to the testbench) fails the build with `error: switch missing default case [-Werror=switch-default]`. No currently-compiled file fails, so the default CI build stays green — the defect is that the suppression removal is not accompanied by tree-wide coverage or any enforcement.",
+      "file": "runtime/rsyslog.h",
+      "line": 33,
+      "summary": "The removal of the global `-Wswitch-default` suppression is incomplete change coordination: the diff adds default cases to the switches it audited and a per-file pragma for the flex-generated lexer, but leaves switches without a default in the tree, which become hard errors under the project's maintainer-build warnings-as-errors policy as soon as those units are compiled."
+    },
+    {
+      "failure_scenario": "Non-runtime condition: the PRAGMA_IGNORE_* macros are defined as `/*NOTHING*/` on non-GCC compilers, whereas the raw pragma line is unconditionally emitted into the generated lex.yy.c. On a compiler without `#pragma GCC diagnostic` support, the suppression is ineffective (unknown-pragma diagnostics instead of the warning being silenced), so the flex-generated switch (which has no default because of `%option nodefault`) starts warning again — and under the project's warnings-as-errors maintainer builds that is a compile error. The established mechanism for exactly this situation is the PRAGMA_IGNORE_* family; the change should add PRAGMA_IGNORE_Wswitch_default there and use it instead of the inline pragma.",
+      "file": "grammar/lexer.l",
+      "line": 198,
+      "summary": "The new raw `#pragma GCC diagnostic ignored \"-Wswitch-default\"` bypasses the codebase's PRAGMA_IGNORE_* macro convention (rsyslog.h lines 100-115), which exists to degrade gracefully on compilers without GCC-pragma support — this same file already uses PRAGMA_IGNORE_Wsign_compare and PRAGMA_IGNORE_Wmissing_noreturn."
+    }
+  ],
+  "level": null
+}

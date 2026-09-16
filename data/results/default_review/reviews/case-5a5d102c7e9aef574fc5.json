@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "dev/clint/src/clint/linter.py",
+      "line": 440,
+      "summary": "Changed forbidden-import matching from module.startswith(lib) to module in libs, so submodule imports like 'from databricks.sdk import ...' are no longer detected",
+      "failure_scenario": "Given config {'mlflow/*': ['databricks']}, code `from databricks.sdk.errors.platform import NotFound` at top level: old linter flags it (module='databricks.sdk.errors.platform' starts with 'databricks'), new linter silently passes (module string not an exact element of ['databricks']). The databricks_sdk_models_artifact_repo.py top-level import of NotFound at line 4 now passes the linter unchecked.",
+      "finding_id": "mf-812a9944e048d75fe095"
+    },
+    {
+      "file": "dev/clint/src/clint/linter.py",
+      "line": 400,
+      "summary": "Removal of 'not self.in_TYPE_CHECKING' guard means type-only imports inside `if TYPE_CHECKING:` blocks are now flagged as forbidden top-level imports",
+      "failure_scenario": "An import like `from databricks.sdk import Something` placed inside `if TYPE_CHECKING:` (a standard pattern for type-only imports that avoids runtime dependencies) will now trigger a ForbiddenTopLevelImport lint error, causing false positives for safe, community-standard code.",
+      "finding_id": "mf-0ed9ac23bddbd9051686"
+    },
+    {
+      "file": "dev/clint/src/clint/linter.py",
+      "line": 426,
+      "summary": "Same TYPE_CHECKING guard removal in visit_ImportFrom — TYPE_CHECKING imports are now flagged",
+      "failure_scenario": "Same as line 400 but for `from X import Y` syntax: any forbidden module imported inside `if TYPE_CHECKING:` now produces a false-positive lint error.",
+      "finding_id": "mf-659ff30ce2cc079d3620"
+    },
+    {
+      "file": "mlflow/entities/assessment.py",
+      "line": 219,
+      "summary": "@classmethod from_dictionary on Expectation returns hardcoded Expectation(...) instead of cls(...), breaking subclassing",
+      "failure_scenario": "If a subclass `class StrictExpectation(Expectation): pass` exists, calling `StrictExpectation.from_dictionary({'value': 'test'})` returns an `Expectation` instance instead of a `StrictExpectation` instance, violating the factory-method contract.",
+      "finding_id": "mf-46eccf29914417ddbbe5"
+    },
+    {
+      "file": "mlflow/entities/assessment.py",
+      "line": 251,
+      "summary": "@classmethod from_dictionary on Feedback returns hardcoded Feedback(...) instead of cls(...), same subclassing breakage",
+      "failure_scenario": "Any subclass of Feedback calling `SubFeedback.from_dictionary(d)` gets a base `Feedback` instance back instead of the subclass type.",
+      "finding_id": "mf-df9907b90923af4cc3c6"
+    },
+    {
+      "file": "mlflow/utils/search_logged_model_utils.py",
+      "line": 46,
+      "summary": "@classmethod from_str on Entity returns hardcoded Entity(...) instead of cls(...), breaking subclassing",
+      "failure_scenario": "Any subclass of Entity calling `SubEntity.from_str('attr.something')` returns a base `Entity` instance instead of a `SubEntity`.",
+      "finding_id": "mf-9ca262249904cd66d860"
+    },
+    {
+      "file": "mlflow/entities/logged_model_status.py",
+      "line": 52,
+      "summary": "@classmethod from_int on LoggedModelStatus returns hardcoded LoggedModelStatus.UNSPECIFIED etc. instead of cls.UNSPECIFIED, breaking subclassing",
+      "failure_scenario": "Any subclass of LoggedModelStatus calling `SubStatus.from_int(1)` returns `LoggedModelStatus.PENDING` instead of `SubStatus.PENDING`.",
+      "finding_id": "mf-241d31bcd25cfc8c026e"
+    }
+  ]
+}

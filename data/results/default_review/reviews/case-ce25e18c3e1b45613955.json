@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 441,
+      "summary": "handle_llm_tool_usage_started, handle_llm_tool_usage_finished, and handle_llm_tool_usage_error all print to console unconditionally without checking the verbose flag",
+      "failure_scenario": "User sets verbose=False on the formatter. When an LLM executes a tool via available_functions, all three handlers still call self.print() and self.print_panel(), emitting tool-usage tree output and error panels to the console that the user explicitly disabled. The existing handle_tool_usage_started/finished/error methods (lines 475-585) all guard with 'if not self.verbose: return' -- the new LLM variants lack this guard.",
+      "finding_id": "mf-d9c648ee6608e228fb30"
+    },
+    {
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 437,
+      "summary": "get_llm_tree() mutates the shared tree by calling tree.add(text) each time it is invoked, and it is invoked independently by handle_llm_tool_usage_started, handle_llm_tool_usage_finished, and handle_llm_tool_usage_error, producing duplicate 'Using X from LLM available_function' nodes in the console tree",
+      "failure_scenario": "A successful LLM tool call fires ToolUsageStartedEvent then ToolUsageFinishedEvent. handle_llm_tool_usage_started calls get_llm_tree() which adds a 'Using get_weather...' node at line 437; then handle_llm_tool_usage_finished also calls get_llm_tree() which adds a second identical node. The tree ends up with two 'Using...' nodes, both 'Tool Usage Started' and 'Tool Usage Completed' nodes present, and the started node is never updated to show completion. In the original non-LLM path, the same tool branch is tracked via current_tool_branch and updated in-place -- the new LLM path creates divergent nodes instead.",
+      "finding_id": "mf-e525111881b5ae918370"
+    },
+    {
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 20,
+      "summary": "current_llm_tool_tree is declared as a class attribute on ConsoleFormatter but is never assigned or read by any method",
+      "failure_scenario": "Dead code adds maintenance burden. The attribute was apparently intended to track the LLM tool tree across started/finished/error lifecycles (analogous to current_tool_branch in the non-LLM path) but was never wired up, leaving the duplication bugs above unresolved.",
+      "finding_id": "mf-540aa795c2653e49a0e4"
+    }
+  ]
+}

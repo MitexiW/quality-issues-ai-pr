@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "mlflow/webhooks/dispatch.py",
+      "line": 99,
+      "summary": "test_webhook() fails with IndexError when a webhook has an empty events list",
+      "failure_scenario": "A webhook with no events configured (empty events list) is passed to test_webhook(). The expression 'event or webhook.events[0]' raises IndexError because webhook.events[0] is accessed on an empty list. The IndexError is caught by the outer try/except, which returns a WebhookTestResult with success=False and an unhelpful error_message of 'Failed to test webhook: IndexError(\\'list index out of range\\')'. Users cannot discern that the real problem is that the webhook has no events configured.",
+      "finding_id": "mf-a9fbc368dfcc1c57fceb"
+    }
+  ]
+}

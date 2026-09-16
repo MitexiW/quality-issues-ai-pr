@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`curl -X PATCH -H 'Content-Type: application/json' https://host/api/item/1` (header set but no body), or a POST/PUT/DELETE with `Content-Type: application/json` and a truncated/empty payload, hits `_load_data_and_files()` -> `json.loads(self.body)` -> `JSONDecodeError` on `b\"\"`. Previously `_load_post_and_files` returned an empty `QueryDict` for anything but multipart/urlencoded (and skipped body parsing entirely for non-POST methods), so such requests were handled by the view (e.g., OAuth `handle_login_request` checks `\"next\" in request.data`; the CSRF check reads `request.POST.get(...)`). Now every FormView (`plain-passwords`, `plain-support`, `plain-auth`), the CSRF middleware, and any view touching `request.data` turns these requests into 500s, and `convert_exception_to_response` has no 400 mapping for `JSONDecodeError` (unlike `MultiPartParserError`).",
+      "file": "plain/plain/http/request.py",
+      "line": 366,
+      "summary": "`request.data`/`request.files` now raise an uncaught `json.JSONDecodeError` (500) for JSON requests with an empty or malformed body, where the old code returned empty data and let the request proceed"
+    },
+    {
+      "failure_scenario": "In DEBUG mode with `RequestsMiddleware` installed, a valid JSON POST (e.g., to a plain-api endpoint or the pageviews track view) is handled by the view successfully, then `RequestsMiddleware.__call__` runs `RequestLog(...).save()` -> `as_dict()` -> `request_as_dict()`, where `request.data.dict()` calls `.dict()` on the `dict` returned by `json.loads` -> `AttributeError: 'dict' object has no attribute 'dict'`. The exception is caught by the `convert_exception_to_response` wrapper around the middleware and the client receives a 500 error page instead of the view's response. Before the change `request.POST` was always a `QueryDict` for form content types (empty for JSON), so `.dict()` never failed.",
+      "file": "plain-dev/plain/dev/requests.py",
+      "line": 140,
+      "summary": "`RequestLog.request_as_dict` calls `.dict()` on `request.data`, which is now a plain `dict`/`list` for JSON POSTs, so the dev request-logging middleware raises `AttributeError` and turns every successful JSON POST into a 500 in DEBUG mode"
+    },
+    {
+      "failure_scenario": "On a view with CSRF protection enabled (the framework's mechanism is the view setting `request.csrf_exempt = False`, which `CsrfViewMiddleware._get_csrf_response` checks), a POST with `Content-Type: application/json` and body `[1,2,3]`, `\"x\"`, or `null` makes `request.data.get(...)` raise `AttributeError` (lists/str/None have no `.get`), and `{\"_csrftoken\": 123}` or `{\"_csrftoken\": [\"a\"]}` makes `_check_token_format` raise `TypeError` (`len()`/`invalid_token_chars_re.search()` on a non-string). Neither is caught by the `except UnreadablePostError` handler, so the request 500s. Previously `request.POST` was always a `QueryDict` of strings for these requests, so the middleware cleanly rejected with a 403 (`REASON_CSRF_TOKEN_MISSING`).",
+      "file": "plain/plain/csrf/middleware.py",
+      "line": 367,
+      "summary": "CSRF token extraction `request.data.get(settings.CSRF_FIELD_NAME, \"\")` assumes the parsed JSON body is a dict of strings; non-object JSON bodies crash with `AttributeError` and non-string token values crash with `TypeError`, yielding a 500 instead of the 403 rejection"
+    }
+  ],
+  "level": null
+}

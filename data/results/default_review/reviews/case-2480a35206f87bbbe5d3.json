@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "autogpt_platform/backend/backend/data/block_cost_config.py",
+      "line": 268,
+      "summary": "Cost filter uses api_name strings ('black-forest-labs/flux-kontext-pro') that never match the input data model field ('Flux Kontext Pro'), causing zero cost charges for this block.",
+      "failure_scenario": "User runs AIImageEditorBlock with model=FluxKontextModelName.PRO (string value 'Flux Kontext Pro'). The cost filter has 'model': 'black-forest-labs/flux-kontext-pro'. The _is_cost_filter_match in executor/utils.py compares these strings for equality -- they never match. The block_usage_cost function returns (0, {}), so no credits are deducted regardless of which model is used.",
+      "finding_id": "mf-d53390406f684581eee3"
+    }
+  ]
+}

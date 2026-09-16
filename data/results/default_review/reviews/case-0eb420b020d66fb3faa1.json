@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 1048,
+      "summary": "bytes_to_int called with 2 arguments but the function defined at line 160 accepts only 1 parameter (bytes_rep), causing TypeError in the version 5 code path",
+      "failure_scenario": "A BlockChainPasswordV3 wallet with internal version 5 passes checksum verification; decode_v3456_word_list executes the elif version==5 branch and calls bytes_to_int(str_bytes[:4], 4) which raises TypeError because bytes_to_int takes a single positional argument. The exception is caught by _verify_checksum's except Exception handler and the correct mnemonic is rejected as False.",
+      "finding_id": "mf-85d2981fc84a1e524ab9"
+    },
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 992,
+      "summary": "obj['guid'] KeyError on non-version-4 wallets because 'guid' key is only set in the version==4 branch of decode_v3456_word_list",
+      "failure_scenario": "A V3 wallet whose internal version is 3, 5, or 6 passes checksum verification and calls decode_v3456_word_list. The returned obj dict lacks a 'guid' key (only set for version 4). Back in _verify_checksum, if obj['guid']: raises KeyError, caught by except Exception, and the correct mnemonic is rejected — the password is never printed or recovered.",
+      "finding_id": "mf-9b342b283b237bd86087"
+    },
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 857,
+      "summary": "initialvalue uses mnemonic_guess.split(\" \") which does not collapse whitespace, while the actual word-counting on line 875 uses .lower().split() which does; mismatched defaults when user input has extra spaces or tabs",
+      "failure_scenario": "User types a mnemonic with double spaces between words (e.g. 'word1  word2  word3'). split(\" \") produces ['word1', '', 'word2', '', 'word3'] giving initialvalue=5, but the actual word processing on line 875 with split() correctly identifies 3 words. The dialog shows an inflated default, and if the user accepts it without correcting, the recovery search space is misconfigured.",
+      "finding_id": "mf-45bddb953c4c4f8ecf9e"
+    }
+  ]
+}

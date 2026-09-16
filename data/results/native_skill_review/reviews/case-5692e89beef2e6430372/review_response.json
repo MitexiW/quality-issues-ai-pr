@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user sends a message in Chat (Chat.tsx:189) or ChatbotDialog (ChatbotDialog.tsx:193); both render <ChatInput> without onCancel. While the assistant response streams, ChatInput renders the enabled CancelButton; clicking it runs handleSubmit, which reaches onCancel?.() — a no-op because the prop is undefined — and neither caller has an AbortController for the fetch stream. The UI promises cancellation but nothing happens; the user is stuck waiting for the full response.",
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 55,
+      "summary": "The CancelButton rendered during loading is inert: no production caller passes onCancel, so clicking Cancel does nothing while the stream continues."
+    },
+    {
+      "failure_scenario": "A keyboard user types a question and presses Enter. Previously the single-line <Input> inside the form triggered implicit submission via onSubmit={handleSubmit}; now Enter inserts a newline and no submission occurs, and the buttons' click default (form submission) is canceled by handleSubmit's preventDefault, so the form's onSubmit never fires at all. Keyboard-only users have no way to send a message — they must click the SendButton with a mouse.",
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 84,
+      "summary": "Replacing the single-line Input with a textarea removes Enter-to-send: no keydown handler exists, Enter inserts a newline, and browsers never implicitly submit forms containing textareas."
+    },
+    {
+      "failure_scenario": "A parent renders <ChatInput error={true} /> after a failed send. SendButton receives disabled={isLoading || error} and stays disabled regardless of content; the textarea remains editable, but ChatInput exposes no onChange/onEdit callback for the parent to observe edits and clear the error, so the user can retype the message yet can never resend — the only escape is unmounting the component.",
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 105,
+      "summary": "When error is true the send button is permanently disabled with no in-component path to clear the error, dead-ending the input."
+    },
+    {
+      "failure_scenario": "The design system defines --primary-accent: #1ded83 and --danger-default: #c64427 in frontend/packages/ui/src/styles/Dark/variables.css; the hardcoded hover border #459a72 and error border #9c5b5a match neither token. Because they are literals, theme changes (the token files are organized per theme, e.g. Dark/) will not propagate to these states, so hover/error colors permanently diverge from the rest of the UI and from the component's own var()-based styling.",
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.module.css",
+      "line": 21,
+      "summary": "Hardcoded hex/rgba colors (#459a72, #9c5b5a and their glows) bypass the design-token variables used by every other component, and the literals do not match the tokens."
+    },
+    {
+      "failure_scenario": "A parent renders <ChatInput initialMessage='draft A' /> and later re-renders with initialMessage='draft B' (e.g., switching conversations or restoring a draft after an error). useState(initialMessage) keeps 'draft A' and the useEffect([], ...) resize at lines 29-37 does not re-run, so the textarea shows stale text at a stale height.",
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 24,
+      "summary": "message state is initialized from initialMessage only once and the mount-only resize effect never re-runs, so later changes to the initialMessage prop are silently ignored."
+    },
+    {
+      "failure_scenario": "If the textarea's min-height in ChatInput.module.css is changed (e.g., to a spacing token or for a larger font size), the setTimeout reset still forces height: '24px' after every send, leaving the empty textarea mis-sized (clipped placeholder or layout jump) with no link between the inline value and the stylesheet.",
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 66,
+      "summary": "The post-send height reset hardcodes '24px', duplicating the min-height: 24px value in ChatInput.module.css so the JS and CSS can desync."
+    },
+    {
+      "failure_scenario": "The ui package already re-exports these components at its root (frontend/packages/ui/src/components/index.ts line 9), which is the import path used by the rest of the app. The deep src import works only because package.json has no 'exports' field; adding one (or moving the Tooltip directory) breaks both new buttons while root-export consumers keep working, and it duplicates an existing public API surface for no reason.",
+      "file": "frontend/apps/app/components/ChatInput/CancelButton/CancelButton.tsx",
+      "line": 7,
+      "summary": "Imports Tooltip components from the deep '@liam-hq/ui/src/components/Tooltip' path instead of the package's root export (same in SendButton.tsx line 8)."
+    }
+  ],
+  "level": null
+}

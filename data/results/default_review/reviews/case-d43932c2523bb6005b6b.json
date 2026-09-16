@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "pygwalker/api/webserver.py",
+      "line": 106,
+      "summary": "_init_callback is called with BaseCommunication, but registered reuqest_data_callback invokes BatchUploadDatasToolOnWidgets.run() which calls comm.send_msg_async() -- which raises NotImplementedError in BaseCommunication",
+      "failure_scenario": "If the frontend sends {\"action\": \"request_data\", \"data\": {}} via POST /comm, the handler dispatches to reuqest_data_callback, which calls upload_tool.run() -> comm.send_msg_async(\"postData\", msg), raising NotImplementedError. _receive_msg catches it as an Exception so the server stays up, but returns {\"code\": UNKNOWN_ERROR, \"message\": \"send_msg_async not implemented\"} -- data relay to the frontend is silently broken.",
+      "finding_id": "mf-ce9b6725da636713d7e0"
+    },
+    {
+      "file": "pygwalker/api/webserver.py",
+      "line": 76,
+      "summary": "do_POST reads Content-Length, parses JSON, and accesses payload keys without any error handling -- malformed requests cause unhandled KeyError/JSONDecodeError/ValueError",
+      "failure_scenario": "A client sends POST /comm without a Content-Length header -> KeyError on self.headers['Content-Length']. Or sends invalid JSON body -> json.JSONDecodeError. Or sends valid JSON lacking 'action'/'data' keys -> KeyError. In each case the exception propagates out of do_POST, HTTP server responds 500, and a traceback leaks to stderr.",
+      "finding_id": "mf-4eab908ade94c6c7674d"
+    },
+    {
+      "file": "pygwalker/api/webserver.py",
+      "line": 109,
+      "summary": "TOCTOU race between find_free_port() returning a port (line 109) and CustomTCPServer binding to it (line 111) -- another process can steal the port in between",
+      "failure_scenario": "High port contention: find_free_port() returns 8080, another process binds to 8080 before line 111 executes, CustomTCPServer(('127.0.0.1', 8080), ...) raises OSError (Address already in use). The server never starts.",
+      "finding_id": "mf-4ab9ee308b2e706e3e02"
+    },
+    {
+      "file": "pygwalker/api/adapter.py",
+      "line": 67,
+      "summary": "adapter.walk accepts use_kernel_calc parameter (line 23) but only forwards it to jupyter.walk; for the webserver fallback path (lines 67-80), use_kernel_calc is silently dropped",
+      "failure_scenario": "User calls adapter.walk(df, use_kernel_calc=True) in a non-Jupyter environment. The parameter is not forwarded to webserver.walk and is silently ignored. Kernel computation behavior may differ from user expectation -- the user has no way to know the flag was dropped, especially since it appears in the function signature with a typed default.",
+      "finding_id": "mf-182d4e5cbd56da18a5cc"
+    },
+    {
+      "file": "pygwalker/api/pygwalker.py",
+      "line": 350,
+      "summary": "_init_callback unconditionally creates BatchUploadDatasToolOnWidgets(comm) which requires send_msg_async, but the new webserver code path passes BaseCommunication which does not implement send_msg_async -- this couples the general-purpose callback init to a widget-specific tool",
+      "failure_scenario": "Same as finding 1: any registered handler that triggers upload_tool.run() will fail when used with BaseCommunication. While currently latent (needLoadDatas defaults to False in webserver mode), the coupling is fragile -- adding any new feature that triggers request_data in webserver mode would silently break data relay.",
+      "finding_id": "mf-edbf027d4852da280710"
+    }
+  ]
+}

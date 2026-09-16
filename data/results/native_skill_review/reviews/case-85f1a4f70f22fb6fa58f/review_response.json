@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User builds Crew(knowledge_sources=[StringKnowledgeSource(...)], agents=[...]) — the Crew model_validator create_crew_knowledge() populates crew.knowledge, but agents have no own knowledge_sources, so set_knowledge() leaves agent.knowledge None. Old code ran `if self.crew: self.crew.query_knowledge(...)` unconditionally; new code nests that call inside `if self.knowledge:` (line 261) and `if self.knowledge_search_query:` (line 272). Result: crew knowledge is never queried and the agent answers with no knowledge context, with no error or warning.",
+      "file": "src/crewai/agent.py",
+      "line": 282,
+      "summary": "Crew-level knowledge is no longer retrieved unless the agent has its own knowledge_sources, so the documented crew.knowledge_sources feature silently stops injecting context into task prompts."
+    },
+    {
+      "failure_scenario": "Agent with knowledge_sources executes a task and self.knowledge.query() raises (e.g., embedder API outage, corrupt ChromaDB, ValueError from storage). Before this change the exception propagated: Task._execute_core caught it, emitted TaskFailedEvent, re-raised, and kickoff failed visibly. Now the exception is caught at line 310 and only a KnowledgeSearchQueryFailedEvent is emitted (mislabeled — the search query succeeded; the retrieval failed); the task then completes normally with an ungrounded LLM answer, so a task that requires knowledge silently produces output without it.",
+      "file": "src/crewai/agent.py",
+      "line": 310,
+      "summary": "The new try/except swallows all exceptions from knowledge.query/query_knowledge, so a failing vector store now silently runs the task without knowledge instead of surfacing the failure."
+    },
+    {
+      "failure_scenario": "Three triggers: (a) self.llm is not a crewai BaseLLM — e.g., create_llm() returned None for a custom LLM object or after a model-instantiation failure — _get_knowledge_search_query logs a warning and returns None (line 625-637); (b) the rewrite LLM call raises (rate limit, auth error) and returns None (line 657-665); (c) user supplies a custom Crew(prompt_file=...) whose JSON lacks the new knowledge_search_query slices, so self.i18n.slice() raises before the try block (lines 621-624). In all cases `if self.knowledge_search_query:` is falsy and the retrieval block — including crew.query_knowledge — is skipped entirely. Pre-change, retrieval worked without any LLM dependency.",
+      "file": "src/crewai/agent.py",
+      "line": 272,
+      "summary": "Knowledge retrieval now hard-depends on a successful LLM query-rewrite call; if the LLM is unavailable, not a crewai BaseLLM, or fails, all knowledge retrieval is silently skipped."
+    },
+    {
+      "failure_scenario": "KnowledgeRetrievalCompletedEvent is only emitted inside `if self.knowledge_search_query:` (agent.py line 293), never on the None-query or exception paths. After one task whose rewrite returns None or whose knowledge.query raises, the flag stays True forever on the singleton EventListener, so every subsequent KnowledgeRetrievalStartedEvent in the process is ignored (line 359) and verbose console output never shows knowledge retrieval again. Conversely, with task.async_execution, two agents emit started/completed concurrently: agent B's started event is dropped while the flag is True from A, and B's completed event hits `if not ... in_progress: return` (line 373), so B's retrieval is never rendered at all.",
+      "file": "src/crewai/utilities/events/event_listener.py",
+      "line": 362,
+      "summary": "The process-wide singleton flag knowledge_retrieval_in_progress is set on the started event but reset only on the success-path completed event, so one failed/skipped retrieval permanently suppresses retrieval output and races under concurrent async tasks."
+    },
+    {
+      "failure_scenario": "In execute_task the knowledge block (agent.py lines 261-316) emits KnowledgeRetrievalStartedEvent/CompletedEvent before AgentExecutionStartedEvent (line 330) — the listener creates the current agent's branch only on the latter (event_listener.py line 175). In a multi-agent crew, agent N's retrieval nodes therefore attach to agent N-1's branch (or the crew tree for the first agent). Additionally handle_knowledge_retrieval_started picks `agent_branch or self.current_lite_agent_branch` (line 796) while handle_knowledge_retrieval_completed picks `self.current_lite_agent_branch or agent_branch` (line 825) — the reverse of every sibling handler (e.g. handle_llm_call_started) — so after any lite agent runs, the completed handler searches the stale lite branch, fails to find the 'Knowledge Retrieval Started' node, and adds a spurious orphan 'Knowledge Retrieval Completed' node under the wrong branch while the started node is never marked complete.",
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 796,
+      "summary": "Knowledge retrieval console nodes are attached to the previous agent's tree branch (retrieval events fire before AgentExecutionStartedEvent creates the current branch) and the started/completed handlers use opposite branch priorities, so nodes land on the wrong agent."
+    },
+    {
+      "failure_scenario": "test_agent_with_knowledge_sources (line 1635), test_agent_with_knowledge_sources_extensive_role (line 1739), and test_agent_with_knowledge_sources_generate_search_query (line 1808) patch the crewai.knowledge package attribute, but agent.set_knowledge uses the Knowledge class bound in agent.py's namespace at import time, so a real Knowledge object with real KnowledgeStorage (embedding API calls, recorded only by chance in the cassettes) is exercised and mock_knowledge_instance is never used. The assertions ('red' in result.raw) now pass from the cassette-recorded LLM answer alone, so the exact regression in finding 1 — knowledge never injected into the prompt — would pass these tests undetected.",
+      "file": "tests/agent_test.py",
+      "line": 1635,
+      "summary": "patch(\"crewai.knowledge\") is ineffective — agent.py imports Knowledge directly at module load — so the mock instance (sources/search/query stubs) is dead code and the knowledge tests no longer verify that retrieved knowledge reaches the prompt."
+    },
+    {
+      "failure_scenario": "on_knowledge_query_started (line 384) and on_knowledge_query_completed (line 396) do nothing, so console_formatter.handle_knowledge_query_started (line 892) and handle_knowledge_query_completed (line 940) are unreachable — the 'Query:' tree node and 'Knowledge Query Completed' node are never rendered despite the events being emitted from _get_knowledge_search_query, and the knowledge_query_in_progress flag (line 69) is never read or written. Dead code that misleads maintenance (the handlers look live and must be kept consistent with the retrieval handlers for nothing).",
+      "file": "src/crewai/utilities/events/event_listener.py",
+      "line": 384,
+      "summary": "The KnowledgeQueryStartedEvent and KnowledgeQueryCompletedEvent listeners are pass stubs, leaving handle_knowledge_query_started/handle_knowledge_query_completed (~70 lines) and the knowledge_query_in_progress flag permanently dead."
+    },
+    {
+      "failure_scenario": "Agent runs task 1 with knowledge: self.agent_knowledge_context = 'Additional Information: X'. Task 2 retrieves no snippets (empty storage results): the assignment is skipped, the stale 'Additional Information: X' is not appended to task 2's prompt, yet the completed event's retrieved_knowledge field still contains it — the verbose console 'Retrieved Knowledge' panel and any telemetry display knowledge that was not used for the current task.",
+      "file": "src/crewai/agent.py",
+      "line": 298,
+      "summary": "KnowledgeRetrievalCompletedEvent.retrieved_knowledge is built from agent_knowledge_context/crew_knowledge_context that persist across tasks, so when a task retrieves no snippets the event reports the previous task's context that was never added to this prompt."
+    },
+    {
+      "failure_scenario": "_get_knowledge_search_query emits KnowledgeQueryCompletedEvent(query=query, ...) where query is the raw template output 'The original query is: {task_prompt}.' rather than the LLM's rewritten_query. Any downstream consumer of the completed event (telemetry, external listeners on the event bus) receives the wrong query — e.g., logging the 'completed' query would record the input prompt, not the search query actually sent to the knowledge base.",
+      "file": "src/crewai/agent.py",
+      "line": 651,
+      "summary": "KnowledgeQueryCompletedEvent is emitted with the pre-rewrite i18n prompt as its query field instead of the rewritten_query that was actually generated."
+    }
+  ],
+  "level": null
+}

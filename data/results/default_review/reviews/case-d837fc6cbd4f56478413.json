@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "packages/ui/src/components/CtlBar.tsx",
+      "line": 33,
+      "summary": "Zoom-out button uses `>=` instead of `>`, preventing users from reaching the declared minimum zoom level of 0.25",
+      "failure_scenario": "Starting at zoom level 0.5 (50%), clicking zoom out would go to 0.25 (25%) which equals minZoom. The condition `minZoom >= nextZoomOut` evaluates to `0.25 >= 0.25` = true, disabling the button. Users can only zoom down to 0.5, not 0.25. Compare with the zoom-in condition on line 42 which correctly uses strict `<` (`maxZoom < nextZoomIn`), allowing zoom exactly to maxZoom.",
+      "finding_id": "mf-0b982c433b1d034f2699"
+    },
+    {
+      "file": "packages/ui/package.json",
+      "line": 92,
+      "summary": "moduleNameMapper regex `\\^lucide-react$` escapes the start anchor, turning it into a literal `^` character that never matches any module name",
+      "failure_scenario": "The JSON key `\"\\\\^lucide-react$\"` parses to the string `\\^lucide-react$`. When Jest creates a regex from this, `\\^` means 'escaped caret' matching a literal `^` character. Since module names like `lucide-react` do not start with a literal `^`, the regex never matches. The mock file at `__mocks__/lucide-react.js` is never applied. All 8 source files that import from `lucide-react` (CtlBar.tsx, Designer/Canvas/index.tsx, AlignWidget.tsx, DetailView/index.tsx, ListView/Item.tsx, Designer/RightSidebar/index.tsx, Spinner.tsx, UnitPager.tsx) will receive the real lucide-react module instead, causing snapshot test failures. The fix is `\"^lucide-react$\"` (without the backslash before the caret). Every other entry in moduleNameMapper (lines 85-91) uses un-escaped `^` as the start anchor.",
+      "finding_id": "mf-3ca8be4230a3a939b01e"
+    }
+  ]
+}

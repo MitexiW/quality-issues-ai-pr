@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "src/mcp/claude-flow-tools.ts",
+      "line": 7,
+      "summary": "Imports 'getAvailableAgentTypes' from agent-types.js, but that module does not export it (it imports it from agent-loader.js without re-exporting).",
+      "failure_scenario": "Module loading fails at import time with 'does not provide an export named getAvailableAgentTypes' because agent-types.ts only exports getValidAgentTypes, not getAvailableAgentTypes. The application cannot start.",
+      "finding_id": "mf-e200c346c7b807021d2b"
+    },
+    {
+      "file": "src/mcp/server.ts",
+      "line": 509,
+      "summary": "Missing 'await' on newly-async createClaudeFlowTools(); iterating the returned Promise with for...of throws TypeError at runtime.",
+      "failure_scenario": "createClaudeFlowTools returns Promise<MCPTool[]>. The for (const tool of claudeFlowTools) loop tries to iterate a Promise, which has no Symbol.iterator, causing 'TypeError: claudeFlowTools is not iterable' and crashing MCP server startup.",
+      "finding_id": "mf-6e3da8ea4296d9fbde09"
+    },
+    {
+      "file": "src/swarm/mcp-integration-wrapper.ts",
+      "line": 424,
+      "summary": "Missing 'await' on newly-async createClaudeFlowTools(); iterating the returned Promise with for...of throws TypeError at runtime.",
+      "failure_scenario": "Same as server.ts:509. registerClaudeFlowTools() is async but the call lacks await, so claudeFlowTools is a Promise. The for...of on line 426 throws 'TypeError: claudeFlowTools is not iterable', crashing swarm integration startup.",
+      "finding_id": "mf-53f571875b8fdf013688"
+    },
+    {
+      "file": "src/tests/validation-consistency.test.ts",
+      "line": 2,
+      "summary": "Imports 'VALID_AGENT_TYPES' from agent-types.js, but that export was removed when AGENT_TYPES was replaced with dynamic loading.",
+      "failure_scenario": "Test file fails to compile/load because VALID_AGENT_TYPES is no longer exported from src/constants/agent-types.ts. All tests in this suite become unrunnable.",
+      "finding_id": "mf-af1095b097280de30b98"
+    },
+    {
+      "file": "src/cli/simple-commands/init/templates/github-safe.js",
+      "line": 80,
+      "summary": "Shell injection via execSync with string command constructed from unsanitized arguments that pass through the shell.",
+      "failure_scenario": "User runs './github-safe.js pr create --title \"$(malicious_command)\" --body safe'. The title passes through process.argv into the shell command string 'gh pr create --title $(malicious_command) ...'. execSync runs it through /bin/sh, which executes $(malicious_command) as a subcommand.",
+      "finding_id": "mf-54a9048da5d6ede7e4f0"
+    },
+    {
+      "file": "src/utils/github-cli-safe.js",
+      "line": 33,
+      "summary": "safeGhCommand passes all options entries to gh CLI, including the internal 'timeout' option, causing gh to fail on an unrecognized --timeout flag.",
+      "failure_scenario": "Caller passes { timeout: 30000 } in options. The forEach loop on line 33 pushes '--timeout' and '30000' as gh arguments. 'gh issue comment 123 --body-file /tmp/xxx --timeout 30000' fails because gh does not support --timeout.",
+      "finding_id": "mf-a1829cb8275af9d94aed"
+    },
+    {
+      "file": "src/utils/github-cli-safe.js",
+      "line": 134,
+      "summary": "createIssue writes body to temp file without null/undefined check; a missing body parameter writes the literal string 'undefined'.",
+      "failure_scenario": "Caller calls gh.createIssue({ title: 'Bug', body: undefined }). The code writes 'undefined' (the string) to the temp file and passes it to gh via --body-file. The GitHub issue body becomes the literal text 'undefined'.",
+      "finding_id": "mf-b3189321367563375784"
+    },
+    {
+      "file": "src/cli/simple-commands/init/claude-commands/slash-commands.js",
+      "line": 54,
+      "summary": "Error from createClaudeFlowCommands() is silently swallowed; users get no indication that slash command creation failed.",
+      "failure_scenario": "If createClaudeFlowCommands throws (e.g., permission denied on .claude/commands/), the empty catch block discards the error. The user proceeds unaware that their slash commands were not created, leading to missing functionality discovered only when they try to use them.",
+      "finding_id": "mf-7aab980e1a48df578bed"
+    },
+    {
+      "file": "src/cli/simple-commands/init/index.js",
+      "line": 302,
+      "summary": "Error from createClaudeSlashCommands or createOptimizedClaudeSlashCommands is silently swallowed in init flow.",
+      "failure_scenario": "Same as above but in a different call site within the init command. If slash command creation fails during 'claude-flow init', the user sees a success message but their CLI integrations are missing.",
+      "finding_id": "mf-24c237b1d74e3967c0ca"
+    }
+  ]
+}

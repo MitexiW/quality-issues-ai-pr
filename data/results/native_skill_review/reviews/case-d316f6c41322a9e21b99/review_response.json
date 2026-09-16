@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The built-in tool is registered at app.py:105 via @self.retrieve(name=tool_name, ...), which now routes through ToolDef.final_description; its final description becomes \"This is a retriever for the My API server. Use it after calling explore_my_api_data_model. IMPORTANT: Call this tool FIRST before using any other tools on the My API server. ...\". An LLM agent reading this tool's schema is told it must call explore_my_api_data_model before using explore_my_api_data_model — a circular, self-contradictory instruction that conflicts with \"Call this tool FIRST\" (which also loses its leading position in the prompt), confusing the agent's first-call flow that the whole prefix mechanism exists to enforce.",
+      "file": "src/enrichmcp/tool.py",
+      "line": 33,
+      "summary": "The standard usage prefix is prepended to every tool's description, including the built-in explore tool itself, so explore_<name>_data_model's own description instructs agents to call it after calling itself."
+    },
+    {
+      "failure_scenario": "Before this change, @app.create/@app.update/@app.delete delegated to self.retrieve(...) and Relationship.resolver called self.app.retrieve(name=..., description=...), so a subclass of EnrichMCP that overrides retrieve (the documented public registration API, e.g. to add custom tool naming, logging, or description formatting) had its override applied to every tool kind. After the change those paths call _register_tool_def/app.py:379 directly: the override is silently ignored for creator, updater, deleter, and resolver tools while retriever tools still go through it, producing inconsistent tool registration for the subclass, and coupling relationship.py to a private method that the deprecated resource alias guard (hasattr(self.app, \"resource\")) no longer actually protects.",
+      "file": "src/enrichmcp/relationship.py",
+      "line": 109,
+      "summary": "Relationship resolvers and the create/update/delete decorators now call the private _register_tool_def directly instead of the public retrieve method, silently bypassing any retrieve override in EnrichMCP subclasses."
+    }
+  ],
+  "level": null
+}

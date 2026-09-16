@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user runs the block with model \"Flux Kontext Pro\": the stored node input `model` is the enum value \"Flux Kontext Pro\" (the frontend can only send the JSON-schema enum values), but `_is_cost_filter_match` (backend/executor/utils.py:158) compares it against \"black-forest-labs/flux-kontext-pro\" from the filter, which is never equal. Neither the 10-credit nor 20-credit BlockCost matches, `_charge_usage` never calls spend_credits, and every run of this paid Replicate block is free. The existing LLM_COST convention filters on the enum member itself (block_cost_config.py:104-132), which str-enums compare equal to their value — the filter here should use FluxKontextModelName.PRO/MAX instead of .api_name.",
+      "file": "autogpt_platform/backend/backend/data/block_cost_config.py",
+      "line": 268,
+      "summary": "Cost filters keyed on FluxKontextModelName.api_name (\"black-forest-labs/flux-kontext-pro\"/\"-max\") can never match the runtime input value, so block_usage_cost returns 0 and users are never charged for this block"
+    },
+    {
+      "failure_scenario": "A graph chains a media-producing block into input_image — e.g. FileStoreBlock, whose documented output is \"The relative path to the stored file in the temporary directory\" (backend/blocks/basic.py:20) — giving a value like \"exec_file/<exec_id>/cat.png\". run_model sends input_params[\"input_image\"] = \"exec_file/<exec_id>/cat.png\" to Replicate's flux-kontext endpoint, which requires \"a URL or base64-encoded data URI\" for input_image, so the prediction fails with a 422/invalid-input error. The block should convert via store_media_file(..., return_content=True) (backend/util/file.py) like other blocks that hand media to external APIs.",
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 155,
+      "summary": "input_image is passed to the Replicate API without conversion, so local relative-path media values (a first-class MediaFileType per backend/util/type.py:220) are sent to Replicate, which can only fetch URLs or data URIs"
+    },
+    {
+      "failure_scenario": "The block's test fixture registers its credentials meta input with title \"api_key\" instead of \"Mock Replicate API key\". Any consumer that displays or resolves the test-input credentials by title (e.g. the block test-run UI or future test-store lookups keyed on CredentialsMetaInput.title, backend/data/model.py:286) shows/writes the wrong credential name; compare the correct \"title\": TEST_CREDENTIALS.title in backend/blocks/ai_image_generator_block.py:324.",
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 29,
+      "summary": "TEST_CREDENTIALS_INPUT copies the wrong field: \"title\" is set to TEST_CREDENTIALS.type (\"api_key\") instead of TEST_CREDENTIALS.title (\"Mock Replicate API key\")"
+    },
+    {
+      "failure_scenario": "A user following the docs wires the next node to the \"image_url\" output of this block; the platform offers only \"output_image\" (and \"error\"), so the documented connection cannot be made and the user's graph silently lacks the edited-image result.",
+      "file": "docs/content/platform/blocks/flux_kontext.md",
+      "line": 25,
+      "summary": "Documentation lists the output as \"image_url\", but the block's Output schema and run() yield \"output_image\" (flux_kontext.py:94,141), so the doc teaches a non-existent output key"
+    },
+    {
+      "failure_scenario": "The three copies already drift (this one raises ValueError(\"No output received\") where the siblings return a fallback string, and only this copy lacks the \"list item is a string\" branch comment handling): any future change to replicate SDK output handling or the output-extraction convention must be applied in three places, and a fix applied to only one silently leaves the other two with divergent failure behavior.",
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 160,
+      "summary": "run_model and its FileOutput/list/str extraction logic duplicate ReplicateFluxAdvancedModelBlock.run_model (replicate_flux_advanced.py:186-237) and AIImageGeneratorBlock._run_client (ai_image_generator_block.py:168-196) instead of sharing a helper, creating a third copy to maintain"
+    }
+  ],
+  "level": null
+}

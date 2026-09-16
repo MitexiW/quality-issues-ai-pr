@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Call agentops.start_session() while any span is current (e.g., a second start_session() before the first is ended — the documented multiple-sessions pattern — or a session started inside an instrumented/@workflow function): the new session span becomes a child of that ambient span, so the second session's events nest inside the first session's trace in the backend, and InternalSpanProcessor.on_start (agentops/sdk/processors.py:108-111) logs the trace URL for the wrong (non-session) root span. Creating a true root span requires passing a context containing no span (e.g., trace.set_span_in_context(trace.INVALID_SPAN)).",
+      "file": "agentops/sdk/decorators/utility.py",
+      "line": 190,
+      "summary": "The new SESSION branch calls tracer.start_span() without a context, but OpenTelemetry's start_span uses the implicit current span as parent, so the session span is still created as a child of whatever span is active instead of as the intended root span — the branch is functionally a no-op and the stated fix never takes effect."
+    },
+    {
+      "failure_scenario": "agentops.init(skip_auto_end_session=True) (or AGENTOPS_SKIP_AUTO_END_SESSION=true) — the flag whose metadata in agentops/config.py:89-92 says 'Whether to skip automatically ending sessions on program exit' — is never consulted anywhere: _end_active_session checks only that _active_session is not None, so at process exit end_session() is still called and terminates the session the user/framework (CrewAI docs recommend this flag) intended to control themselves, with no end-state attributes set.",
+      "file": "agentops/client/client.py",
+      "line": 90,
+      "summary": "The new atexit auto-end handler ignores the documented skip_auto_end_session config flag, force-ending the active session at interpreter exit even when the user explicitly opted out."
+    },
+    {
+      "failure_scenario": "Every end_session call now runs _finalize_span (which flushes) immediately followed by _flush_span_processors (which flushes again) — two blocking HTTP export cycles per session end. At process exit, _end_active_session -> end_session -> TracerProvider.force_flush(timeout_millis=None) makes BatchSpanProcessor wait indefinitely for the export, so a stalled or slow OTLP endpoint hangs the interpreter at exit — unlike TracingCore.shutdown (agentops/sdk/core.py:208), which bounds its flush with max_wait_time (5000ms default).",
+      "file": "agentops/sdk/decorators/utility.py",
+      "line": 272,
+      "summary": "The force_flush() added to _finalize_span duplicates the pre-existing _flush_span_processors() call that follows it in both end_session branches (two synchronous batch exports per session end), and the new atexit path performs an unbounded, no-timeout blocking flush at interpreter shutdown."
+    },
+    {
+      "failure_scenario": "CrewAI >= 0.105 flow: session.end_session(end_state='Success') ends the span and flushes (agentops/legacy/__init__.py:59-71) but leaves agentops.client.client._active_session set. At process exit, _end_active_session calls end_session(_active_session), which calls span.end() on the already-ended span (OTel SDK logs 'Calling end() on an already ended span'), attempts to set attributes on a non-recording span, and performs another blocking force_flush during shutdown.",
+      "file": "agentops/client/client.py",
+      "line": 25,
+      "summary": "The atexit handler re-finalizes sessions that were already ended via the CrewAI >= 0.105 Session.end_session() method, because that method never clears the new _active_session registry the handler relies on."
+    },
+    {
+      "failure_scenario": "With the fork start method in a multi-process setup (docs/v1/concepts/sessions.mdx documents agents running in different processes), a child inherits the registered _end_active_session handler and the _active_session module global; multiprocessing runs inherited atexit handlers in the child on exit, so the child calls end_session() on the parent's session span and exports an end record while the parent continues recording — the session shows up as prematurely terminated/duplicated in the backend.",
+      "file": "agentops/client/client.py",
+      "line": 90,
+      "summary": "The atexit handler and the _active_session global are inherited by forked child processes, so a child process ends and exports the parent's still-open session span when the child exits."
+    },
+    {
+      "failure_scenario": "get_current() merely returns the current Context object (creating nothing, initializing nothing), so no behavioral effect is possible; the call and its import are dead code whose misleading comment may cause future maintainers to treat it as a required initialization step.",
+      "file": "agentops/sdk/core.py",
+      "line": 95,
+      "summary": "context_api.get_current() is a pure read whose return value is discarded, so the added 'Initialize root context' call does nothing; the new opentelemetry.context import exists solely for this dead call."
+    }
+  ],
+  "level": null
+}

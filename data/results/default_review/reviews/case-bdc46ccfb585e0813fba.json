@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "apps/js-sdk/firecrawl/src/index.ts",
+      "line": 71,
+      "summary": "SDK FirecrawlDocument type has stale field names (diff.structured instead of diff.json) and missing changeTracking.json; CrawlScrapeOptions/ScrapeParams missing changeTrackingOptions field entirely",
+      "failure_scenario": "TypeScript SDK user accesses response.changeTracking.diff.json -- TypeScript compiler error because type still says diff.structured. User reads response.changeTracking.diff.structured -- returns undefined at runtime because API now emits json not structured. User cannot pass changeTrackingOptions at all since the field is absent from ScrapeParams, breaking the new diff/structured mode API for all SDK consumers.",
+      "finding_id": "mf-3eed06114b19097d8f81"
+    },
+    {
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 30,
+      "summary": "compareExtractedData produces {previous, current} keys but tests added in the same diff expect {old, new} keys -- property name mismatch",
+      "failure_scenario": "When modes includes 'json' with a schema and both LLM extractions succeed, compareExtractedData returns result[key] = {previous: oldValue, current: newValue}. The scrape test at line 168-170 asserts response.changeTracking.json.pricing.toHaveProperty('old') which fails because the actual property name is 'previous'. If the test reflects the intended API and the function is wrong, ALL API consumers get wrong property names.",
+      "finding_id": "mf-0a38965bf9c50bc54895"
+    },
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 170,
+      "summary": "Removed Zod refine validations that required changeTracking@diff-git and changeTracking@structured sub-formats to be paired with the changeTracking format -- users can now pass modes without the changeTracking format and get silent no-op",
+      "failure_scenario": "User sends request with formats: ['markdown'] and changeTrackingOptions: {modes: ['git-diff']}. The old API would return a validation error 'The changeTracking@diff-git format requires the changeTracking format to be specified as well'. The new API silently succeeds with no diff, because deriveDiff gates on formats.includes('changeTracking') and the entire block is skipped. User wastes time debugging why diff isn't produced.",
+      "finding_id": "mf-d7f7abc898dc93355f0d"
+    },
+    {
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 9,
+      "summary": "extractDataWithSchema uses a hardcoded systemPrompt, silently discarding user's changeTrackingOptions.systemPrompt and changeTrackingOptions.prompt when the dual-extraction code path is taken",
+      "failure_scenario": "User sets changeTrackingOptions: {modes: ['json'], schema: {...}, systemPrompt: 'Extract prices in EUR only', prompt: 'Ignore items below $5'}. Both LLM extractions succeed for previous and current versions. extractDataWithSchema ignores both custom prompts and uses hardcoded 'Extract the requested information from the content based on the provided schema.' The user's intent (EUR only, ignore cheap items) is silently lost.",
+      "finding_id": "mf-596581936e7c507bf3ee"
+    },
+    {
+      "file": "apps/js-sdk/firecrawl/src/index.ts",
+      "line": 106,
+      "summary": "CrawlScrapeOptions.formats union removed changeTracking@diff-git but no replacement via changeTrackingOptions was added to ScrapeParams, making the old format-based API surface non-functional",
+      "failure_scenario": "Existing SDK user passing formats: ['markdown', 'changeTracking', 'changeTracking@diff-git'] now gets a TypeScript error since the format value was removed and the replacement mechanism (changeTrackingOptions) was not added to the SDK types. There is no type-safe migration path for existing SDK consumers.",
+      "finding_id": "mf-e00f626b4add2cdf554b"
+    }
+  ]
+}

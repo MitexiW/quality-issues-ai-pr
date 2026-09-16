@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "evaluate(MyRunnable(), data=...) where MyRunnable overrides invoke(self, input, config) with a required second positional argument: _get_target_args(target) short-circuits for runnables (returns ['inputs'], no validation), so setup succeeds; but in _forward the traceable wrapper's signature resolves via __wrapped__ to the bound method (input, config) — two required positionals not named inputs/attachments/metadata — so the new difference-check raises ValueError inside the try for every example. It is logged and swallowed, every row gets run=None, and if evaluators are attached _run_evaluators then crashes on current_results['run'].id (AttributeError). Before this change, runnables were never signature-inspected and were always called as fn(example.inputs). Same path exists in _arunner.py:1237 for _aforward with ainvoke.",
+      "file": "python/langsmith/evaluation/_runner.py",
+      "line": 1903,
+      "summary": "_get_target_args(fn) is now invoked on the traceable-wrapped target inside _forward/_aforward for every example, and its ValueError is swallowed by the broad except, so Runnable targets with non-standard invoke/ainvoke signatures silently produce run=None for the whole dataset instead of being called with inputs."
+    },
+    {
+      "failure_scenario": "On a large dataset (e.g. 100k examples), every example triggers inspect.signature on the traceable wrapper (following the __wrapped__ chain) plus a list build, when the old code used a precomputed boolean branch; in the async evaluator pipeline the signature is inspected twice per example (_target_include_attachments(target) inside process_example at _arunner.py:786 and _get_target_args(fn) inside _aforward at _arunner.py:1237). The arg names should be computed once when the target is wrapped in _predict/_apredict and passed down, eliminating O(N) redundant signature inspections per evaluation.",
+      "file": "python/langsmith/evaluation/_runner.py",
+      "line": 1903,
+      "summary": "_get_target_args(fn) is recomputed once per example inside _forward/_aforward even though the argument list is a fixed property of the target, adding one inspect.signature call plus list construction per example per worker."
+    },
+    {
+      "failure_scenario": "Non-behavioral maintainability/efficiency cost: the unused parameter misleads readers into thinking attachment passing is flag-controlled in the async path, and process_example (_arunner.py:786) performs a redundant _target_include_attachments(target) signature inspection for every example whose result is discarded. The parameter should be removed from _aforward and the per-example computation dropped (the attachment-arg decision is already fully determined by _get_target_args(fn)).",
+      "file": "python/langsmith/evaluation/_arunner.py",
+      "line": 1227,
+      "summary": "The include_attachments parameter of _aforward is now dead code — the body derives args solely from _get_target_args(fn) — yet both call sites still compute _target_include_attachments(target), once per example in awith_predictions_and_evaluators, and pass it positionally."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 165,
+      "summary": "Class-level @persist checks for __is_flow_method__ but flow methods decorated only with @start()/@listen()/@router() lack this attribute, so class-level @persist silently wraps zero methods and never persists state",
+      "failure_scenario": "User applies @persist at class level with @start()-decorated methods as documented — the loop at line 164 finds no matching methods because __is_flow_method__ is only set by method-level @persist, not by @start() which sets __is_start_method__. Result: flow state is never persisted despite the decorator being present. This is a pre-existing defect in code touched by the PR's refactoring of _persist_state to PersistenceDecorator.persist_state.",
+      "finding_id": "mf-0a12b0c6986a67b80f8b"
+    },
+    {
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 164,
+      "summary": "Python closure captures loop variable 'method' by reference; all class_async_wrapper/class_sync_wrapper closures created in the for loop at line 164 would call the last iterated method instead of their intended method",
+      "failure_scenario": "If class-level @persist matched multiple flow methods (e.g., after fixing the attribute-check bug), the for loop iterates methods A then B. Both wrappers capture `method` from the closure; when either wrapper is called, `method` resolves to B (the last value). Method A's wrapper erroneously calls method B. Pre-existing but the PR touches the code inside these closures (replacing _persist_state with PersistenceDecorator.persist_state at lines 175 and 182).",
+      "finding_id": "mf-2bf6ad949922ecc0b946"
+    },
+    {
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 124,
+      "summary": "Except (TypeError, ValueError) at line 124 catches ValueError('Flow instance has no state') raised at line 93 and replaces it with the generic 'id_missing' error message, masking the true cause",
+      "failure_scenario": "A flow method decorated with @persist is called but the flow instance has no state attribute. At line 92 state is None, line 93 raises ValueError('Flow instance has no state'). This is caught by the broad except (TypeError, ValueError) at line 124 which substitutes LOG_MESSAGES['id_missing'] ('Flow state must have an id field for persistence'). The user sees a misleading error about a missing id when the real problem is that there is no state at all. This is a regression from the old _persist_state function which preserved the original message via str(e) in the RuntimeError.",
+      "finding_id": "mf-600d81be1f58ca8612ed"
+    },
+    {
+      "file": "src/crewai/flow/flow.py",
+      "line": 661,
+      "summary": "flow_id property returns 'None' (the literal string) when state's id key exists but holds None, because dict.get('id', '') returns the actual value (None) when the key exists, and str(None) produces the string 'None'",
+      "failure_scenario": "A flow's state dict contains {'id': None, ...} (possible via _initialize_state with kwargs id=None or a persisted state that stored a null ID). Accessing flow.flow_id returns the string 'None' instead of an empty string, violating the documented contract that an empty string is returned when the id is not found. Downstream code checking for a truthy flow_id would be misled — 'None' is truthy unlike ''.",
+      "finding_id": "mf-93ac482e6b836def360e"
+    }
+  ]
+}

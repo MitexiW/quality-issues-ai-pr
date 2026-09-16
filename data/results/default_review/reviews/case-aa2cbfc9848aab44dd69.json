@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "static/app/components/forms/controls/rangeSlider/index.tsx",
+      "line": 199,
+      "summary": "Adding onInput={handleInput} alongside the existing onChange causes the parent onChange callback to fire twice per slider tick",
+      "failure_scenario": "User drags the range slider: React's synthetic onChange fires handleInput (via the wrapper), and onInput also fires handleInput directly. Both call onChange?.(value, e) on the parent callback. If the parent uses onChange to persist data (e.g., a debounced network save), each drag tick produces duplicate writes/requests.",
+      "finding_id": "mf-979adb3bc88cb24813f8"
+    },
+    {
+      "file": "static/app/views/insights/common/components/chartActionDropdown.tsx",
+      "line": 62,
+      "summary": "getAlertsUrl call does not pass the interval parameter, unlike the deleted CreateAlertButton which used useChartInterval() to pass it",
+      "failure_scenario": "A chart is displayed at a 5-minute interval. User clicks the chart actions dropdown and selects 'Create Alert for' a metric. The alert URL is generated without the interval parameter, defaulting to 1h in getAlertsUrl (getInterval returns '1h' for undefined input). The resulting alert rule uses a 1h interval instead of matching the chart's 5m interval, causing the alert to evaluate at the wrong granularity.",
+      "finding_id": "mf-9fe37c47e67c9bc59027"
+    },
+    {
+      "file": "static/app/components/performance/spanSearchQueryBuilder.tsx",
+      "line": 220,
+      "summary": "Removed conditional merge of STATIC_SEMVER_TAGS into stringAttributes when SpanIndexedField.RELEASE is present in EAP span search, removing semver filter keys",
+      "failure_scenario": "A user searches EAP spans and the release field is available from the backend. Previously, STATIC_SEMVER_TAGS (release.build, release.package, release.version.*, etc.) were merged into the filter keys, providing autocomplete and filtering for semver sub-fields. With this merge removed, those filter keys are no longer suggested or accepted, so users cannot filter spans by release.build or release.package even though the span data contains those fields.",
+      "finding_id": "mf-9783a670047614a010b7"
+    }
+  ]
+}

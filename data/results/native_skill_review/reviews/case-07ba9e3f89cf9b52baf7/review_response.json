@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The model follows line 26/28 and writes `import { test, beforeEach, describe } from \"vitest\"` into fo o.test.ts, then calls run_test; host.exec runs `node --test`, which loads the file with Node's test runner where vitest's `test()` throws (\"Vitest failed to access its internal state\") or registers nothing, so a correct test is reported as failing and the fix loop rewrites working tests. packages/sample already runs tests with `vitest --run`, confirming the intended runner.",
+      "file": "genaisrc/test-gen.genai.mjs",
+      "line": 91,
+      "summary": "The run_test tool still executes node's built-in test runner (`node --import tsx --test <file>`) while the prompt and tool description were switched to mandate vitest imports, so generated tests can no longer be executed by the tool that is supposed to validate them."
+    },
+    {
+      "failure_scenario": "A regression in gist URL handling (e.g. the github.com/<user>/<gistid> or vscode://vsls-contrib.gistfs parsing) now passes CI because lines 61-102 are inert; the tests disappear from the vitest report rather than showing as skipped, so nobody notices the lost coverage.",
+      "file": "packages/core/test/resources.test.ts",
+      "line": 61,
+      "summary": "Four gist-URL resolution tests (github.com, gist.github.com, gist-with-file, and vscode gistfs URLs) are wrapped in /* ... */ instead of being skipped with a reason, silently deleting network-path coverage for tryResolveResource."
+    },
+    {
+      "failure_scenario": "A break in client.listGists or client.getGist (e.g. changed response shape) is no longer detected by core tests; the disabled block produces no skip entry in test output, so the coverage loss is invisible in reviews and CI.",
+      "file": "packages/core/test/githubclient.test.ts",
+      "line": 40,
+      "summary": "The listGists()/getGist() test is commented out rather than skipped, silently removing coverage of the gist API client."
+    },
+    {
+      "failure_scenario": "Any install that does not hoist typescript-eslint from @genaiscript/core into the workspace root (isolated node_modules without eslint public-hoisting, npm/yarn workspaces, or when core drops the dep) makes `pnpm --filter genaiscript-vscode lint:check` abort with ERR_MODULE_NOT_FOUND instead of linting src.",
+      "file": "packages/vscode/eslint.config.mjs",
+      "line": 5,
+      "summary": "The newly added flat config imports `typescript-eslint`, but packages/vscode/package.json declares only `@eslint/js` and `eslint`; the dependency was not added even though packages/core declares all three for its identical config."
+    },
+    {
+      "failure_scenario": "A service answers N concurrent clients with 429 and `Retry-After: 60`; every client computes the same deterministic delay = min(maxDelay, 60*1000) and retries at exactly t+60s, re-triggering the synchronized herd the removed `(1 + Math.random()/20)` factor existed to prevent.",
+      "file": "packages/core/src/fetch.ts",
+      "line": 141,
+      "summary": "The retry-after branch returns the exact server delay with no jitter, removing the 5% randomization that the previous code applied to every retry delay."
+    },
+    {
+      "failure_scenario": "A server sends `Retry-After: 05` (1*DIGIT permits leading zeros); parseInt yields 5 but \"05\" !== \"5\", the `^-?\\d+$` guard skips date parsing, parseRetryAfter returns null, and the caller falls back to exponential backoff, retrying after ~2s instead of the instructed 5s and hitting the rate limit again.",
+      "file": "packages/core/src/fetch.ts",
+      "line": 40,
+      "summary": "The strict `trimmed === seconds.toString()` check rejects valid RFC 9110 delay-seconds values with leading zeros (e.g. \"05\"), which then fall through to the date guard and are reported as unparseable."
+    },
+    {
+      "failure_scenario": "A future tuning of the backoff or jitter (e.g. changing the growth factor, cap, or jitter range) must be edited in three identical spots; a change applied to only one branch silently gives different retry timing depending on whether a response object or header is present.",
+      "file": "packages/core/src/fetch.ts",
+      "line": 146,
+      "summary": "The exponential-backoff expression `Math.min(maxDelay, Math.pow(FETCH_RETRY_GROWTH_FACTOR, attempt) * retryDelay) * (1 + Math.random() / 20)` is copy-pasted verbatim into three branches instead of being computed once and overridden by the retry-after value."
+    },
+    {
+      "failure_scenario": "Running test-gen declares the generated *.test.ts files with description === undefined, so the model/UI receives no description of the expected outputs, degrading how the file-output contract is presented (a bug the reformatting of this line re-exposed but did not fix).",
+      "file": "genaisrc/test-gen.genai.mjs",
+      "line": 69,
+      "summary": "`defFileOutput(env.files.map(cb, \"generated test files\"))` passes the description string as Array.prototype.map's thisArg instead of as defFileOutput's second parameter (signature: pattern, description?, options?), so the output description is never set."
+    },
+    {
+      "failure_scenario": "Running `pnpm format:check` (turbo -> @genaiscript/core `prettier --check \"src/**/*.{ts,cts,mts}\"` with .prettierrc.json) reports packages/core/src/fetch.ts as unformatted, blocking the repo's format check until `format:fix` rewrites the line.",
+      "file": "packages/core/src/fetch.ts",
+      "line": 54,
+      "summary": "`} catch(e) {` omits the space Prettier inserts, and it is the only such catch in packages/core/src, so the repo's own formatting gate fails on the modified file."
+    },
+    {
+      "failure_scenario": "The only file in the directory without the Microsoft copyright/license notice breaks the repository's uniform licensing convention and any future header-enforcement tooling, and makes the new file's provenance inconsistent with every neighboring test.",
+      "file": "packages/core/test/fetch-retry-after.test.ts",
+      "line": 1,
+      "summary": "The new test file lacks the `// Copyright (c) Microsoft Corporation.` / `// Licensed under the MIT License.` header that all 70 other test files in packages/core/test carry."
+    }
+  ],
+  "level": null
+}

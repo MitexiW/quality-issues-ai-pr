@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Pipeline input JSON contains \"apiVersion\": \"2024-01-01-preview\" and the spec project's tspconfig.yaml puts its emitter options in an `extends:`-ed parent config (a common rest-api-specs layout) or lacks the typespec-python section. The inner `if content.get(\"options\", {}).get(\"@azure-tools/typespec-python\")` is false, so no api-version is injected, but `tsp-client init` still runs and succeeds — the generated SDK targets the wrong API version while the run reports success.",
+      "file": "tools/azure-sdk-tools/packaging_tools/generate_utils.py",
+      "line": 423,
+      "summary": "When apiVersion is supplied but tspconfig.yaml has no truthy options['@azure-tools/typespec-python'] section, the requested api-version is silently dropped and generation proceeds against the wrong (default/latest) API version with no error or log."
+    },
+    {
+      "failure_scenario": "Any generation run with apiVersion set rewrites the spec checkout's tspconfig.yaml: all `#` comments (header docs, pin notes) are removed and every mapping key is alphabetically re-sorted, producing an unintended reformatting diff in the shared azure-rest-api-specs working tree on every run (a whole-file diff for CRLF/formatting changes too), and leaving the injected edit behind even if generation subsequently fails via CalledProcessError or the ' - error ' output check.",
+      "file": "tools/azure-sdk-tools/packaging_tools/generate_utils.py",
+      "line": 426,
+      "summary": "The yaml.dump write-back is unconditional once api_version is set and the file exists, so every run lossily rewrites the hand-maintained spec-repo tspconfig.yaml — PyYAML's default sort_keys=True alphabetically reorders all keys and strips all comments — even when the inner guard modified nothing."
+    }
+  ],
+  "level": null
+}

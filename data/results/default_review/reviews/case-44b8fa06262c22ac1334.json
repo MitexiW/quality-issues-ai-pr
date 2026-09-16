@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 417,
+      "summary": "TypeError crash when instance.model is None: the new string-split logic crashes because '/ in None' is invalid, whereas the old code tolerated None by f-string conversion to 'None.llm'",
+      "failure_scenario": "A CrewAI LLM instance has model=None (attribute exists but not set) → llm=None → 'in' operator raises TypeError → the outer except catches it and re-raises → the LLM.call wrapper crashes before wrapped() runs → the original LLM call never executes",
+      "finding_id": "mf-b0907c607ae1c057ad86"
+    },
+    {
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 497,
+      "summary": "Outer except block catches ALL exceptions but logs 'Error in provider detection', misleading diagnosis when the real error is an LLM call failure or instrumentation error, and causes double-logging for exceptions from the inner span path",
+      "failure_scenario": "LLM API call fails with a network error inside the span (line 448) → inner handler logs 'Error in trace creation: ConnectionError' (correct) and re-raises → outer handler catches it and logs 'Error in provider detection: ConnectionError' (wrong label) → operator investigates provider detection instead of the network issue",
+      "finding_id": "mf-0a2ac049702e14a6e8fd"
+    },
+    {
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 435,
+      "summary": "The 'if instrumentor:' skip path returns wrapped() with no span, no duration metrics, and no CrewAI attributes, but only checks a hardcoded string match — it never verifies the target instrumentor is actually loaded, so if it is absent the LLM call runs entirely un-instrumented",
+      "failure_scenario": "User configures CrewAI with model='gpt-4' but has not installed or enabled the OpenAI OpenTelemetry instrumentation (only the CrewAI instrumentor) → wrap_llm_call matches 'gpt' in the dict → skips all CrewAI instrumentation → no span, no duration metrics, no token attributes → LLM calls are invisible in traces",
+      "finding_id": "mf-35ebcc68e6915d8e2af9"
+    },
+    {
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 460,
+      "summary": "The 'if result:' guard skips setting completion content and role attributes when the LLM returns a falsy value such as an empty string, losing valid completion data (pre-existing in the old code, within the touched function)",
+      "failure_scenario": "LLM returns empty string '' as a valid response → result is falsy → span.set_attribute for COMPLETION_CONTENT and COMPLETION_ROLE are skipped → the span shows OK status but has no completion data, even though the call succeeded and returned a real (empty) result",
+      "finding_id": "mf-97c68a6cb933bb1792fa"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "file": "src/adapters/bidderFactory.js",
+      "line": 527,
+      "summary": "registerSyncInner replaces per-bidder userSync.canBidderRegisterSync() checks with a global filterConfig presence check, bypassing publisher-configured bidder-level include/exclude lists for user sync registration",
+      "failure_scenario": "Publisher configures filterSettings: { iframe: { bidders: ['appnexus'], filter: 'include' } } to allow only AppNexus iframe syncs. The new code passes iframeEnabled=true to ALL bidders' getUserSyncs, so every bidder registers iframe syncs regardless of the publisher's per-bidder filtering.",
+      "finding_id": "mf-7c22fdf040fc496e8426"
+    },
+    {
+      "file": "libraries/precisoUtils/bidUtils.js",
+      "line": 42,
+      "summary": "buildRequests only creates banner impression objects; video and native bid requests produce impressions missing media-type fields, silently breaking all non-banner bids",
+      "failure_scenario": "A publisher configures a Preciso native ad unit. buildRequests creates an imp object { id: 'xyz', bidfloor: ..., bidfloorcur: ... } with NO native or banner field. The Preciso server receives an impression with no media type specification and returns no ad or rejects the request.",
+      "finding_id": "mf-a7e34e99633349bf4cc0"
+    },
+    {
+      "file": "src/adRendering.js",
+      "line": 257,
+      "summary": "emitAdRenderSucceeded changed property from 'id' to 'adId' but the function destructures 'id'; the AD_RENDER_SUCCEEDED event is emitted without adId, breaking downstream consumers",
+      "failure_scenario": "A bid renders via renderAdDirect. emitAdRenderSucceeded({doc, bid, adId: bid.adId}) is called. The function destructures { doc, bid, id } so id=undefined, and the guard 'if (id)' skips setting data.adId. The AD_RENDER_SUCCEEDED event fires with { doc, bid } but no adId. Any analytics adapter or event listener that reads the adId from this event gets undefined.",
+      "finding_id": "mf-4c8524b46194730e7942"
+    },
+    {
+      "file": "modules/gumgumBidAdapter.js",
+      "line": 233,
+      "summary": "Removed '|| {}' fallback from getFloor() destructuring; if getFloor() returns null or undefined, destructuring throws TypeError and crashes the page",
+      "failure_scenario": "A bidder adapter or floor module's getFloor() returns null (e.g., due to a misconfigured floor provider). The line const { currency, floor } = bid.getFloor({...}) throws 'TypeError: Cannot destructure property 'currency' of null'. The entire bidding process crashes.",
+      "finding_id": "mf-2cb67d10c6458830779e"
+    },
+    {
+      "file": "libraries/advangUtils/index.js",
+      "line": 17,
+      "summary": "Removed optional chaining from floorInfo?.floor in getBannerBidFloor; if getFloor() returns null or undefined, accessing .floor throws TypeError",
+      "failure_scenario": "A bidder's getFloor method is a function (passes isFn check) but returns null. floorInfo.floor throws 'TypeError: Cannot read properties of null (reading 'floor')'. The bid request fails with an uncaught exception.",
+      "finding_id": "mf-a4f7c0580181c4517d67"
+    },
+    {
+      "file": "libraries/riseUtils/index.js",
+      "line": 22,
+      "summary": "Removed isPlainObject(floorResult) guard from getFloor; if getFloor() returns null/undefined, accessing .currency throws TypeError",
+      "failure_scenario": "isFn(bid.getFloor) passes, but bid.getFloor({...}) returns null. floorResult.currency throws 'TypeError: Cannot read properties of null (reading 'currency')'. Any bidder using riseUtils getFloor crashes.",
+      "finding_id": "mf-64f26bd62bc57f6a6f8b"
+    },
+    {
+      "file": "src/prebid.js",
+      "line": 103,
+      "summary": "syncOrtb2 replaced with setBattrForAdUnit, losing all field synchronization between mediaTypes and ortb2Imp except battr; ORTB converters that read from mediaTypes now miss values set only in ortb2Imp",
+      "failure_scenario": "Publisher sets ortb2Imp.video.mimes = ['video/mp4'] but not mediaTypes.video.mimes. Previously syncOrtb2 would copy it to mediaTypes.video.mimes so the ORTB converter's fillVideoImp could read it. Now the mimes value stays only in ortb2Imp and fillVideoImp reads mediaTypes.video which lacks mimes, so the ORTB request's imp.video has no mimes field.",
+      "finding_id": "mf-ef5b79415e18c02aca52"
+    },
+    {
+      "file": "src/auction.js",
+      "line": 638,
+      "summary": "getPreparedBidForAuction now requires renderer.url; inline renderers defined without a URL property silently fail to apply",
+      "failure_scenario": "Publisher defines an adUnit renderer as { render: myRenderFn } without a url property. The old code would install this renderer. The new code skips it because renderer.url is undefined. The bid renders without the publisher's custom renderer.",
+      "finding_id": "mf-baef29ab118cec29df3e"
+    },
+    {
+      "file": "libraries/mspa/activityControls.js",
+      "line": 108,
+      "summary": "flatSection guard narrowed from !Array.isArray to == null; a truthy non-array consent value reaches .reduceRight() and throws TypeError",
+      "failure_scenario": "GPP consent data returns parsedSections[api] as a malformed object (truthy, not null, not an array). Old code would return it as-is; new code calls .reduceRight() on it, throwing 'TypeError: subsections.reduceRight is not a function'. The MSPA activity control crashes.",
+      "finding_id": "mf-97812956e1c298fbec12"
+    },
+    {
+      "file": "libraries/autoplayDetection/autoplay.js",
+      "line": 44,
+      "summary": "Catch handler no longer excludes CSP NotSupportedError; pages with CSP restrictions on data: scheme for media get autoplay falsely disabled",
+      "failure_scenario": "Publisher has Content-Security-Policy: media-src 'self' which blocks data: scheme media URLs. Autoplay detection video.play() rejects with NotSupportedError DOMException. The old code ignored this specific error; the new code sets autoplayEnabled=false, causing all autoplay-reliant video ads to fail.",
+      "finding_id": "mf-d77a2f834ab8591f2932"
+    },
+    {
+      "file": "modules/precisoBidAdapter.js",
+      "line": 69,
+      "summary": "Removed storage.localStorageIsEnabled() guard before setDataInLocalStorage; throws when localStorage is disabled instead of silently skipping",
+      "failure_scenario": "User has localStorage disabled (e.g., private browsing in some browsers). getapi() receives a UUID response and calls storage.setDataInLocalStorage('_pre|id', uuidValue) without checking if localStorage is available. The storage operation throws an unhandled error, breaking the bid flow.",
+      "finding_id": "mf-91c073b44fef5731f5f1"
+    }
+  ]
+}

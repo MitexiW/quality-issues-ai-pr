@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "An in-use schema S has a parent DictionarySchema/ArraySchema whose element type E extends an otherwise-unreferenced ObjectSchema B, and B's children relation is absent (the same children-relation condition this fix relies on for the direct-parent Dog/Golden case). The stream at line 139 only scans parents of the pre-existing schemasInUse members; E enters schemasInUse only at line 156, after the scan, and no later pass ever iterates E (it is not a property/request/response/exception schema). B therefore stays in schemasNotInUse, gets removed by the removeIf at line 173, and the generated code 'class E extends B' no longer compiles — the exact class of breakage this PR fixes for direct ObjectSchema parents, left open one level of indirection deeper.",
+      "file": "packages/http-client-java/generator/http-client-generator-mgmt/src/main/java/com/microsoft/typespec/http/client/generator/mgmt/transformer/SchemaCleanup.java",
+      "line": 156,
+      "summary": "The new parent-preservation logic is not transitive for collection parents: an ObjectSchema element reached only via a Dictionary/Array parent is added to schemasInUse after the parent-scan stream is already consumed, and every tryCleanup pass recomputes the identical sets, so that element's own ObjectSchema ancestors are never protected from removal."
+    },
+    {
+      "failure_scenario": "Maintainability cost: the statement has no observable effect in any pass, yet it implies discriminator schemas are retained as in-use for subsequent processing. If the author's intent was to keep discriminator schemas in the in-use set across passes (e.g., so their own parents or discriminators would be protected later), that protection silently does not happen because schemasInUse is a method-local set discarded when tryCleanup returns; the line should be removed or the intended transitive use implemented.",
+      "file": "packages/http-client-java/generator/http-client-generator-mgmt/src/main/java/com/microsoft/typespec/http/client/generator/mgmt/transformer/SchemaCleanup.java",
+      "line": 168,
+      "summary": "schemasInUse.addAll(discriminators) is a no-op: the local schemasInUse set is never read after this statement (tryCleanup only uses schemasNotInUse/choicesSchemasNotInUse from line 171 on) and is rebuilt from scratch on every one of the up-to-5 process() passes, so the discriminator schemas are protected solely by the two removeAll calls above it."
+    }
+  ],
+  "level": null
+}

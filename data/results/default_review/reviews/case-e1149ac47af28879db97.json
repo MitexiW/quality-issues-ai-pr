@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 623,
+      "summary": "setSelectedObjectId performs a redundant O(n) findIndex on the data array every time the selection changes, even though the row index is already known at every call site (handleCellClick receives row, keyboard handlers compute newRow, context menu has row). This introduces a performance regression not present before the prefetch changes.",
+      "failure_scenario": "User holds the down-arrow key to rapidly navigate through the data browser. Every keypress triggers setSelectedObjectId, which scans the entire data array (potentially thousands of rows after infinite-scroll loading) with findIndex, discarding the newRow value that was already computed just one line above in the keyboard handler. The redundant scan accumulates latency on each keystroke.",
+      "finding_id": "mf-52a47e56c5686df377d4"
+    },
+    {
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 209,
+      "summary": "componentDidUpdate clears selectedObjectId via direct setState without going through setSelectedObjectId, leaving selectionHistory with stale entries. The new state field is not synchronised with the existing lifecycle reset.",
+      "failure_scenario": "User selects several consecutive rows (history becomes [0,1,2]), then an action causes componentDidUpdate to reset selectedObjectId to undefined (line 210). selectionHistory remains [0,1,2]. The user then clicks a single row at index 5; setSelectedObjectId pushes 5, history becomes [0,1,2,5] then shifts to [1,2,5]. handlePrefetch sees last three entries [1,2,5] which are not consecutive, so no prefetch fires even though the two stale entries prevent correct history tracking for up to 3 additional selections. The stale history also wastes memory until overwritten.",
+      "finding_id": "mf-b92f8546fa1be585dde1"
+    },
+    {
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 828,
+      "summary": "handleCellClick shift+range path sets selectedObjectId to undefined via direct setState (line 828), bypassing setSelectedObjectId. The selectionHistory is not updated to reflect the cleared selection.",
+      "failure_scenario": "User shift-clicks to select a range of cells (size > 1), which clears selectedObjectId at line 828 without touching selectionHistory. The history retains entries from before the range selection, contaminating future prefetch decisions until 3 more non-range selections overwrite the stale entries.",
+      "finding_id": "mf-bcf17348de6f5defc6c1"
+    }
+  ]
+}

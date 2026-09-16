@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "extensions/sql-migration/src/wizard/skuRecommendation/skuRecommendationPage.ts",
+      "line": 99,
+      "summary": "onDidClick handler return value (vscode.Disposable) is not pushed to _disposables, causing a permanent subscription leak and memory leak",
+      "failure_scenario": "When the SKU recommendation page is closed or the view is disposed (line 211-213), the _arcServerLink click handler is never cleaned up. The handler retains a reference to the entire SKURecommendationPage instance via the arrow function's closure, preventing garbage collection. If the wizard is reopened and the page is recreated, multiple stale handlers accumulate. Concretely: on every dispose cycle, the handler remains subscribed to the underlying hyperlink component's Event emitter, leaking the handler closure (which captures `this` and transitively the entire page object graph including MigrationStateModel, view components, etc.). Every other event subscriber in this file (onChanged at line 166, onClosed at line 211) and across the entire sql-migration extension (e.g., api/utils.ts:1433, createResourceGroupDialog.ts:80, importPerformanceDataDialog.ts:100) correctly wraps onDidClick in _disposables.push(...).",
+      "finding_id": "mf-105b462208781c366431"
+    }
+  ]
+}

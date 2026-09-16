@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A 1.x connection has a valid saved CDC offset; state is keyed with server_id = database name. After upgrading to 2.0.0, savedOffset() finds the legacy offset via the migration loop and isValidResumeToken() confirms it, so no full refresh is triggered. But stateToBeUsed (MongoDbCdcInitializer line 138/145) still carries the old db-name key; the engine seeded from it (AirbyteFileOffsetBackingStore.initializeState in AirbyteDebeziumHandler) looks up its partition under the new name (normalized connection string) and finds nothing, so with snapshot.mode=never the change stream starts at the current oplog head: all changes between the last sync and the upgrade are silently skipped (data loss), with no error.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbDebeziumStateUtil.java",
+      "line": 165,
+      "summary": "The legacy-state migration recovers the old offset (keyed by database name) but never re-keys it under the new server id, so the Debezium engine misses it and silently skips CDC changes on the first sync after upgrade."
+    },
+    {
+      "failure_scenario": "A user edits the connection string between syncs (e.g., appends ?retryWrites=true, changes a host after failover, or re-pastes with different whitespace/quoting — getName() uses the raw un-trimmed config value). The saved offset key in state is the old string; parseSavedOffset() with the new name returns empty, the migration loop only rescues pre-2.0 db-name keys, so MongoDbCdcInitializer line 116-119 throws RuntimeException(\"Unable extract the offset out of state...\") and every sync fails until the user resets the connection and re-syncs everything from scratch.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbCdcInitializer.java",
+      "line": 100,
+      "summary": "Using the raw connection string as the Debezium server id means any edit to the connection string orphans the saved CDC state and hard-fails the next sync."
+    },
+    {
+      "failure_scenario": "A user whose MongoDB role grants changeStream only on the synced database(s) worked fine on 1.x (mongoClient.getDatabase(db).watch(...)). After upgrading, getMostRecentResumeTokenForDatabases() opens mongoClient.watch() (also used by isValidResumeToken, MongoDbDebeziumStateUtil line 119), which requires the changeStream privilege on the admin database: the server returns MongoCommandException(\"not authorized on admin to execute command\"). The exception is uncaught in the token helper, so the very first sync of a new connection fails; on existing connections the exception is caught in isValidResumeToken and misreported as an invalid cursor, and with the default invalid_cdc_cursor_position_behavior=\"Fail sync\" the sync throws ConfigErrorException telling the user to reset the connection. check() never exercises change-stream privileges, so it still reports SUCCEEDED.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbResumeTokenHelper.java",
+      "line": 66,
+      "summary": "Switching resume-token acquisition from a database-scoped watch to a cluster-wide mongoClient.watch() requires cluster-level changeStream privileges that existing least-privilege users do not have, breaking both new and upgraded CDC syncs."
+    },
+    {
+      "failure_scenario": "A user pastes a connection string containing real credentials (buildConnectionString() explicitly supports pasted Atlas strings and keeps real user:pass@ segments). The name property (= connection string) is logged verbatim in MongoDbDebeziumStateUtil.savedOffset (the safeProps copy masks only mongodb.password, not name), in constructInitialDebeziumState (\"Initial Debezium state constructed: {}\", whose state key contains the string) and in MongoDbCdcStateHandler.saveState, and the state JSON keyed by the connection string is emitted in AirbyteStateMessages and stored in the platform database. Previously the state key was only the database name, so no credentials ever appeared in state or logs.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbDebeziumPropertiesManager.java",
+      "line": 82,
+      "summary": "The Debezium name/server id is now the raw connection string, so any credentials embedded in it are persisted into Airbyte state and written to plaintext logs."
+    },
+    {
+      "failure_scenario": "A user supplies a manual/hand-built catalog whose AirbyteStreams omit the optional namespace field (the protocol permits it, and 1.x never dereferenced namespace in these paths — it only used it as a state-map key). The new filter airbyteStream.getStream().getNamespace().equals(database.getName()) throws NullPointerException and the sync fails with a cryptic error. The same unguarded dereference was added at MongoDbSource.java line 214 (full refresh) and MongoDbCdcInitializer.java line 91 (CDC stream grouping).",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/InitialSnapshotHandler.java",
+      "line": 65,
+      "summary": "The new namespace filter dereferences getNamespace() without a null check, so a catalog stream without a namespace now throws NPE where 1.x synced it fine."
+    },
+    {
+      "failure_scenario": "With config databases: [], check() reports FAILED (it explicitly handles the empty case), but read() does not: for incremental streams, getMostRecentResumeTokenForDatabases builds Filters.or([]) and mongoClient.watch() fails with MongoCommandException \"Invalid $or :: $or/$and/$nor must be a nonempty array\", crashing the sync with an opaque error; for full-refresh-only catalogs, createFullRefreshIterators' loop never executes and the sync completes successfully emitting zero records with no warning — silent data absence.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbResumeTokenHelper.java",
+      "line": 65,
+      "summary": "An empty databases array (allowed by the new spec, which has no minItems) builds an empty $or pipeline that MongoDB rejects, and the full-refresh path silently syncs nothing."
+    },
+    {
+      "failure_scenario": "A user removes a database from the new databases array but the connection's catalog still contains streams from that database (config edits do not force a catalog refresh). In full refresh, the filter at line 214 drops them; in CDC, the filters at MongoDbCdcInitializer line 91 and the getIterators filter drop them, and streams stuck IN_PROGRESS are never completed. The sync succeeds, emitting no records for those streams and no warning, so the operator sees a green sync with silently missing data.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/MongoDbSource.java",
+      "line": 214,
+      "summary": "Catalog streams whose namespace is not among the configured databases are silently dropped by the new filters, producing empty results with no error or warning."
+    },
+    {
+      "failure_scenario": "With config databases: [\"mydb\", \"mydb\"], discover() returns each collection twice, and createFullRefreshIterators() loops over the list calling getIterators() twice for mydb, producing two full-refresh iterators over the same collections — every document is emitted twice into the destination. In CDC, streamsByDatabase contains two identical lists and the initial-snapshot loop in MongoDbCdcInitializer (lines 165-170) runs the same streams twice with the same effect.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/MongoDbSource.java",
+      "line": 212,
+      "summary": "Duplicate database names in the databases array (the new spec has no uniqueItems constraint) create duplicate iterators and duplicate every record for that database."
+    },
+    {
+      "failure_scenario": "A config saved by a 1.x connection (or a hand-written one) has database_config without the \"databases\" key (1.x used \"database\"). getDatabaseConfig().get(\"databases\") returns null and forEach throws NullPointerException: in check() it is swallowed into a FAILED status whose message is null (e.getMessage() of an NPE), and in discover() the NPE propagates uncaught (only IllegalArgumentException is handled), producing an internal error instead of the previous behavior of a graceful failure. The removed null-return contract was even asserted by the old unit test (assertEquals(null, sourceConfig.getDatabaseName())), which this diff deletes.",
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/MongoDbSourceConfig.java",
+      "line": 52,
+      "summary": "getDatabaseNames() removed the old has() guard and now NPEs on configs that lack the new databases key instead of returning null as before."
+    }
+  ],
+  "level": null
+}

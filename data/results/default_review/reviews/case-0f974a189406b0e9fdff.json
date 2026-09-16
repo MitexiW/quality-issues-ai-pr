@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "packages/kit/src/views/Swap/hooks/useSwapGlobal.ts",
+      "line": 242,
+      "summary": "Array.includes() on ISwapNetwork objects uses reference equality; filter always removes all user-disabled network entries",
+      "failure_scenario": "Server returns a provider with isSupportSingleSwap=true and supportSingleSwapNetworks=[{networkId:'evm--1'},{networkId:'evm--56'}]. User had previously disabled 'evm--1' for this provider (provider.disableNetworks=[{networkId:'evm--1'}]). The filter `provider.disableNetworks?.filter((net) => findProvider?.supportSingleSwapNetworks?.includes(net))` calls `includes()` on ISwapNetwork objects from different JSON parse origins; reference equality fails for all entries, returning `[]`. disableNetworks saved to simpleDb is empty, all user-disabled networks are silently re-enabled. Correct fix: compare by networkId field (e.g. `.some(sn => sn.networkId === net.networkId)`).",
+      "finding_id": "mf-7aa82b27b25d0197e8dd"
+    },
+    {
+      "file": "packages/kit/src/views/Swap/pages/modal/SwapHistoryListModal.tsx",
+      "line": 189,
+      "summary": "Analytics log fires before async cleanSwapHistoryItems() completes in onDeletePendingHistory, reporting successful clean before operation finishes",
+      "failure_scenario": "User taps 'Clear pending history'. Dialog onConfirm calls `void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems([PENDING])` (fire-and-forget async) then immediately logs `cleanSwapOrder({cleanFrom: LIST})`. The log fires before the Promise resolves; if the clean operation fails (e.g. storage error), the analytics event incorrectly reports a successful cleanup. Contrast with onDeleteHistory (line 158) which properly awaits the operation before logging.",
+      "finding_id": "mf-1436ac6c1721973d6e1b"
+    },
+    {
+      "file": "packages/kit/src/views/Swap/hooks/useSwapGlobal.ts",
+      "line": 229,
+      "summary": "Removal of defensive early-return; when findProvider is undefined, uninitialized serviceDisable/serviceDisableNetworks (undefined) override existing provider values via spread",
+      "failure_scenario": "If a provider exists in simpleDb but findProvider resolves to undefined (edge case, e.g. race between findNoProvider cleanup and re-fetch), the old code returned `provider` unmodified (preserving provider.serviceDisable and provider.serviceDisableNetworks). The new code returns `{...provider, serviceDisable: undefined, serviceDisableNetworks: undefined}`, overwriting any existing service-disable state with undefined. A previously service-disabled provider would appear enabled. Likelihood is low due to upstream cleanup guards, but the defensive protection is lost.",
+      "finding_id": "mf-4434205666add2827565"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "packages/schemas/src/multiVariableText/helper.ts",
+      "line": 15,
+      "summary": "Removed `|| {}` fallback after JSON.parse allows null/falsy parse results to reach Object.keys(), throwing TypeError",
+      "failure_scenario": "Caller passes variablesIn='null' (a valid JSON string). JSON.parse('null') returns null. Old code: null || {} → {} (safe). New code: null passes through, then Object.keys(null) on line 17 throws 'TypeError: Cannot convert undefined or null to object'. This function is called from both UI rendering (uiRender.ts) and PDF rendering (pdfRender.ts), so the crash affects both preview and generated PDF output.",
+      "finding_id": "mf-421be680d930153ad3c0"
+    },
+    {
+      "file": "packages/schemas/src/multiVariableText/propPanel.ts",
+      "line": 10,
+      "summary": "Removed `|| {}` fallback after JSON.parse in mapDynamicVariables allows null parse result to reach updateVariablesFromText, throwing TypeError",
+      "failure_scenario": "If mvtSchema.content is the string 'null' (a valid JSON literal), JSON.parse('null') returns null. Old code: null || {} → {} (safe). New code: null flows into updateVariablesFromText(text, null) on line 11, which does 'variableName in null' on line 130, throwing 'TypeError: Cannot use 'in' operator to search for...' Crash in the property panel editor breaks the schema editing UI.",
+      "finding_id": "mf-47f3c589752eb3005ab5"
+    },
+    {
+      "file": "packages/schemas/src/multiVariableText/propPanel.ts",
+      "line": 58,
+      "summary": "Color validation regex only accepts 6-digit hex, rejecting valid 3-digit hex colors like #FFF; silently falls back to default",
+      "failure_scenario": "A theme sets colorPrimary to '#FFF' (valid CSS 3-digit hex). The regex /^#[0-9A-F]{6}$/i rejects it because it expects exactly 6 hex digits. isValidColor becomes false, and safeColorValue falls back to '#168fe3'. The user's configured primary color is silently ignored in the property panel hint text.",
+      "finding_id": "mf-f8641900052e0c1aff6f"
+    }
+  ]
+}

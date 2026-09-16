@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A multiVariableText field whose value/content is the string 'null' (e.g. produced by JSON.stringify(null) or user-supplied input 'null') reaches substituteVariables via uiRender viewer mode or pdfRender (with schema.variables == [], which passes validateVariables immediately). JSON.parse('null') returns null, so the subsequent Object.keys(variables) at line 17 throws `TypeError: Cannot convert undefined or null to object` and the render crashes. Before the change, `JSON.parse(variablesIn) || {}` returned {} and rendered fine.",
+      "file": "packages/schemas/src/multiVariableText/helper.ts",
+      "line": 15,
+      "summary": "substituteVariables now throws TypeError when the variables value is the JSON string 'null', a regression from the removed post-parse `|| {}` falsy guard"
+    },
+    {
+      "failure_scenario": "A template whose multiVariableText field has content 'null' is selected in the designer: JSON.parse('null' || '{}') returns null (cast as Record), then updateVariablesFromText(text, null) hits `!(variableName in variables)` or Object.keys(null) and throws TypeError ('Cannot use in operator' / 'Cannot convert null to object'), crashing the prop panel. Before the change, `JSON.parse(mvtSchema.content) || {}` normalized null to {} and the panel rendered.",
+      "file": "packages/schemas/src/multiVariableText/propPanel.ts",
+      "line": 10,
+      "summary": "mapDynamicVariables crashes the designer prop panel when a field's content is the JSON string 'null', because the removed post-parse `|| {}` guard no longer catches the falsy parse result"
+    },
+    {
+      "failure_scenario": "A user sets options.theme.token.colorPrimary to a valid CSS color outside the whitelist — e.g. 3-digit hex '#fff', 8-digit hex '#168fe3cc', rgba(22,143,227,0.5) (decimal alpha), a named color like 'red', or modern syntax rgb(22 143 227 / 50%). The regexes /^#[0-9A-F]{6}$/ and the narrow rgb()/hsl() pattern reject them, so safeColorValue falls back to '#168fe3' and the typing-instructions <code> element renders blue instead of the configured theme color. Before the change, the theme value was applied verbatim.",
+      "file": "packages/schemas/src/multiVariableText/propPanel.ts",
+      "line": 58,
+      "summary": "The new color whitelist rejects common valid CSS color formats for theme token colorPrimary and silently substitutes the default blue, a behavioral regression for themed UIs"
+    },
+    {
+      "failure_scenario": "The declared `interface BwipJs` is not exported, so it merges into nothing, and `export default interface BwipJsModule` overrides/merges with bwip-js's real default-export type in any project whose compilation includes this file (i.e. all consumers of @pdfme/schemas type declarations), potentially conflicting with the package's actual types; meanwhile the call site still needs `(bwipjs as any).toCanvas(...)`, so the stated goal of replacing the @ts-ignore is not achieved. The augmentation should be removed and the call cast kept or moved to a local interface.",
+      "file": "packages/schemas/src/barcodes/helper.ts",
+      "line": 11,
+      "summary": "The bwip-js module augmentation is inert dead code that also globally re-declares a third-party module's default export for every consumer of this package's type declarations"
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Developer clones the repo, edits generator C# code, and runs the script against an azure-sdk-for-net SDK directory. Build-LocalGeneratorSolution succeeds and writes fresh DLLs to packages/http-client-csharp/generator/artifacts/bin/Microsoft.TypeSpec.Generator/Release/ etc., but packages/http-client-csharp/dist/generator does not exist — no local step creates it (npm run build only emits dist/emitter, Build-Packages.ps1 never copies there, and there is no prepack script). All three Copy-Item sources are missing, so the script emits 'Source DLL not found' warnings yet still prints 'DLL copying completed.' and 'Setup completed successfully!'. Launching the added profile executes the released DLL already in the SDK's TempTypeSpecFiles/node_modules, so the developer's local generator changes are never loaded and nothing signals the failure. The fresh full-solution Release build is also wasted work.",
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 198,
+      "summary": "Copy-LocalGeneratorDlls sources DLLs from dist/generator, a directory the invoked dotnet build never populates (output goes to generator/artifacts/bin/<Project>/Release/ per Directory.Build.props), so on a clean checkout every copy fails and the debug profile silently runs the npm-released DLL instead of the developer's local build."
+    },
+    {
+      "failure_scenario": "Running .\\Add-Debug-Profile.ps1 -SdkDirectory C:\\repo\\azure-sdk-for-net\\sdk\\resourcemanager\\storage (the parameter is documented as 'SDK service directory') yields leaf 'storage', so isManagementSdk is false and the profile is written with package http-client-csharp and -g AzureClientGenerator. A management SDK's TempTypeSpecFiles contains @azure-typespec/http-client-csharp-mgmt, not http-client-csharp, so the profile's DLL path does not exist and the debug launch fails; even if it existed, the data-plane generator would run against management inputs. Symmetrically, a data-plane SDK in a folder named e.g. 'my-resourcemanager-poc' (or any path with a trailing backslash, where Split-Path -Leaf returns empty) is forced onto the mgmt package path, which also does not exist in that SDK.",
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 158,
+      "summary": "Test-IsManagementSdk infers management mode from the leaf directory name matching *ResourceManager* instead of the SDK's declared emitter/generator, so management SDKs reached via a service-directory path, legacy Microsoft.Azure.Management.* packages, or trailing-separator paths are classified as data-plane, and any directory whose name merely contains 'ResourceManager' is classified as management."
+    },
+    {
+      "failure_scenario": "The baseline script documented .\\Add-Debug-Profile.ps1 -SdkDirectory <dir> -Generator StubLibraryGenerator, and this repo ships Microsoft.TypeSpec.Generator.ClientModel.StubLibrary (StubLibraryGenerator.cs, used by the TestProjects launch profiles written by Generate.ps1). After this change no non-Azure generator can be selected, and the new DLL copy list does not include Microsoft.TypeSpec.Generator.ClientModel.StubLibrary.dll, so setting up a debug session for the StubLibrary generator via this script is impossible.",
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 24,
+      "summary": "Removing the -Generator parameter (with its documented StubLibraryGenerator example) drops the ability to target the StubLibrary generator that ships in this repo, since auto-detection hardcodes only AzureClientGenerator and ManagementClientGenerator."
+    },
+    {
+      "failure_scenario": "Developer modifies an assembly not in the list (such as Microsoft.TypeSpec.Generator.Customization in the Azure fork, or StubLibrary in this repo), rebuilds, and runs the script. The three listed DLLs are overwritten with fresh local builds while the remaining assemblies stay at the released versions, so the local change is silently absent from the debug session; if the freshly built Generator/ClientModel/Input assemblies reference newer APIs from those stale assemblies, the generator fails with MissingMethodException during MEF composition or generation while the developer believes they are debugging their own code.",
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 214,
+      "summary": "The DLL copy list covers only three assemblies, so every other assembly in the package's dist/generator (e.g. Microsoft.TypeSpec.Generator.Customization, packed alongside the copied ones per eng/pipeline/publish.yml, or StubLibrary) remains at the npm-released version, mixing freshly built and released assemblies in the debug run."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A BaseModel state schema with a field annotated tuple[str, ...] (or tuple[int, ...]): _coerce eagerly builds coercers for all fields on the first node input coercion, so _build_coercer(Ellipsis, ...) -> _adapter_for(Ellipsis) -> TypeAdapter(Ellipsis) raises PydanticSchemaGenerationError (uncaught, outside the issubclass try/except), crashing every graph invocation at the first task. Before this change, _pick_mapper used schema(**input), which validates variadic tuples without error.",
+      "file": "libs/langgraph/langgraph/graph/schema_utils.py",
+      "line": 189,
+      "summary": "The tuple branch of _build_coercer builds a coercer for every element of get_args(field_type), including the Ellipsis of variadic tuples like tuple[str, ...], and coercing Ellipsis falls through to TypeAdapter(Ellipsis), which raises PydanticSchemaGenerationError at graph runtime."
+    },
+    {
+      "failure_scenario": "create_react_agent(model, [tool with Annotated[..., InjectedState]/InjectedStore params], post_model_hook=..., store=...) with the default version=\"v2\": the model emits tool_call args {\"some_val\": 1}, post_model_hook_router sends the raw call to the ToolNode, which invokes the tool without the injected state/store arguments. With default handle_tool_errors=True the agent receives a validation-error ToolMessage instead of the tool result (previously the tool returned the correct result, as asserted by the now-deleted test test_create_react_agent_inject_vars_with_post_model_hook); with handle_tool_errors=False the graph crashes with the validation error.",
+      "file": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 729,
+      "summary": "Removing the inject_tool_args calls in post_model_hook_router means tool calls routed via Send(\"tools\", [tool_call]) no longer get InjectedState/InjectedStore arguments injected, and ToolNode's list-of-tool-calls input path (_parse_input, input_type == \"tool_calls\") performs no injection."
+    },
+    {
+      "failure_scenario": "A state model with @model_validator(mode=\"after\") that normalizes state (e.g., sorting, computing derived values) or @model_validator(mode=\"before\") that coerces the input dict: __pydantic_decorators__.model_validators is non-empty while the three checked groups are empty, so self.coerce stays _coerce and the validator never runs. Nodes then receive un-normalized state, silently changing graph behavior compared to the old schema(**input) path which always ran model validators.",
+      "file": "libs/langgraph/langgraph/graph/schema_utils.py",
+      "line": 73,
+      "summary": "The validator fallback checks only ('validators', 'field_validators', 'root_validators') on __pydantic_decorators__, but pydantic v2 stores @model_validator decorators under the separate 'model_validators' attribute, so models using @model_validator do not trigger the model_validate fallback and their validators are silently skipped by model_construct."
+    },
+    {
+      "failure_scenario": "State model with count: int; node A returns {\"count\": \"5\"}. Previously _coerce_state did State(**{\"count\": \"5\"}) and pydantic lax mode coerced the value to 5, or raised ValidationError for {\"count\": \"abc\"}. Now _IDENTITY_TYPES makes int a passthrough and model_construct stores the raw string, so node B gets state.count == \"5\" and state.count + 1 raises TypeError deep inside a later node; Field(gt=0) and similar constraints are likewise silently ignored.",
+      "file": "libs/langgraph/langgraph/graph/schema_utils.py",
+      "line": 72,
+      "summary": "Switching BaseModel state coercion from schema(**input) to model_construct drops all type coercion and constraint validation for scalar fields, and state channels (LastValue.update) perform no validation, so wrong-typed or constraint-violating state silently propagates into nodes instead of raising or being coerced."
+    },
+    {
+      "failure_scenario": "A long-running service that generates state schema classes dynamically (e.g., via create_model per request/tenant) accumulates one cached mapper per class forever — each mapper retains the class and its full type_hints dict — producing unbounded memory growth even though the cache was explicitly built as a WeakKeyDictionary to avoid exactly that.",
+      "file": "libs/langgraph/langgraph/graph/schema_utils.py",
+      "line": 40,
+      "summary": "The WeakKeyDictionary schema cache is defeated because each cached SchemaCoercionMapper strongly references its key (self.schema = schema), so cached entries can never be evicted and every distinct state schema class ever coerced is retained for the process lifetime."
+    },
+    {
+      "failure_scenario": "Maintainability/coverage regression: the Channel class and PregelNode.__or__ batching composition are still public API, but the only tests exercising that composition (RunnableLambda(...).batch and Channel.write_to(...).batch piped into Pregel) are gone, so a future change breaking Topic/batching or join semantics through the Channel API would ship unnoticed.",
+      "file": "libs/langgraph/tests/test_pregel.py",
+      "line": 713,
+      "summary": "The diff deletes test_invoke_two_processes_in_dict_out (sync and async) and async test_invoke_join_then_call_other_pregel, the only coverage for .batch/.abatch-composed nodes over Topic channels via the retained (deprecated but supported until 2.0) Channel API, without any replacement tests."
+    }
+  ],
+  "level": null
+}

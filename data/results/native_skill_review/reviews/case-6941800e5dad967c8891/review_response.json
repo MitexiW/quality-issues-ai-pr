@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Fresh deployment with only OPENAI_API_KEY set (ANTHROPIC_API_KEY defaults to None, config.py:133). Importing skyvern/forge/app.py executes AsyncAnthropic(api_key=None); the anthropic SDK raises TypeError (\"Could not resolve authentication method...\") because api_key and auth_token are both None. Every module that imports skyvern.forge.app fails, so uvicorn cannot start. The adjacent OPENAI_CLIENT line uses `or \"\"` for exactly this reason, but the new Anthropic line has no such guard.",
+      "file": "skyvern/forge/app.py",
+      "line": 45,
+      "summary": "ANTHROPIC_CLIENT is constructed at import time with api_key=settings.ANTHROPIC_API_KEY, which raises TypeError in the anthropic SDK when the key is None, so the whole service fails to boot for any deployment that does not set ANTHROPIC_API_KEY"
+    },
+    {
+      "failure_scenario": "A legacy client POSTs /run/tasks with engine=\"skyvern-1.0\" (a still-documented RunEngine value that previously created a task_v1 run). The new condition `run_request.engine in CUA_ENGINES` (openai-cua, anthropic-cua) is False, the skyvern_v2 branch is also False, and the handler raises HTTPException(400, \"Invalid agent engine: skyvern-1.0\"). Previously this request created and ran a v1 task.",
+      "file": "skyvern/forge/sdk/routes/agent_protocol.py",
+      "line": 1470,
+      "summary": "Replacing `engine in [skyvern_v1, openai_cua]` with `engine in CUA_ENGINES` drops skyvern_v1 from the task-v1 dispatch, so explicit skyvern-1.0 requests now fall through to the 400 'Invalid agent engine' error"
+    },
+    {
+      "failure_scenario": "This line sits in the else-branch of `agent_step` reached only for skyvern_v1/v2 (CUA engines return in the if/elif above), so `engine in CUA_ENGINES` is always False and `async_operation_pool.run_operation(task.task_id, AgentPhase.llm)` never executes. Deployments that register custom async operations for AgentPhase.llm (e.g. TOTP/verification-code polling, info collection via AgentFunction.generate_async_operations) silently stop running them during the LLM phase for every standard task — a regression the correct form `engine not in CUA_ENGINES` would have avoided.",
+      "file": "skyvern/forge/agent.py",
+      "line": 857,
+      "summary": "Inverted condition: `if engine != RunEngine.openai_cua` was changed to `if engine in CUA_ENGINES` inside the else-branch that only non-CUA engines reach, so the LLM-phase async operation is now never started for skyvern_v1/v2 tasks"
+    },
+    {
+      "failure_scenario": "_generate_anthropic_actions calls llm_caller.call(..., betas=[\"computer-use-2025-01-24\"]) which lands in active_parameters, but _dispatch_llm_call invokes self._call_anthropic(messages, tools, timeout) without forwarding them, so _call_anthropic's `active_parameters` kwargs are always empty: betas is always None and max_tokens always falls back to 4096. The request for tool type computer_20250124 is sent without the computer-use beta, so the Anthropic API rejects it (computer use requires the beta) and every anthropic-cua step fails with LLMProviderError.",
+      "file": "skyvern/forge/sdk/api/llm/api_handler_factory.py",
+      "line": 666,
+      "summary": "_dispatch_llm_call drops **active_parameters when routing ANTHROPIC keys to _call_anthropic, so the computer-use beta and configured max_tokens passed by _generate_anthropic_actions never reach the Anthropic API"
+    },
+    {
+      "failure_scenario": "parse_anthropic_actions filters content blocks with block[\"type\"] == \"tool_use\" (line 459), then calls _parse_anthropic_computer_args which returns None whenever tool_call[\"type\"] != \"function\" — always true for Anthropic blocks, whose real shape is {\"type\": \"tool_use\", \"id\": ..., \"name\": \"computer\", \"input\": {\"action\": \"left_click\", ...}}. Every tool call is silently skipped, agent_step gets an empty action list, and each anthropic-cua step is marked failed ('No actions to execute').",
+      "file": "skyvern/webeye/actions/parse_actions.py",
+      "line": 575,
+      "summary": "_parse_anthropic_computer_args expects the OpenAI function-call schema (type 'function', function.name/function.arguments) but receives Anthropic tool_use blocks, so it always returns None and parse_anthropic_actions always produces zero actions"
+    },
+    {
+      "failure_scenario": "The first anthropic-cua step builds messages containing {\"type\": \"image_url\", \"image_url\": {\"url\": \"data:image/png;base64,...\"}} blocks (utils.py llm_messages_builder_with_history) and sends them straight to ANTHROPIC_CLIENT.messages.create with no conversion. The Anthropic SDK/API rejects the unknown content-block type (it expects {\"type\": \"image\", \"source\": {\"type\": \"base64\", ...}}), so the request raises a validation/400 error that call() converts to LLMProviderError and the step fails.",
+      "file": "skyvern/forge/sdk/api/llm/api_handler_factory.py",
+      "line": 681,
+      "summary": "_call_anthropic forwards messages built by llm_messages_builder_with_history, whose screenshots are OpenAI-style 'image_url' content blocks, directly to the Anthropic messages API which requires 'image' blocks with a 'source' field"
+    },
+    {
+      "failure_scenario": "After any anthropic-cua action executes, handler.py appends {\"type\": \"tool_result\", \"tool_use_id\": ..., \"content\": {\"result\": \"Tool executed successfully\"}} to the LLMCaller. On the next step, _generate_anthropic_actions appends current_tool_results to message_history, and llm_messages_builder_with_history sends them to the Anthropic API. ToolResultBlockParam.content accepts str or a list of content blocks, not a dict, so the SDK/API rejects the message and the second step of every anthropic task fails with LLMProviderError.",
+      "file": "skyvern/webeye/actions/handler.py",
+      "line": 374,
+      "summary": "Tool results recorded for the Anthropic caller use a dict for the tool_result 'content' field ({\"result\": ...}), which is not a valid Anthropic tool_result content (string or list of content blocks), so the next CUA request that replays this history fails validation"
+    },
+    {
+      "failure_scenario": "With ENABLE_BEDROCK_ANTHROPIC=true (the deployment mode the new setting exists for) and ENABLE_ANTHROPIC=false, LLMConfigRegistry.get_config(\"ANTHROPIC_CLAUDE3.5_SONNET\") hits the generic fallback (config_registry.py:38-46) whose model_name is the literal string \"ANTHROPIC_CLAUDE3.5_SONNET\"; _call_anthropic sends that as the model ID to the Bedrock client, which has no such model, so every anthropic-cua step fails. The commented-out BEDROCK_ANTHROPIC_CLAUDE3.5_SONNET_INFERENCE_PROFILE line shows the intended, never-wired key.",
+      "file": "skyvern/forge/agent.py",
+      "line": 388,
+      "summary": "The LLMCaller key is hardcoded to ANTHROPIC_CLAUDE3.5_SONNET even when the new ENABLE_BEDROCK_ANTHROPIC setting switches the client to AsyncAnthropicBedrock, so Bedrock-only deployments get a generic config whose model name is sent to Bedrock and rejected"
+    },
+    {
+      "failure_scenario": "set_llm_caller is called for each anthropic-cua task (agent.py:389), and each LLMCaller.message_history accumulates the messages of every step — each containing the step's base64 screenshot (LLM_REQUEST builder) — but grep shows clear_llm_caller is never invoked anywhere, including clean_up_task. A long-running server processing many CUA tasks leaks all conversation state indefinitely, growing memory without bound.",
+      "file": "skyvern/forge/sdk/api/llm/api_handler_factory.py",
+      "line": 692,
+      "summary": "LLMCallerManager stores one LLMCaller per task_id in a module-level dict that is never cleaned up (clear_llm_caller has no callers), retaining every task's full message history including base64-encoded screenshots of every step for the process lifetime"
+    }
+  ],
+  "level": null
+}

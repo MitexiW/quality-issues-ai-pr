@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "KilnParentedModel.parent is Field(exclude=True) and KilnBaseModel.load_from_file validates the JSON (context={'loading_from_file': True}) BEFORE assigning m.path, so during validation self.parent -> load_parent() returns None (path is still None) and parent_task() returns None. Any TaskRunConfig that was successfully saved (save_to_file -> build_path -> parent is set -> file written to <task>/run_configs/<id> - <name>/task_run_config.kiln) then fails on read: TaskRunConfig.load_from_file(path) / task.run_configs() raises ValidationError('Run config must be parented to a task'). Sibling child models handle this: TaskRun.validate_input_format/validate_output_format return early when parent_task() is None ('don't validate this relationship until we have a path or parent'), and EvalConfig has no parent-dependent model validator. No test in the diff covers the round trip, so this ships green.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 91,
+      "summary": "TaskRunConfig, now a persisted Task child, can be saved but never loaded back: validate_task raises when the parent is unavailable, and the parent is always unavailable during load_from_file."
+    },
+    {
+      "failure_scenario": "KilnParentModel._validate_nested (basemodel.py:514-520) does `subinstance = parent_type.model_validate(value)` and only afterwards `subinstance.parent = instance`. A client POSTing task_data containing \"run_configs\": [{\"name\": \"x\", \"run_config\": {...}}] to create_task (libs/server/kiln_server/task_api.py:31) therefore reaches validate_task with parent unset, which raises 'Run config must be parented to a task' and the endpoint returns 400 with an unactionable validation error for every run config. Before this diff run_configs was not in the parent_of map, so the key was ignored and the payload could not fail this way; the new registration is what exposes the defect. The other five Task child types (runs, dataset_splits, finetunes, prompts, evals) all construct standalone.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 108,
+      "summary": "Registering TaskRunConfig in Task.parent_of makes the repo's nested-save path (POST /api/projects/{id}/task) always reject run configs, because the child validator requires the parent before the framework assigns it."
+    },
+    {
+      "failure_scenario": "Old: `class TaskRunConfig(RunConfig, KilnParentedModel)` gave .task/.model_name/.model_provider_name/.prompt_id/.prompt_builder() directly. New: `class TaskRunConfig(KilnParentedModel)` exposes only the nested `run_config` field, while its own docstring still advertises it as 'A run config, parented to a Kiln Task ... Used for saving and sharing run configs'. Any consumer that treats the persisted object as a run config — e.g. BaseAdapter(run_config=task_run_config) (base_adapter.py:54 requires a RunConfig) or reading task_run_config.prompt_id/model_name — now fails with a pydantic ValidationError ('Input should be a valid dictionary or instance of RunConfig') or AttributeError. The new tests in test_task.py only construct instances and assert on .run_config, so nothing exercises the wrapper contract.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 63,
+      "summary": "TaskRunConfig was changed from a RunConfig subclass into a bare wrapper that forwards none of the wrapped RunConfig's fields or methods."
+    },
+    {
+      "failure_scenario": "RunConfig is a public datamodel type (kiln_ai is published as the kiln-ai package) and prompt_builder() was its only method; the diff re-establishes the behavior only inline at the single in-repo call site (base_adapter.py:59-61). Any downstream script/notebook that did `run_config.prompt_builder()` (the natural way to inspect the prompt a saved config produces) now raises AttributeError: 'RunConfig' object has no attribute 'prompt_builder'. Keeping a one-line method that calls prompt_builder_from_id(self.prompt_id, self.task) costs nothing; alternatively callers need a release note.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 43,
+      "summary": "The public RunConfig.prompt_builder() method was deleted rather than kept as a forwarding shim."
+    },
+    {
+      "failure_scenario": "Task defines explicit wrappers for runs/dataset_splits/finetunes/prompts/evals explicitly because the methods injected by KilnParentModel._create_child_method (setattr at class-creation time) are invisible to static analysis. run_configs was added to parent_of but has no wrapper, so pyright (run in CI via `uv run pyright .` in .github/workflows/build_and_test.yml) and IDE completion cannot see Task.run_configs(); the first caller to use it gets a type error, and the file's own comment ('These wrappers help for typechecking') documents the convention that was skipped.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 159,
+      "summary": "The new run_configs relationship was not given the typed accessor wrapper that every other Task child relationship has."
+    },
+    {
+      "failure_scenario": "After the PromptGenerators/PromptId/_check_prompt_id block was moved to kiln_ai/datamodel/prompt_id.py, `from enum import Enum` (line 3), `Annotated` in `from typing import Annotated, Dict` (line 4) and `from pydantic import AfterValidator` (line 6) are each referenced nowhere else in the file (verified by grep: AfterValidator appears only in the import, Enum/Annotated likewise). Dead imports mislead readers into thinking this module still owns the prompt-id machinery; CI's `ruff check --select I` does not flag F401, so it will not be caught automatically.",
+      "file": "libs/core/kiln_ai/adapters/prompt_builders.py",
+      "line": 6,
+      "summary": "Three imports left dead behind by the PromptId extraction."
+    },
+    {
+      "failure_scenario": "libs/core/kiln_ai/adapters/eval/g_eval.py:7 still does `from kiln_ai.adapters.prompt_builders import PromptGenerators` and only works because line 8 happens to import the name from kiln_ai.datamodel (and similarly libs/core/kiln_ai/adapters/test_prompt_builders.py): the import is load-bearing for another module but is not a deliberate re-export (no __all__, no comment). Cleaning up that import as unused (as flagged for this same block) silently breaks g_eval with ImportError at module import. Either import directly from kiln_ai.datamodel in g_eval.py, or mark the re-export explicitly.",
+      "file": "libs/core/kiln_ai/adapters/prompt_builders.py",
+      "line": 8,
+      "summary": "PromptGenerators/PromptId are no longer defined here but survive as accidental re-exports that other modules import from."
+    },
+    {
+      "failure_scenario": "The deleted block was the only user of `BaseModel` (class TestModel(BaseModel)) and `ValidationError` in this file; the grep over the current file shows both names only on the import line. The moved tests live in libs/core/kiln_ai/datamodel/test_prompt_id.py, so these imports are pure residue that will confuse future readers and trigger F401 for anyone who enables it.",
+      "file": "libs/core/kiln_ai/adapters/test_prompt_builders.py",
+      "line": 4,
+      "summary": "pydantic BaseModel/ValidationError imports are now unused after the PromptId tests moved out."
+    }
+  ],
+  "level": null
+}

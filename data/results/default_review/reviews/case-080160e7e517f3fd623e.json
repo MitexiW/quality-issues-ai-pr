@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "vite/src/views/onboarding/onboarding-steps/CheckAccess.tsx",
+      "line": 184,
+      "summary": "FeatureTypeBadge component signature changed from {type} prop to full Feature object, but two callers in CheckAccess.tsx (lines 184, 199) were not updated and still pass type={val}. Non-Boolean features will display 'single use' badge instead of the correct type.",
+      "failure_scenario": "Onboarding with metered features: selectedFeature.type is 'metered', passed as {type:'metered'} to FeatureTypeBadge. The new component reads feature.config?.usage_type which is undefined (no config prop passed). Falls through to 'single use' display. User sees wrong feature type label in the onboarding CheckAccess step.",
+      "finding_id": "mf-84c0de497ad269482bb1"
+    },
+    {
+      "file": "vite/src/views/customers/customer/customer-sidebar/select-entity.tsx",
+      "line": 31,
+      "summary": "Debugging console.log(cusContext) left in production code, leaks the full customer context object (potentially including customer data, features, env info) to the browser console.",
+      "failure_scenario": "Any page load in the customer detail view triggers `useCustomerContext()` then logs it. Customer data (IDs, feature assignments, product states) appears in browser devtools for any user who opens the console, violating data hygiene expectations.",
+      "finding_id": "mf-483ef8ee6bc411a6629c"
+    },
+    {
+      "file": "vite/src/views/features/FeatureTypeBadge.tsx",
+      "line": 10,
+      "summary": "Debugging console.log('feature', feature) left in production code, will fire on every render of the FeatureTypeBadge component and spam the console with full feature objects.",
+      "failure_scenario": "FeaturesTable renders a row per feature; FeatureTypeBadge is called once per row. Every render cycle logs all feature data to console, producing noisy output and potentially leaking feature config details.",
+      "finding_id": "mf-9c99d13f90a1150453c9"
+    },
+    {
+      "file": "vite/src/views/onboarding/onboarding-steps/SampleApp.tsx",
+      "line": 214,
+      "summary": "React 'Check' and 'Track' code snippet templates call useCustomer() hook at module level instead of inside a React component function, teaching users invalid hook usage patterns.",
+      "failure_scenario": "User copies the displayed example code (const { allowed } = useCustomer() at module level) into their own React component. React throws 'Invalid hook call' / 'Hooks must be called inside a function component' error. The old snippet wrapped hooks inside an export default function component.",
+      "finding_id": "mf-11f9ed80b5c5956fae2c"
+    },
+    {
+      "file": "vite/src/views/features/FeatureTypeBadge.tsx",
+      "line": 5,
+      "summary": "FeatureTypeBadgeProps interface is defined but never used after the component signature was changed to accept (feature: Feature) directly. Dead code.",
+      "failure_scenario": "Maintainers reading the code see the interface and may assume it is the contract, leading to confusion about the actual component interface. Unused interface adds noise.",
+      "finding_id": "mf-7b6b5483aad06ebbe223"
+    },
+    {
+      "file": "vite/src/views/products/components/ProductTypeBadge.tsx",
+      "line": 13,
+      "summary": "Nine lines of the old JSX implementation left as commented-out code after the rewrite, creating dead-code maintenance burden.",
+      "failure_scenario": "Future maintainers spend time wondering whether the commented code should be deleted, whether it's kept as a reference for a planned revert, or whether they should follow it as a pattern. Adds visual noise and diff clutter.",
+      "finding_id": "mf-e5d2422ef90373ea9135"
+    },
+    {
+      "file": "vite/src/views/products/CreateProduct.tsx",
+      "line": 22,
+      "summary": "The Check icon import from lucide-react is no longer used after replacing inline button logic with the ToggleButton component. Dead import.",
+      "failure_scenario": "Build tooling (tree-shaking) may or may not remove it. In stricter linting environments this becomes a build error. Adds unnecessary dependency reference.",
+      "finding_id": "mf-a8f662270f1884b86189"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/WireMarshaller.java",
+      "line": 2855,
+      "summary": "Compile error: variable 'instance' is not in scope inside setValue(Object o, ...)",
+      "failure_scenario": "The IntConversionFieldAccess.setValue method signature retains parameter name 'o' (line 2843), but line 2855 references 'instance' which is only defined as a parameter name in the adjacent getInt and putInt methods. The compiler cannot resolve 'instance' and will reject the file. Calling any code path that triggers WireMarshaller construction (such as serializing or deserializing a marshallable object with an int field having a custom LongConversion annotation) will fail at class-load time with a NoSuchFieldError or compilation error.",
+      "finding_id": "mf-7adaea530994e3f42ca5"
+    }
+  ]
+}

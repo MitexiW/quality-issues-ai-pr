@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "ddns/config/env.py",
+      "line": 66,
+      "summary": "Removed HTTP_PROXY/HTTPS_PROXY standard environment variable support -- breaking change with no migration path",
+      "failure_scenario": "User sets HTTP_PROXY='http://proxy.corp.com:8080' (common Docker/CI convention). Under old code this was collected as proxy config with DIRECT fallback. Under new code, HTTP_PROXY is silently ignored; the DDNS client connects directly without any proxy, leaking internal traffic on corporate networks.",
+      "finding_id": "mf-84aaa0c70d433042f5d5"
+    },
+    {
+      "file": "ddns/util/http.py",
+      "line": 49,
+      "summary": "_proxy_handler does not handle 'NONE' proxy entries - treats them as invalid hostnames (regression from removed config normalization)",
+      "failure_scenario": "User upgrades from old version with config proxy: ['http://proxy:8080', 'NONE']. Old config.py converted NONE to None (direct-connection fallback). New _proxy_handler does not match NONE in any special case, falls through to legacy format detection, prepends 'http://' -> 'http://NONE'. ProxyHandler tries to connect to host 'NONE' which fails, causing all requests to fail even though the first proxy was reachable.",
+      "finding_id": "mf-07d8e1ee6e4065c79559"
+    },
+    {
+      "file": "ddns/util/http.py",
+      "line": 52,
+      "summary": "None entry in proxy list now means SYSTEM proxy instead of direct connection due to _proxy_handler falsy check",
+      "failure_scenario": "A proxy list like ['http://proxy:8080', None] is passed to request(). _proxy_handler(None) enters the 'not proxy' branch and returns ProxyHandler() (system proxy via env vars). Old behavior treated None as direct (request without proxy). If the primary proxy fails, the fallback now uses potentially-unexpected system proxy settings instead of bypassing all proxies.",
+      "finding_id": "mf-97232908a780bcf2aa31"
+    },
+    {
+      "file": "ddns/util/http.py",
+      "line": 49,
+      "summary": "Documentation claims default (proxy: null / not set) uses system proxy, but code implements direct connection",
+      "failure_scenario": "JSON documentation states 'proxy: null' means 'Use system default proxy settings'. But config.py defaults proxy to [] (empty list), and request(proxies=[]) goes through run(None) with no ProxyHandler at all -- a direct connection. A user who reads the docs and sets proxy: null expecting system proxy will instead get a direct connection with no proxy.",
+      "finding_id": "mf-c56876a04ec3dac33d57"
+    },
+    {
+      "file": "ddns/util/http.py",
+      "line": 54,
+      "summary": "Tuple-vs-string bug: 'proxy.upper() in (\"DIRECT\")' uses substring matching instead of set-membership test",
+      "failure_scenario": "Python evaluates (\"DIRECT\") as a plain string, not a tuple of one element. The 'in' operator on strings does substring matching. If a proxy string happens to contain 'DIRECT' as a substring (e.g., 'http://direct-proxy.example.com:8080'), it incorrectly matches and returns ProxyHandler({}) (direct connection) instead of the intended proxy. Currently latent because valid proxy values do not contain 'DIRECT' as a substring.",
+      "finding_id": "mf-60f1d7ac2603107cd06e"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 860,
+      "summary": "Cache requests lack request tags and can NPE after fragment destroy",
+      "failure_scenario": "User clicks 'Cache stories', then navigates away before the 20 Algolia API calls complete. The outer and inner Volley requests have no `setTag(requestTag)`, so `onDestroyView()`'s `queue.cancelAll(requestTag)` cannot cancel them. The success callback `res -> Utils.cacheStory(getContext(), id, res)` fires after fragment detach; `getContext()` returns null, causing NullPointerException in `SettingsUtils.saveStringToSharedPreferences(null, ...)` at `ctx.getSharedPreferences(...)`. The `Toast.makeText(getContext(), ...)` calls (lines 862, 867) also NPE on null Context.",
+      "finding_id": "mf-897bdbf03255afd041b0"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 215,
+      "summary": "Unguarded Long.parseLong in hasCachedStories crashes RecyclerView binding on corrupted cache data",
+      "failure_scenario": "If the cached-stories StringSet in SharedPreferences contains an entry like 'abc-def' (valid split length but non-numeric timestamp, e.g. from backup corruption), `Long.parseLong(split[1])` at line 215 throws NumberFormatException. This method is called from `StoryRecyclerViewAdapter.onBindViewHolder()` (line 295) during RecyclerView binding on the main thread. The uncaught RuntimeException crashes the app whenever the stories list header is bound, making the app unusable until cache data is cleared externally.",
+      "finding_id": "mf-b6339e87579d4379bf51"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 237,
+      "summary": "Unguarded Integer.parseInt / Long.parseLong in loadCachedStories crashes on corrupted cache data",
+      "failure_scenario": "Same root cause as hasCachedStories: if the cached-stories StringSet contains a corrupted entry where `split[0]` is non-numeric or `split[1]` is non-numeric, `Integer.parseInt(split[0])` at line 237 or `Long.parseLong(split[1])` at line 238 throws NumberFormatException. This propagates up through `showCachedStories()` → click listener callback, crashing the app when the user taps 'Show cached stories'. Unlike the JSON parsing block (line 257 catch), these parse calls are outside any try-catch.",
+      "finding_id": "mf-f03c32b68d4e07953f8d"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 862,
+      "summary": "'Stories cached' Toast fires before inner per-story requests complete, misleading users",
+      "failure_scenario": "The 'Stories cached' success Toast at line 862 fires in the outer request's success callback, immediately after queueing up to 20 inner per-story fetch requests via `queue.add(r)`. None of the inner requests have completed yet. The user sees confirmation that caching is done, but if they navigate away or close the app, the inner requests either run to completion (if untagged — see finding 1) or are lost, resulting in only a partial cache. The Toast should fire only after all inner requests complete.",
+      "finding_id": "mf-8cc251c176acb5c9ccdc"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 81,
+      "summary": "showingCached boolean field is written at 4 locations but never read — dead code",
+      "failure_scenario": "The `showingCached` field is set to true in `showCachedStories()` (line 873) and set to false in `attemptRefresh()` (line 589) and the type-click listener (line 263), but it is never checked anywhere — no guard in `onResume()`, scroll listener, `loadStory()`, or any other code path. This creates a maintenance burden (future readers assume it gates behavior) and wastes the work of maintaining it. If it is meant to prevent `onResume` from showing the update button or changing settings while cached stories are displayed, that protection is missing.",
+      "finding_id": "mf-bd47f0a186492dce143f"
+    }
+  ]
+}

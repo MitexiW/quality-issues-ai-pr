@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Databricks tracking URI; user calls MlflowClient.search_traces(include_spans=False). Previously this branch built Trace(trace_info, TraceData(spans=[])) directly with no per-trace calls, so only store.search_traces could fail. Now download_trace_extra_fields runs self.get_trace_info(trace_info.request_id, should_query_v3=True) for each trace before the new early return at line 338-339; if any trace was deleted between search and fetch (RESOURCE_DOES_NOT_EXIST) or the endpoint returns a transient 5xx/permission error, the MlflowException is not covered by the except MlflowTraceDataException guard (which only wraps _download_trace_data, never reached in this branch), propagates through executor.map, and the whole search raises instead of returning the remaining traces — a regression from the previous behavior where include_spans=False succeeded.",
+      "file": "mlflow/tracking/_tracking_service/client.py",
+      "line": 338,
+      "summary": "For include_spans=False on a Databricks backend, the refactored search_traces now makes an unguarded per-trace get_trace_info(should_query_v3=True) REST call for every result; a single failing trace aborts the entire search, and every search incurs N extra round-trips."
+    },
+    {
+      "failure_scenario": "mock_v3_artifact_repo.download_trace_data.return_value = {\"spans\": []} means TraceData.from_dict iterates zero spans and the new v3 guard in Span.from_dict never runs; deleting _get_trace_id_if_v3_format entirely leaves this test green. Conversely, the test name claims search_traces 'raises for v3 format', but if the implementation actually raised (e.g., when the V3 repo returned a real V3 span dict as in tests/entities/test_span.py), the bare mlflow.search_traces() call at line 1317 would error the test because no raise is expected — so the test pins the opposite behavior of its name while exercising neither, leaving the cross-version compatibility fix unverified at the search level.",
+      "file": "tests/tracing/test_fluent.py",
+      "line": 1263,
+      "summary": "The new test_search_traces_raises_for_v3_format test contains no pytest.raises and no assertions, and its V3 artifact mock returns {\"spans\": []}, so Span.from_dict (and thus the new _get_trace_id_if_v3_format guard) is never executed — the test passes trivially and provides no regression coverage for the V3-detection feature."
+    },
+    {
+      "failure_scenario": "Span.from_dict is a public classmethod; given a span dict with top-level \"trace_id\" in a non-V3 encoding whose characters are all in the base64 alphabet — e.g. {\"name\": \"x\", \"trace_id\": \"0123456789abcdef0123456789abcdef\"} (a 32-char hex trace id, no \"context\") — b64decode(validate=False) succeeds and yields 24 bytes, int.from_bytes and encode_trace_id then produce a bogus 48-hex-digit ID, and from_dict raises the misleading 'Failed to load trace with ID tr-…, created with MLflow 3.x, upgrade MLflow' error that blocks loading and sends the user on a wrong diagnosis; likewise a dict with \"trace_id\": \"\" decodes to 0 and reports 'tr-0000…'. Passing validate=True and verifying the decoded payload is exactly 16 bytes would restrict the raise to genuine V3 (base64-encoded 16-byte OTel trace IDs) data.",
+      "file": "mlflow/entities/span.py",
+      "line": 326,
+      "summary": "_get_trace_id_if_v3_format decodes the trace_id with base64.b64decode without validate=True and without checking the decoded length is 16 bytes, so any base64-alphabet string (e.g., a 32-char hex trace ID) is silently decoded and misclassified as a V3 trace with a fabricated trace ID."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 289,
+      "summary": "__get_events returns inconsistent types: Kubernetes V1Event objects when sort_by is provided and sorting succeeds, but dicts (via .to_dict()) when sort_by is omitted or sorting fails",
+      "failure_scenario": "A workflow step calls get_events with sort_by='lastTimestamp'. The sorted results returned as V1Event objects cannot be iterated in Jinja2 foreach templates the same way as dicts, and all downstream filters (e.g., selectattr) that worked with dict results will fail silently on object results. Example: {{ foreach.value.reason }} works on dicts but may fail on V1Event objects depending on attribute naming.",
+      "finding_id": "mf-ea3d6176b08e0b158966"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 608,
+      "summary": "replicas parameter in __scale_deployment is passed as a string from workflow YAML template rendering, but the Kubernetes API expects an integer",
+      "failure_scenario": "A workflow YAML defines `replicas: \"{{ alert.replicas }}\"` where alert.replicas=5. The template engine renders this to the Python string '5'. The JSON body `{\"spec\":{\"replicas\":\"5\"}}` is sent to the K8s scale sub-resource, which rejects it with a 400/422 error because replicas must be an integer. All scale_deployment and scale_deploymentconfig actions will fail.",
+      "finding_id": "mf-d7fdc1bb492ba279c513"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 458,
+      "summary": "__rollout_restart constructs a malformed ISO 8601 timestamp by appending 'Z' to an already timezone-qualified string, producing '+00:00Z' which is not valid RFC 3339",
+      "failure_scenario": "datetime.datetime.now(datetime.timezone.utc).isoformat('T') produces '2026-07-28T10:30:00.123456+00:00'. Appending 'Z' gives '... +00:00Z'. This annotation value is stored in the Kubernetes deployment. Any audit/monitoring tool that parses this timestamp using standard Go time.RFC3339 or Python datetime.fromisoformat() will fail. The restart itself still triggers because the annotation just needs to change value, but the timestamp is unusable for observability.",
+      "finding_id": "mf-707aabd9b57a16bb48c8"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 115,
+      "summary": "__test_connection_via_rest_api permanently modifies the global Python warnings filter with warnings.filterwarnings('ignore'), affecting all other providers and threads in the process",
+      "failure_scenario": "Each validate_scopes() call adds a duplicate 'ignore' filter for 'Unverified HTTPS request' to the global warnings registry. After several calls, the filter list grows unbounded. More critically, this globally suppresses SSL verification warnings for ALL HTTPS requests in the process — if another provider has a genuine SSL issue (e.g., expired cert), its warnings will also be silently suppressed. This is not thread-safe and leaks state across provider instances.",
+      "finding_id": "mf-7bdd8b686e3908da9bd6"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 196,
+      "summary": "_query eagerly creates the Kubernetes client via __get_k8s_client() even for commands (get_routes, get_deploymentconfigs, get_projects) that only use raw REST API and never touch the k8s client",
+      "failure_scenario": "If the Kubernetes Python client's ApiClient constructor raises (e.g., due to a future breaking change in the kubernetes library's host parsing), query operations for routes, deployment configs, and projects will fail even though these methods use plain requests.get() and do not depend on the k8s client at all. The eager initialization unnecessarily couples REST-only operations to the k8s client.",
+      "finding_id": "mf-cfb58197d2ab6dc3d034"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 87,
+      "summary": "Dead code: __get_ocp_client() method is defined but never called after the refactor replaced all OC CLI-based operations with direct REST API calls",
+      "failure_scenario": "The method constructs an openshift_client.Context but is unreachable from _query, _notify, validate_scopes, or any other method. It remains as a maintenance hazard — a future developer might mistakenly add a caller or miss that it is untested dead code. The openshift_client import is also only used by this dead method.",
+      "finding_id": "mf-143433eec9e8fef3f60d"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 472,
+      "summary": "__rollout_restart labels parameter validates existence of label-matching resources but then patches by name, creating a semantic mismatch between the validation target and the mutation target",
+      "failure_scenario": "A workflow specifies both `labels: 'app=myapp'` and `name: 'different-deployment'`. The method checks that at least one deployment with `app=myapp` exists (succeeds), then patches `different-deployment` by name. The caller's intent (restart the labeled deployment) is silently subverted — a different deployment gets patched instead. The correct behavior would be to verify the named deployment has those labels, or to patch the label-matched deployment directly.",
+      "finding_id": "mf-7801d14c6be671131956"
+    },
+    {
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 119,
+      "summary": "REST API request construction (Authorization header, SSL verification toggle) is duplicated across 6 methods (__test_connection_via_rest_api at line 119, __get_routes at line 379, __get_deploymentconfigs at line 407, __get_projects at line 436, __rollout_restart_deploymentconfig at line 526, __scale_deploymentconfig at line 623)",
+      "failure_scenario": "If the authentication mechanism changes (e.g., a new header is needed, or token refresh is added), 6 separate locations must be updated consistently. A single oversight in one method (e.g., forgetting to update the `verify_ssl` logic) causes that specific operation to fail with authentication errors while others succeed. The duplication also bloats the class by ~15 lines per method.",
+      "finding_id": "mf-c2f73265655d6a40d040"
+    }
+  ]
+}

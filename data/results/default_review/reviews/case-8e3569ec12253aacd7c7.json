@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "src/cli.ts",
+      "line": 3,
+      "summary": "CLI crashes on --help and --version when API keys are not configured, because importing getResponse triggers module-level env var checks in config.ts before commander parses arguments",
+      "failure_scenario": "User runs 'deepresearch --help' without setting JINA_API_KEY env var. Import chain cli.ts -> agent.ts -> config.ts executes line 137 'if (!JINA_API_KEY) throw new Error(\"JINA_API_KEY not found\")' at module load time, crashing before commander outputs help text.",
+      "finding_id": "mf-9ddb3fa49e20f9767fc3"
+    },
+    {
+      "file": "package.json",
+      "line": 4,
+      "summary": "'main' field 'dist/index.js' points to a file that will never exist: no src/index.ts source file means tsc never creates dist/index.js, making the package unimportable",
+      "failure_scenario": "User runs 'npm install node-deepresearch' followed by 'require(\"node-deepresearch\")' or 'import ... from \"node-deepresearch\"'. Node resolves to dist/index.js which does not exist, producing MODULE_NOT_FOUND. The package also has no 'bin' field, so the CLI command cannot be invoked either.",
+      "finding_id": "mf-2ab69a24921bd576a388"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 421,
+      "summary": "When evaluator deems answer definitive but references are missing and URLs are available, the code still sets isAnswered=true and breaks out of the loop, returning an unreferenced answer (pre-existing bug now exposed through the new CLI)",
+      "failure_scenario": "Agent produces an answer the evaluator accepts (is_definitive=true) but without references. The condition on line 389 'thisStep.references?.length > 0 || Object.keys(allURLs).length === 0' is false (references.length is 0 and URLs exist). The else branch pushes a diary note about needing references, but execution falls through to line 421 'isAnswered = true; break', exiting the loop and returning the unreferenced answer. The agent should continue searching for references instead.",
+      "finding_id": "mf-e8fe413e5d4fa61827d7"
+    },
+    {
+      "file": "src/cli.ts",
+      "line": 14,
+      "summary": "parseInt(val) validation accepts inputs like '10abc' (returns 10) and '0x10' (returns 16), silently coercing garbage suffixes into numbers",
+      "failure_scenario": "User runs 'deepresearch -t 50abc \"query\"' expecting an error for the invalid number. parseInt('50abc') returns 50, so the token budget is silently set to 50 instead of the intended 500000 or producing a validation error. Use Number(val) or val.match(/^\\d+$/) for strict validation.",
+      "finding_id": "mf-424e9c1559a64bbee3b5"
+    },
+    {
+      "file": "src/__tests__/cli.test.ts",
+      "line": 9,
+      "summary": "jest.mock('../agent', ...) is dead code: all tests use execAsync which spawns child processes where the mock has no effect, and no test imports the mocked module directly",
+      "failure_scenario": "A developer adds tests that call getResponse directly (not through execAsync), expecting the mock to intercept them. The mock is silently non-functional for the existing test pattern, and the tests pass only because real environment variables satisfy the module-load checks. If a future test relies on the mock, it will call the real agent with real API costs.",
+      "finding_id": "mf-818a05abbb98ba139ae2"
+    },
+    {
+      "file": ".github/workflows/npm-publish.yml",
+      "line": 24,
+      "summary": "GOOGLE_API_KEY env var is set from secrets.GEMINI_API_KEY (wrong secret name); the codebase never reads GOOGLE_API_KEY and always passes GEMINI_API_KEY explicitly to createGoogleGenerativeAI, making this mapping dead and misleading",
+      "failure_scenario": "If future code changes rely on GOOGLE_API_KEY env var (e.g., using @ai-sdk/google's default credential resolution), it would silently receive the Gemini API key instead of a dedicated Google API key, potentially causing auth failures for non-Gemini Google services. Currently the mapping is harmless dead config copied from the existing test.yml.",
+      "finding_id": "mf-0a983e3ac7205a902bda"
+    },
+    {
+      "file": "package.json",
+      "line": 44,
+      "summary": "@types/commander ^2.12.0 is installed alongside commander ^13.1.0; commander v13 ships its own TypeScript types, and the v2 type definitions are for a completely different API surface, risking type conflicts",
+      "failure_scenario": "TypeScript may resolve @types/commander's module declaration for 'commander' instead of commander v13's built-in types. The code currently works around this by typing options as 'any', but if someone adds typed option access, they would get v2-era types that don't match the v13 API (e.g., missing features, different method signatures).",
+      "finding_id": "mf-c4c57c7d25d84a4ae814"
+    }
+  ]
+}

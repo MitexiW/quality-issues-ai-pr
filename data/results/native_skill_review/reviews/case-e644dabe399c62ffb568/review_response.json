@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User opens Void's Settings pane: voidSettingsPane.ts:93 mounts `Settings` via mountVoidSettings. Because `const deleteme = true`, the component returns at line 964-968 on every render and never reaches the tabs at line 970+, so the Models/General settings (including the new includeToolLintErrors switch added in this same diff at line 651) can no longer be opened at all; the whole settings UI becomes dead code.",
+      "file": "src/vs/workbench/contrib/void/browser/react/src/void-settings-tsx/Settings.tsx",
+      "line": 963,
+      "summary": "The debug flag `deleteme` is now hard-coded to `true`, so the exported Settings component always returns <VoidOnboarding /> and the real settings UI is unreachable."
+    },
+    {
+      "failure_scenario": "react/tsup.config.js sets `platform: 'browser'` and `noExternal: [/^(?!\\.).*$/]`, so esbuild must resolve `console` from node_modules; no package named `console` exists in package.json/package-lock.json, so `npm run buildreact` (which builds ./src2/sidebar-tsx/index.tsx -> SidebarChat.tsx) fails to resolve it (or bundles a Node shim into the renderer). The binding is never used (line 1353 shadows it with the `lintErrors.map((error, i) => ...)` parameter), and eslint.config.js `local/code-import-patterns` permits 'console' only for `hasNode` layers, not `browser` (allow: []).",
+      "file": "src/vs/workbench/contrib/void/browser/react/src/sidebar-tsx/SidebarChat.tsx",
+      "line": 31,
+      "summary": "Unused import of the Node builtin 'console' in a browser-layer React component; the file is bundled by tsup with platform 'browser' and noExternal forcing every bare specifier to be bundled."
+    },
+    {
+      "failure_scenario": "The open-param loop (lines 210-216) calls removeFromStartUntilFullMatch for each allowedParams entry in schema order and, on success, advances pm.i past that tag. For edit_file (allowedParams ['uri','change_description']), if the model emits `<change_description>edit X</change_description><uri>/a.ts</uri>`, the search for `<uri>` matches the later tag first, jumps past the change_description block, and the next search can never find `<change_description>`; the parsed call has only {uri}, validateParams.edit_file (toolsService.ts:236 validateStr('changeDescription', undefined)) throws, and the edit is never applied. With read_file, `<start_line>10</start_line><uri>/f.ts</uri><end_line>20</end_line>` silently drops start_line and reads lines 1-20 instead of 10-20. The deleted SAX parser handled any param order.",
+      "file": "src/vs/workbench/contrib/void/electron-main/llmMessage/extractGrammar.ts",
+      "line": 211,
+      "summary": "Tool params are matched in declaration order rather than by earliest tag position, so a tool call whose params are written out of order silently loses the earlier params."
+    },
+    {
+      "failure_scenario": "`for (const str of matches) { const idx = fullText.indexOf(str); if (idx !== -1) return [idx, str] }` scans toolOpenTags in voidTools key order (read_file is 1st, run_terminal_command last). If a response contains `<run_terminal_command>...` at index 100 and a later mention of `<read_file>` at index 300, findIndexOfAny returns read_file/idx=300, foundOpenTag is set to read_file, fullText is truncated at 300 (discarding the real call), and parseXMLPrefixToToolCall parses whatever read_file params it can find after index 300 - producing a bogus read_file tool call instead of the terminal command the model requested.",
+      "file": "src/vs/workbench/contrib/void/electron-main/llmMessage/extractGrammar.ts",
+      "line": 153,
+      "summary": "findIndexOfAny returns the first tool tag present in tool-declaration order instead of the earliest tag in the text, so the wrong tool call is parsed when a message contains two different tool tags."
+    },
+    {
+      "failure_scenario": "getAllDirectoriesStr is called from chatThreadService._generateSystemMessage (chatThreadService.ts:516), which runs at the start of every agent-loop LLM request. For a large workspace `str` is MAX_DIRSTR_CHARS_TOTAL_BEGINNING = 20,000 characters, so every chat step dumps ~20KB of file listing to the renderer console and pollutes logs; the sibling debug logs ('11111!!!!', 'cutoff!!!!!!!') show this is stray debugging.",
+      "file": "src/vs/workbench/contrib/void/browser/directoryStrService.ts",
+      "line": 420,
+      "summary": "Leftover debug console.log prints the entire generated directory string (up to 20k chars) plus the cut-off message on every call to getAllDirectoriesStr."
+    },
+    {
+      "failure_scenario": "The diff comments out `this.i = this.j + 1` and returns false. removeCodeBlock (line 89) ignores the return value and relies on the old side effect to skip an unparsable language. With text ```` ```typescript const x = 1``` ```` (no newline after the opening fence) the search for '\\n' now fails without moving i, so removeSuffix('```') succeeds and extractCodeFromRegular returns 'typescript const x = 1' instead of '' - the language is inserted into the autocomplete/edit suggestion (autocompleteService.ts:179/837, editCodeService.ts:1374-1377).",
+      "file": "src/vs/workbench/contrib/void/common/helpers/extractCodeFromResult.ts",
+      "line": 68,
+      "summary": "removeFromStartUntilFullMatch no longer advances `i` past the end on failure, which changes removeCodeBlock's behaviour: the language token of a fence without a newline now leaks into the extracted code."
+    },
+    {
+      "failure_scenario": "When findPartiallyWrittenToolTagAtEnd returns true the entire delta is stored in openToolTagBuffer and withheld from fullText (lines 287-291). If the response ends there (model stopped, max tokens, or the message literally ends with '<'/'<edit_fi'), newOnFinalMessage calls newOnText (still partial, so nothing is appended) and returns `fullText`, which omits that chunk; e.g. a reply 'Use x <' as its final chunk loses 'Use x ' from the assistant message shown to the user and stored in the thread.",
+      "file": "src/vs/workbench/contrib/void/electron-main/llmMessage/extractGrammar.ts",
+      "line": 338,
+      "summary": "newOnFinalMessage never flushes openToolTagBuffer, so if the stream ends while a tool-tag prefix is pending the whole last streamed chunk is dropped from the final message text."
+    },
+    {
+      "failure_scenario": "`useState<ProviderName>('anthropic')` at line 170 plus `permanentProviderName ?? userChosenProviderName` at line 172 makes providerName a non-nullable `ProviderName`, so the `if (providerName === null) { setErrorString('Please select a provider.') }` branch at 227-230 can never run (and tsc reports TS2367 'no overlap' for the comparison under react/tsconfig.json's strict mode) - the error path is dead and misleads future edits.",
+      "file": "src/vs/workbench/contrib/void/browser/react/src/void-settings-tsx/Settings.tsx",
+      "line": 227,
+      "summary": "The `providerName === null` guard is now unreachable/dead because userChosenProviderName was changed from `ProviderName | null` to `ProviderName`."
+    },
+    {
+      "failure_scenario": "The string shipped in every gather-mode system message reads 'You are in Gather mode, so you MUST use tools be to gather information, files, and context...'; the broken clause degrades the instruction the model is meant to follow (and contradicts the earlier 'Only call tools if they help you accomplish the user's goal / do NOT use tools' line if tidied incorrectly).",
+      "file": "src/vs/workbench/contrib/void/common/prompt/prompts.ts",
+      "line": 307,
+      "summary": "The rewritten Gather-mode instruction is grammatically garbled ('you MUST use tools be to gather information')."
+    },
+    {
+      "failure_scenario": "Grep for MAX_DIRSTR_RESULTS_TOTAL across src/vs/workbench/contrib/void returns only these two declarations; the directory service instead defines its own MAX_FILES_TOTAL = 300 and DEFAULT_MAX_ITEMS_PER_DIR = 3 in directoryStrService.ts. The exported limits are dead API and mislead future readers into thinking the result caps are configurable from prompts.ts.",
+      "file": "src/vs/workbench/contrib/void/common/prompt/prompts.ts",
+      "line": 19,
+      "summary": "Newly added MAX_DIRSTR_RESULTS_TOTAL_BEGINNING/MAX_DIRSTR_RESULTS_TOTAL_TOOL constants are never used anywhere."
+    },
+    {
+      "failure_scenario": "The diff removes `import { VoidDirectoryItem } from '../common/directoryStrTypes.js'` and the computeDirectoryTree/stringifyDirectoryTree implementation that produced those items; grep for 'directoryStrTypes' over src now returns no importers, leaving a dead file that no longer describes any live data structure.",
+      "file": "src/vs/workbench/contrib/void/common/directoryStrTypes.ts",
+      "line": 3,
+      "summary": "The VoidDirectoryItem type module is now orphaned: its only importer (directoryStrService.ts) dropped the import in this diff."
+    },
+    {
+      "failure_scenario": "The deleted stringifyDirectoryTree emitted `${nextLevelPrefix}└── ... (${child.isGitIgnoredDirectory.numChildren} children) ...` for filtered dirs; renderChildrenCombined only skips recursion (line 267-270) and prints e.g. 'resources/' with nothing under it and no wasCutOff flag, so the system-prompt directory listing no longer distinguishes an intentionally-filtered directory (node_modules, resources, vendor) from an empty one.",
+      "file": "src/vs/workbench/contrib/void/browser/directoryStrService.ts",
+      "line": 270,
+      "summary": "Excluded directories are now rendered as bare names, dropping the old '... (N children) ...' annotation that told the model the directory was skipped rather than empty."
+    }
+  ],
+  "level": null
+}

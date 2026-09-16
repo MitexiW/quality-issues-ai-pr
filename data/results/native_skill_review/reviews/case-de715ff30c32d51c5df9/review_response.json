@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user without semantic-kernel runs `from azure.ai.evaluation import *`. CPython's star-import iterates `__all__` and calls getattr on each name; for 'SKAgentConverter' __getattr__ raises ImportError, which the star-import machinery does not swallow (it only skips AttributeError when __getattr__ exists), so the whole import statement raises and none of `evaluate`, `CoherenceEvaluator`, etc. are usable. Before this change `__all__` simply omitted the converter names when the dependency was absent, so star import succeeded. Likewise `hasattr(azure.ai.evaluation, 'AIAgentConverter')` now raises ImportError instead of returning False and `getattr(mod, name, None)` raises instead of returning None, breaking feature-detection idioms.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/__init__.py",
+      "line": 149,
+      "summary": "Module-level __getattr__ raises ImportError for optional-dependency names that are now unconditionally listed in __all__, which aborts `from azure.ai.evaluation import *` and breaks hasattr/getattr feature detection when azure-ai-projects or semantic-kernel is not installed."
+    },
+    {
+      "failure_scenario": "A developer deletes __getattr__ from azure/ai/evaluation/__init__.py, misnames a module path in the _lazy_imports registration, or drops 'AIAgentConverter'/'SKAgentConverter' from __all__; all three tests still pass because they only exercise the locally redefined functions. The stderr assertion in test_no_messages_during_module_import is doubly vacuous: the module is never imported (nothing that could print ever runs) and it captures stderr even though the print() being guarded against wrote to stdout.",
+      "file": "sdk/evaluation/azure-ai-evaluation/tests/unittests/test_lazy_imports.py",
+      "line": 22,
+      "summary": "The new tests never import the real azure.ai.evaluation module; they redefine _create_lazy_import and __getattr__ as local copies and assert against those copies, so the shipped lazy-import implementation is completely untested."
+    },
+    {
+      "failure_scenario": "A user without pyrit runs `from azure.ai.evaluation.red_team._attack_strategy import AttackStrategy`. _attack_strategy.py, _attack_objective_generator.py and _red_team_result.py contain no pyrit imports (only _red_team.py imports pyrit at line 68), and under the old code the package __init__ caught the ImportError, printed INFO, and completed, so the submodule import succeeded. Now the package __init__ raises ImportError, so users who only need the pyrit-independent enum/result types are told to install azure-ai-evaluation[redteam].",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/__init__.py",
+      "line": 11,
+      "summary": "Replacing the print with raise ImportError makes the whole red_team package import fail without pyrit, including access to its pyrit-free submodules that previously worked without the optional dependency."
+    },
+    {
+      "failure_scenario": "`python tests/unittests/test_lazy_imports.py` (or `python -m unittest tests.unittests.test_lazy_imports`) in the standard dev environment, where semantic_kernel is installed for the converter tests: the lazy import of azure.ai.evaluation._converters._sk_services succeeds, no ImportError is raised, and the test errors out. No other test file in tests/unittests provides this plain-unittest entry point, so the skip logic is silently bypassed.",
+      "file": "sdk/evaluation/azure-ai-evaluation/tests/unittests/test_lazy_imports.py",
+      "line": 134,
+      "summary": "The added `if __name__ == \"__main__\": unittest.main()` entry point runs the class without the pytest skipif marks, so test_message_shown_when_accessing_missing_dependency fails in any environment where semantic-kernel is installed (the import succeeds and assertRaises(ImportError) never fires)."
+    },
+    {
+      "failure_scenario": "A maintainer reading the stale comment and the `__all__.extend([p for p in _patch_all if p not in __all__])` line concludes the patch list controls exports; it does not, because the extend runs once at import when _patch_all is always empty, and each access of azure.ai.evaluation.AIAgentConverter appends another duplicate entry to a list nothing ever reads — leftover machinery from the removed eager-import scheme that misleads and accumulates.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/__init__.py",
+      "line": 76,
+      "summary": "_patch_all is now dead state: lazy_import appends the class name to it after __all__ has already been finalized at import time, so the append (and the __all__.extend at line 143) is never observed and repeated attribute accesses accumulate duplicates."
+    },
+    {
+      "failure_scenario": "azure-ai-projects is installed but _converters/_ai_services.py fails to import for an unrelated reason (e.g., a broken transitive import, a version conflict, or `ImportError: cannot import name 'AIAgentConverter'` after a refactor, which __import__ raises because fromlist=[class_name] checks the name). The user accesses azure.ai.evaluation.AIAgentConverter and gets 'Could not import AIAgentConverter. Please install the dependency with pip install azure-ai-projects' even though the package is already installed, with the real exception replaced (no `raise ... from`), hiding the actual failure.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/__init__.py",
+      "line": 78,
+      "summary": "The broad `except ImportError` in lazy_import converts any import failure of the converter module — not just a missing optional dependency — into the misleading 'pip install azure-ai-projects' / 'pip install semantic-kernel' error, discarding the root cause."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "packages/http-client-java/generator/http-client-generator-mgmt/src/main/java/com/microsoft/typespec/http/client/generator/mgmt/transformer/SchemaCleanup.java",
+      "line": 168,
+      "summary": "Dead code: schemasInUse.addAll(discriminators) has no functional effect because schemasInUse is never read after this line within the same tryCleanup call, and each tryCleanup invocation creates a fresh schemasInUse HashSet",
+      "failure_scenario": "The addAll call is harmless but unnecessary — the discriminators set computed at lines 159-165 is already applied to schemasNotInUse and choicesSchemasNotInUse (lines 166-167), which are the only sets used by the removal logic at lines 173-200. The schemasInUse set is not referenced again in this method body after line 168. No correctness impact, but represents either incomplete work (if transitive discriminator discovery was intended) or an unnecessary statement that can mislead maintainers about the data flow.",
+      "finding_id": "mf-f2ec27382e1e6b595a6f"
+    }
+  ]
+}

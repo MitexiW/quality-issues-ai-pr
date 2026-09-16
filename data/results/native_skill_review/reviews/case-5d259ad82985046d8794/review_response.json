@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Task with input_json_schema set; collect_tasks yields a job whose item.input is the persisted JSON string (TaskRun.input is typed str). EvalRunner.run_job calls evaluator.run(job.item.input) -> BaseEval.run -> run_adapter.invoke(input) -> invoke_returning_run_output raises ValueError('structured input is not a dict') (base_adapter.py) for every job. Every job is counted as an error, no EvalRun is ever saved, and the eval silently fails for the entire class of structured-input tasks. The old signature accepted Dict | str; the diff narrowed it to str and added a caller that only ever passes the raw persisted string without json.loads.",
+      "file": "libs/core/kiln_ai/adapters/eval/eval_runner.py",
+      "line": 157,
+      "summary": "Eval jobs for structured-input tasks always fail because TaskRun.input is a JSON string but the adapter requires a dict when the task has an input schema"
+    },
+    {
+      "failure_scenario": "A project saved by the previous release contains an Eval .kiln file without the two new keys. load_from_file calls cls.model_validate(parsed_json) (basemodel.py), pydantic raises ValidationError ('Field required') for the missing required fields; there is no schema-version bump or migration backfilling them (v stays 1), so existing user eval data becomes unloadable.",
+      "file": "libs/core/kiln_ai/datamodel/eval.py",
+      "line": 132,
+      "summary": "New required eval_set_filter_id/eval_configs_filter_id fields with no defaults break loading of every pre-existing persisted Eval file"
+    },
+    {
+      "failure_scenario": "A previously saved TaskRunConfig .kiln file contains 'run_config': {...} (with the user's prompt_id) and no 'run_config_properties'. KilnBaseModel uses pydantic default extra='ignore', so the old key is silently dropped and the required run_config_properties is missing -> model_validate raises ValidationError on load; even if it loaded, the stored prompt_id would be lost since no conversion of the old field exists.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 85,
+      "summary": "Renaming the persisted TaskRunConfig field run_config to required run_config_properties breaks loading of existing TaskRunConfig files"
+    },
+    {
+      "failure_scenario": "User creates TaskRunConfig with prompt_id='simple_chain_of_thought_prompt_builder'. EvalRunner -> evaluator.run() -> adapter_for_task(target_task, model_name, provider, base_adapter_config=...) with no prompt_id kwarg; OpenAICompatibleAdapter/LangchainAdapter build RunConfig with prompt_id left at its default PromptGenerators.SIMPLE ('simple_prompt_builder'). The eval runs the task with the wrong prompt, and the resulting scores are silently misattributed to the configured run config. Invisible in the new tests because they all use prompt_id='simple_prompt_builder', which equals the default.",
+      "file": "libs/core/kiln_ai/adapters/eval/base_eval.py",
+      "line": 44,
+      "summary": "BaseEval.run drops run_config.prompt_id: adapter_for_task is called without prompt_id, so adapters always use the default SIMPLE prompt builder instead of the configured one"
+    },
+    {
+      "failure_scenario": "Eval(eval_set_filter_id='tag::test_set', eval_configs_filter_id='all') - both fields are required, and 'all' is the natural value for the filter the user is not using. config_filter is AllDatasetFilter, which returns True for every run, so 'config_filter(task_run) or eval_filter(task_run)' admits the entire task's runs. The eval then runs and bills API calls for all dataset items instead of the selected eval set, and saves EvalRun rows for out-of-set items. The model docstrings say the two filters 'should be mutually exclusive' but no validation enforces it.",
+      "file": "libs/core/kiln_ai/adapters/eval/eval_runner.py",
+      "line": 81,
+      "summary": "collect_tasks ORs the eval_set and eval_configs filters, so setting the unused filter to 'all' (a valid filter id) silently includes every task run in the dataset"
+    },
+    {
+      "failure_scenario": "With --runpaid, eval_result = await g_eval.run('chickens') returns a 2-tuple (BaseEval.run now returns (run_output, eval_output)); assert isinstance(eval_result, dict) fails immediately. The e2e test that exercises the changed run() contract is broken and, being paid-marked, is skipped by default CI so the breakage is invisible until a paid run.",
+      "file": "libs/core/kiln_ai/adapters/eval/test_g_eval.py",
+      "line": 166,
+      "summary": "test_run_g_eval_e2e was updated to pass the new run_config fixture but not updated for run()'s new (TaskRun, EvalScores) tuple return, so the test always fails"
+    },
+    {
+      "failure_scenario": "The validator that previously enforced 'Run config must be parented to a task' and 'Run config task must match parent task' at construction now returns before any check: a parentless TaskRunConfig constructs fine and fails later with a less contextual ValueError from run_config()/EvalRunner. The dead code after the return (lines 111-118) references self.run_config, a field that no longer exists, so it would raise AttributeError if ever reached; test_task_run_config_task_mismatch was deleted along with the guard it covered.",
+      "file": "libs/core/kiln_ai/datamodel/task.py",
+      "line": 109,
+      "summary": "validate_task is disabled by an early 'return self' (TODO P0), leaving dead code that references the removed run_config field, and the matching mismatch test was deleted"
+    },
+    {
+      "failure_scenario": "BaseEval.run passes the TaskRun returned by invoke() to GEval.run_eval; TaskRun.output is a TaskOutput pydantic model with no __str__ override, so f'...{task_run.output}...' embeds e.g. TaskOutput(output='Why did...', source=DataSource(type=<DataSourceType.synthetic...>, properties={...}), rating=None). Every evaluation prompt now contains Python-repr junk (with quotes/newlines escaped) instead of the clean model output, degrading the judge's input. The interpolation line is unchanged, but before this diff run() was only reached from paid tests; the new EvalRunner runs it on every job.",
+      "file": "libs/core/kiln_ai/adapters/eval/g_eval.py",
+      "line": 123,
+      "summary": "run_eval interpolates the TaskOutput object (its repr, including DataSource metadata) into the judge prompt instead of the output text, and the new EvalRunner makes this the production path for every eval job"
+    },
+    {
+      "failure_scenario": "await run(concurrency=0) with any jobs: workers=[] so all([]) is True and not all(...) is False, but status_queue.empty() is always True, so the while loop never exits; each iteration blocks 0.1s on asyncio.wait_for(status_queue.get(), timeout=0.1), raises TimeoutError, and repeats indefinitely - the generator never completes and no job ever runs.",
+      "file": "libs/core/kiln_ai/adapters/eval/eval_runner.py",
+      "line": 112,
+      "summary": "EvalRunner.run spins forever when concurrency=0: no workers exist, the status queue is always empty, and the loop condition 'not empty or not all(done)' is always true"
+    }
+  ],
+  "level": null
+}

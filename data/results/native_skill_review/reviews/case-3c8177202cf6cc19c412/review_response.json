@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "preProcessEvent (line 501) drops an event whenever the flag is true and site.getToolForCommonId(SITESTATS_TOOLID) == null. With the new default, a site that does not currently have the SiteStats tool (e.g. a course site where the instructor adds SiteStats later) has its visits/activity/resource events discarded at collection time, so the reports are permanently empty for that earlier period and any sakai.properties override people had is now reversed silently. The module's own Spring test context loads this components.xml (@ImportResource(\"classpath:/WEB-INF/components.xml\") in SiteStatsTestConfiguration), so StatsUpdateManagerTest.testResourceActivityTwoSites (line 396) now records 0 resource stats for site-b (a site with no SiteStats tool) instead of the asserted 2, unless another test method happens to have set the flag false first. CLAUDE.md's \"Make minimal changes, only modifying lines needed for the fix/feature\" / \"One issue per pull request\" is not satisfied by bundling this behavioral default change with the pager rewrite.",
+      "file": "sitestats/sitestats-impl/src/java/org/sakaiproject/sitestats/impl/StatsUpdateManagerImpl.java",
+      "line": 101,
+      "summary": "The default of collectEventsForSiteWithToolOnly is flipped from false to true (the same flip is made in sitestats-impl/src/webapp/WEB-INF/components.xml:258), silently changing event-aggregation behavior for every deployment; it is unrelated to the pagination feature this change implements."
+    },
+    {
+      "failure_scenario": "base/_extendables.scss:433 defines @mixin sakai_secondary_button() (and the underlying @mixin sakai_button at line 336), which already emits the base colour/background/border/shadow, :hover, :focus, :active and the [disabled=\"disabled\"]/[disabled]/[disabled=\"true\"]/.disabled states; it is the established way to style secondary buttons in this skin (profile2, calendar, announcements, lessonbuilder, navigation, _base, profile-popup all @include it). The new .sakai-navigator a.first/a.prev/a.next/a.last rules copy roughly 15 of those declarations by hand, omitting :focus, :active and the pseudo-class/all-attribute disabled variants, so the pager's hover/active/focus/disabled appearance is already inconsistent with the secondary buttons elsewhere in the same toolbar, any future change to the shared button theme must be duplicated here, and the inline comment \"Use the secondary button mixin for consistent styling\" is false (no @include appears in the block).",
+      "file": "library/src/skins/default/src/sass/modules/tool/sitestats/_sitestats.scss",
+      "line": 11,
+      "summary": "The new pager styling hand-reimplements the shared secondary-button style instead of using the existing sakai_secondary_button() mixin, and its comment claims a mixin is being used."
+    },
+    {
+      "failure_scenario": "AjaxNavigationToolbar's constructor calls the overridable newPagingNavigator while assembling its own \"span\" child, so this override now reaches into a sibling container (get(\"span\"), line 79) and mutates it before the SakaiNavigationToolBar constructor body has run; the if (span.get(\"rowSizeSelector\") == null) guard (line 82) exists only to tolerate the second, redundant invocation made at line 57 (whose returned navigator immediately replaces the framework's identical AjaxPagingNavigator). The code therefore hard-codes an implicit dependency on the framework adding span before calling the factory and on the factory being called exactly twice; creating the selector next to the existing span customization in the constructor (lines 54-58) needs no guard, no sibling lookup from a factory callback and no duplicate navigator construction.",
+      "file": "sitestats/sitestats-tool/src/java/org/sakaiproject/sitestats/tool/wicket/components/SakaiNavigationToolBar.java",
+      "line": 79,
+      "summary": "The row-size selector is created as a side effect inside newPagingNavigator, a factory that Wicket invokes from the superclass constructor while building span, so the override runs twice and needs a get(\"span\")/null guard that depends on framework call order."
+    }
+  ],
+  "level": null
+}

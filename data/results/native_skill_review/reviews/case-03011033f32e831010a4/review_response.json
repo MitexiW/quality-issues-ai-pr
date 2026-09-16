@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Parsing any Konami SNES sequence containing a GAIN event (e.g., status 0x7B) with newGAINAmount = 15: baseline printed \"GAIN: 15 ($3F)\"; the new fmt::format(\"GAIN: {} (${:02X})\", newGAINAmount, newGAIN) prints \"GAIN: \\x0F ($3F)\" because fmt >= 8 formats uint8_t/char types as characters by default (the same diff adds {:d} in other files precisely to avoid this), so the UI shows an unprintable byte instead of the value.",
+      "file": "src/main/formats/KonamiSnes/KonamiSnesSeq.cpp",
+      "line": 474,
+      "summary": "EVENT_GAIN description formats uint8_t newGAINAmount with a bare {} so the decimal value is replaced by a raw control character in the event view"
+    },
+    {
+      "failure_scenario": "A tempo fade event with fadeSpeed = 64: baseline printed \"BPM: 120  Fade Length: 64\"; the new fmt::format(\"BPM: {}  Fade Length: {}\", ..., fadeSpeed) prints \"BPM: 120  Fade Length: @\" (character 0x40) in the UI event description.",
+      "file": "src/main/formats/KonamiSnes/KonamiSnesSeq.cpp",
+      "line": 735,
+      "summary": "EVENT_TEMPO_FADE description formats uint8_t fadeSpeed with a bare {} replacing the old (int) cast, so the fade length renders as a raw character"
+    },
+    {
+      "failure_scenario": "An undocumented event with arg1 = 0x41 at lines 189/197/206/216: baseline built \"Event: 0xXX  Arg1: 65\" via (int) arg1; the new describeUnknownEvent(statusByte, arg1) routes through logEvent's ostringstream fold (\"Arg\" << n << \": \" << args) with no cast, so the UI shows \"Arg1: A\" (raw char) instead of the decimal value, making unknown-event analysis misleading.",
+      "file": "src/main/formats/PandoraBoxSnes/PandoraBoxSnesSeq.cpp",
+      "line": 189,
+      "summary": "EVENT_UNKNOWN1-4 now pass raw uint8_t arg values to describeUnknownEvent, whose ostream fold prints them as characters instead of the old (int) decimal output"
+    },
+    {
+      "failure_scenario": "An undocumented Prism event with arg1 = 0x31 at lines 277/285/294/304: baseline printed \"Event: 0xXX  Arg1: 49\"; the new describeUnknownEvent(statusByte, arg1) call emits \"Arg1: 1\" (raw char 0x31) through logEvent's uncast ostream fold, corrupting the event description shown to users.",
+      "file": "src/main/formats/PrismSnes/PrismSnesSeq.cpp",
+      "line": 277,
+      "summary": "EVENT_UNKNOWN1-4 pass raw uint8_t arg values to describeUnknownEvent, printing them as characters where the baseline printed (int) decimals"
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User calls Model.log(\"m\", flavor, run_id=\"<id of a run that was deleted>\"). The params merge at line 929 calls client.get_run(run_id), which raises MlflowException(RESOURCE_DOES_NOT_EXIST) - before the change, the same call succeeded because run_id was ignored and the model was logged under the active run. When model_id is also passed, get_run is skipped and the exception surfaces later inside client.log_outputs; more generally, if log_outputs or log_model_metrics_for_step (client.log_batch) fails after mlflow.create_logged_model succeeded (e.g., run deleted between the two calls, or a backend that rejects outputs on a terminal run), the exception propagates before client.finalize_logged_model, leaving the created model record permanently in PENDING status.",
+      "file": "mlflow/models/model.py",
+      "line": 942,
+      "summary": "Model.log now logs outputs and step metrics to an arbitrary user-supplied run_id with no validation, so a stale or invalid run_id raises a raw MlflowException mid-log (previously the run_id was ignored and the call always succeeded), and any failure of log_outputs/log_batch after create_logged_model succeeded leaves an orphaned logged-model record stuck in PENDING status with no artifacts."
+    },
+    {
+      "failure_scenario": "With mlflow.set_experiment(\"A\") active, the user creates a run under experiment B via mlflow.MlflowClient().create_run(experiment_id=B) and calls Model.log(\"m\", flavor, run_id=run.info.run_id). mlflow.create_logged_model derives experiment_id from _get_experiment_id() (experiment A, or the default experiment when none is active), never from the run, so the model record and its artifacts land in experiment A while source_run_id and the log_outputs edge point into experiment B; client.search_logged_models(experiment_ids=[B]) does not return the model. The new test test_model_log_inactive_run_id silently exercises this - its run is in experiment \"test\" while the model is created in the default experiment - and masks it by asserting only run_id equality.",
+      "file": "mlflow/models/model.py",
+      "line": 934,
+      "summary": "When an explicit run_id is passed, the logged model is created in the active/default experiment rather than the experiment the run belongs to, producing a cross-experiment association between the model and its source run."
+    },
+    {
+      "failure_scenario": "A user reads the docstring and calls Model.log(\"m\", flavor) with no active run expecting a run to be created; instead the model is logged with run_id=None and source_run_id=None (as the new test test_model_log_without_run asserts), so the model is unattached to any run. The diff removed \"If not provided, a new run will be started\" from the run_id arg doc (line 863) but left the same false claim at line 847, so the documentation contradicts the behavior this PR codifies.",
+      "file": "mlflow/models/model.py",
+      "line": 847,
+      "summary": "The docstring still promises \"If no run is active, this method will create a new active run\", but no run is ever created, and the change removed the equivalent promise from the run_id argument while its own new test asserts the opposite."
+    },
+    {
+      "failure_scenario": "A caller passes run_id=\"\" (or another falsy value) - the model is silently associated with the currently active run instead of raising INVALID_PARAMETER_VALUE for the invalid run ID, making the caller's mistake invisible and attaching outputs to a run the caller did not choose; line 942 then logs outputs because the resolved run_id is now non-None.",
+      "file": "mlflow/models/model.py",
+      "line": 922,
+      "summary": "The truthiness check `if not run_id` silently treats any falsy run_id value (e.g., an empty string) as \"not provided\" instead of rejecting the invalid argument, inconsistently with the `run_id is not None` guard used later."
+    },
+    {
+      "failure_scenario": "The only run state covered is RUNNING-but-not-fluent-active; the realistic \"inactive\" case - a terminated (FINISHED/FAILED) run - is never tested, so failures in that path go undetected. The leaked RUNNING run and the fixed experiment name \"test\" are harmless only because the tracking_uri_mock autouse fixture gives each test a fresh sqlite store; if the module ever runs against a shared backend (e.g., a Databricks workspace or a shared tracking server via the notrackingurimock marker), mlflow.create_experiment(\"test\") raises RESOURCE_ALREADY_EXISTS and the un-terminated run pollutes the shared store.",
+      "file": "tests/models/test_model.py",
+      "line": 185,
+      "summary": "test_model_log_inactive_run_id never exercises an actually inactive run: the run created via MlflowClient().create_run stays in RUNNING state (it is never terminated), and the test leaves a RUNNING run and an experiment named \"test\" behind."
+    }
+  ],
+  "level": null
+}

@@ -106,6 +106,8 @@ def parse_args() -> argparse.Namespace:
         help="explicit identifier for the derived snapshot",
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--new-experiment", action="store_true",
+                        help="Accept new sample sizes; require complete human labels and an explicit new snapshot ID")
     return parser.parse_args()
 
 
@@ -293,6 +295,9 @@ def build_human_validation_strata(
 
 
 def run(args: argparse.Namespace) -> None:
+    new_experiment = getattr(args, "new_experiment", False)
+    if new_experiment and (not args.human_labels or not clean(args.derived_snapshot_id)):
+        raise SnapshotError("New experiments require --human-labels and --derived-snapshot-id")
     raw_dir = resolve(args.raw_snapshot_dir)
     adjudication_dir = resolve(args.adjudication_dir)
     output_dir = resolve(args.output_dir)
@@ -300,7 +305,7 @@ def run(args: argparse.Namespace) -> None:
 
     raw_manifest = load_json(raw_dir / "snapshot_manifest.json")
     adjudication_manifest = load_json(adjudication_dir / "manifest.json")
-    if raw_manifest.get("snapshot_id") != "study_stars500_final_20260727_v3":
+    if not new_experiment and raw_manifest.get("snapshot_id") != "study_stars500_final_20260727_v3":
         raise SnapshotError("unexpected raw snapshot ID")
     if raw_manifest.get("rq2_ready") is not True:
         raise SnapshotError("raw snapshot is not RQ2-ready")
@@ -309,7 +314,7 @@ def run(args: argparse.Namespace) -> None:
 
     pr_fields, pr_rows = read_csv(raw_dir / "analysis_pr_level.csv")
     alert_fields, alert_rows = read_csv(adjudication_dir / "model_adjudications.csv")
-    if len(alert_rows) != 7_124:
+    if not new_experiment and len(alert_rows) != 7_124:
         raise SnapshotError(f"expected 7,124 adjudications, found {len(alert_rows)}")
     alert_ids = [row.get("alert_id", "") for row in alert_rows]
     if not all(alert_ids) or len(set(alert_ids)) != len(alert_ids):
@@ -349,6 +354,14 @@ def run(args: argparse.Namespace) -> None:
             all_alert_ids=all_alert_ids,
             model_positive_ids=model_positive_ids,
         )
+        if new_experiment and human_validation_scope != "complete_raw_differential_alert_frame":
+            raise SnapshotError("New experiments require human review of every differential alert")
+        if new_experiment:
+            for decision in human_rows:
+                all_yes = all(decision[field] == "yes" for field in (
+                    "human_condition_present", "human_introduced_by_pr", "human_valid_issue"))
+                if (decision["disposition"] == "confirmed_valid") != all_yes:
+                    raise SnapshotError("Human disposition conflicts with its three judgments")
         for row in alert_rows:
             decision = human_by_alert.get(row["alert_id"])
             if decision:
@@ -393,8 +406,18 @@ def run(args: argparse.Namespace) -> None:
         if key in gated:
             raise SnapshotError(f"duplicate quality-gated PR: {key}")
         gated[key] = row
-    if len(gated) != 5_404:
+    if not new_experiment and len(gated) != 5_404:
         raise SnapshotError(f"expected 5,404 quality-gated PRs, found {len(gated)}")
+    if new_experiment:
+        if not gated:
+            raise SnapshotError("No quality-gated PRs")
+        raw_counts = Counter((pr_key(row), row.get("issue_domain")) for row in alert_rows)
+        for key, row in gated.items():
+            for domain in ("quality", "security"):
+                if raw_counts[key, domain] != int(row[f"introduced_{domain}_alerts"]):
+                    raise SnapshotError("Assessment rows do not cover the raw PR alert counts")
+        if output_dir.exists() and any(output_dir.iterdir()):
+            raise SnapshotError("Use an empty output directory for a new experiment")
 
     counters: dict[tuple[str, str, str], Counter[str]] = defaultdict(Counter)
     pr_sets: dict[tuple[str, str, str], set[tuple[str, str, str]]] = defaultdict(set)
@@ -464,7 +487,8 @@ def run(args: argparse.Namespace) -> None:
                 {
                     "outcome_measurement_layer": (
                         (
-                            "human_consensus_complete_differential_frame_v1"
+                            ("human_confirmed_complete_differential_frame"
+                             if new_experiment else "human_consensus_complete_differential_frame_v1")
                             if human_validation_scope
                             == "complete_raw_differential_alert_frame"
                             else "human_confirmed_model_adjudicated_issue_v1"
@@ -633,7 +657,7 @@ def run(args: argparse.Namespace) -> None:
         expected_totals = (2_116, 130)
     else:
         expected_totals = (2_328, 167)
-    if (quality_total, security_total) != expected_totals:
+    if not new_experiment and (quality_total, security_total) != expected_totals:
         raise SnapshotError(
             "validated Quality/Security conservation failed: "
             f"{quality_total}/{security_total}; expected {expected_totals}"
@@ -703,6 +727,10 @@ def run(args: argparse.Namespace) -> None:
         "outputs": [],
     }
     manifest_path = output_dir / "snapshot_manifest.json"
+    if new_experiment:
+        manifest["snapshot_id"] = clean(args.derived_snapshot_id)
+        manifest["adjudicator_type"] = "model_assessment_then_complete_human_review"
+        manifest["experiment_mode"] = "new_experiment"
     if human_labels_path is not None:
         manifest["inputs"]["human_labels_sha256"] = sha256_file(human_labels_path)
         manifest["counts"]["human_reviewed_alert_n"] = len(human_by_alert)

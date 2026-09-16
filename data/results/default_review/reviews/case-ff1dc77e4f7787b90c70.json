@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "dace/codegen/compiled_sdfg.py",
+      "line": 409,
+      "summary": "__call__ passes argtuple (all args with array void pointers) instead of initargtuple (symbols only) as initargs to fast_call, which forwards to _initialize; the _init C function receives mismatched arguments",
+      "failure_scenario": "Any SDFG with an initialization function (self._init is not None) — _construct_args returns (newargs, initargs) where newargs contains c_void_p array pointers for every argument but initargs contains only ctypes-cast symbol args. The old code passed initargtuple correctly to _initialize; the new code passes argtuple, causing ctypes.ArgumentError when _init receives void pointers where it expects scalar types. The separate initialize() method at line 359 still correctly uses initargtuple, confirming this is a bug rather than an intentional API change.",
+      "finding_id": "mf-17c22aa710385ecfc051"
+    },
+    {
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 1424,
+      "summary": "v.parent.parent accessed without null guard on v.parent in deconstruct_interface_calls, risking AttributeError",
+      "failure_scenario": "If any value in alias_map (from alias_specs(ast)) has a None parent — for example, a node that was added to the map without being attached to the AST tree — isinstance(v, Interface_Stmt) is False and Python evaluates isinstance(v.parent.parent, Interface_Block), raising AttributeError: 'NoneType' object has no attribute 'parent'. While parsed AST nodes always have parent pointers, manual additions to alias_map elsewhere in the codebase could introduce parentless nodes.",
+      "finding_id": "mf-994e24db9322b0aeb9b5"
+    }
+  ]
+}

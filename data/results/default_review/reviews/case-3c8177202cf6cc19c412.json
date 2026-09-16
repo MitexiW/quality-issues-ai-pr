@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "sitestats/sitestats-tool/src/java/org/sakaiproject/sitestats/tool/wicket/components/SakaiNavigationToolBar.java",
+      "line": 75,
+      "summary": "First/prev/next/last navigation links no longer have setVersioned(false); Wicket will serialize link state into every page version, bloating HTTP sessions and risking stale-link state on version restore",
+      "failure_scenario": "A user navigates across 5 pages of a data table. With Wicket's default page versioning enabled, each navigation creates a new page version that serializes the state of every versioned component. The old SakaiPagingNavigator explicitly called link.setVersioned(false) on each of the 4 navigation links to prevent this; the replacement standard AjaxPagingNavigator does not. After browsing, the user's HTTP session holds serialized copies of 4 links x 5 versions = 20 extra serialized objects. When Wicket restores an old page version (back-button), the versioned links may point to a different page than the non-versioned navigator, causing a mismatch where the 'next' link thinks the user is on page 2 but the navigator shows page 5.",
+      "finding_id": "mf-c270344a02683d8b0d13"
+    },
+    {
+      "file": "sitestats/sitestats-tool/src/java/org/sakaiproject/sitestats/tool/wicket/components/SakaiNavigationToolBar.java",
+      "line": 75,
+      "summary": "Numbered page navigation (PagingNavigation 1|2|3|...) now rendered visibly; the deleted SakaiPagingNavigator.newNavigation() override that hid it (isVisible() returning false) was not re-established",
+      "failure_scenario": "A data table with 40 data pages renders 40 numbered page links (1 | 2 | 3 | ... | 40) inline alongside the first/prev/next/last buttons and the row-size-selector dropdown, producing a wide, cluttered toolbar row that was previously compact. The deleted SakaiPagingNavigator overrode newNavigation() to return a PagingNavigation whose isVisible() returns false, suppressing these number links. The replacement AjaxPagingNavigator uses the standard Wicket PagingNavigation which renders them visibly. In tables with many pages this causes toolbar overflow or wrapping.",
+      "finding_id": "mf-071efc364af2bde15030"
+    }
+  ]
+}

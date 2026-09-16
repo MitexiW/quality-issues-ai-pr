@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A prompt function returning [{\"role\": \"user\", \"content\": \"hello\"}] (the supported message-list format, cf. tests/unittests/test_dataset_conversion.py) with backend openai or litellm: create_generic_request stores is_multimodal_prompt=None, so both identity checks in _unpack_multimodal fail, _MultiModalPrompt.model_validate(\"hello\") raises ValidationError inside process_requests_from_file (outside any try/except) and the entire job crashes instead of sending the request. The baseline mixin caught pydantic.ValidationError and passed such messages through unchanged.",
+      "file": "src/bespokelabs/curator/request_processor/online/base_online_request_processor.py",
+      "line": 119,
+      "summary": "_unpack_multimodal drops the pydantic.ValidationError catch from the old mixin _unpack and only returns early when is_multimodal_prompt is exactly False, so chat-format (list-of-messages) prompts — for which PromptFormatter sets is_multimodal_prompt=None — fall through to _MultiModalPrompt.model_validate on plain-string content and raise an uncaught ValidationError that aborts the whole run."
+    },
+    {
+      "failure_scenario": "LLM(..., batch=True) with a tuple (text, Image) prompt: after the request-file round-trip, message content is {\"texts\": [...], \"images\": [{\"url\": \"\", \"content\": \"<base64>\", \"detail\": \"auto\"}], \"files\": []}; create_batch_file json.dumps this dict as the chat message content and OpenAI's batch validation rejects every multimodal row with a 400 invalid_request_error. In the baseline, _unpack converted the content to proper image_url content parts before upload.",
+      "file": "src/bespokelabs/curator/request_processor/openai_request_mixin.py",
+      "line": 51,
+      "summary": "Moving _unpack out of OpenAIRequestMixin.create_api_specific_request_online breaks OpenAI batch multimodal: OpenAIBatchRequestProcessor.create_api_specific_request_batch still calls this mixin (openai_batch_request_processor.py:235) but never runs the new BaseOnlineRequestProcessor._unpack_multimodal, so messages whose content is a dumped _MultiModalPrompt dict are uploaded verbatim as message content."
+    },
+    {
+      "failure_scenario": "File(url=\"https://example.com/download?id=42\") or any presigned/extensionless URL: the intended inference never executes, so mime_type silently remains None for all downstream consumers of the new field; once the hook is corrected to model_post_init, guess_type returns (None, None) and self.mime_type = None.lower() crashes with AttributeError: 'NoneType' object has no attribute 'lower'.",
+      "file": "src/bespokelabs/curator/types/prompt.py",
+      "line": 71,
+      "summary": "File.__post_init__ is dead code — pydantic v2 BaseModel never invokes __post_init__ (the lifecycle hook is model_post_init), so the newly added mime-type inference never runs and File.mime_type stays None; and were the hook ever invoked, mimetypes.guess_type returns None for extensionless URLs so mime_type.lower() would raise AttributeError."
+    },
+    {
+      "failure_scenario": "OpenAI backend with model \"gpt-4-turbo\" (vision-capable; property returned True in the baseline) plus a tuple (text, Image) prompt: none of {\"gpt-4o\", \"gpt-4o-mini\", \"gpt-4o-vision\"} is a prefix of \"gpt-4-turbo\", so _unpack_multimodal raises TypeError in process_requests_from_file outside the per-request retry handler and the whole job crashes on the first multimodal row instead of processing it.",
+      "file": "src/bespokelabs/curator/request_processor/online/openai_online_request_processor.py",
+      "line": 188,
+      "summary": "_multimodal_prompt_supported changed from always-True to a startswith whitelist, silently dropping support for vision-capable models that previously worked (e.g. gpt-4-turbo / gpt-4-1106-vision-preview, custom or Azure deployment names) and raising TypeError from the request-processing main loop, which aborts the entire run."
+    },
+    {
+      "failure_scenario": "LiteLLM backend with an openai provider model and a >20 MB content image: the raised exception's message becomes \"('Uploaded object size is 25.0 MB,', 'which is greater than the allowed size of 20 MB.')\" in the response-file errors and logs, instead of a readable error message.",
+      "file": "src/bespokelabs/curator/request_processor/online/litellm_online_request_processor.py",
+      "line": 125,
+      "summary": "file_upload_limit_check raises ValueError with two positional arguments, so the error message users and logs see is a garbled tuple rather than the intended sentence."
+    },
+    {
+      "failure_scenario": "The recorded litellm cassette basic_multimodal_completion.yaml contains the OpenAI backend's empty-messages rate-limit probe (requests.post with python-requests user-agent), showing the recorded run used the openai backend; the litellm content-image path (the new _handle_multi_modal_prompt detail/size-check under LiteLLM) therefore has no real coverage, and the litellm hash entry would pass even if the litellm multimodal handling were broken.",
+      "file": "tests/integrations/test_multimodal.py",
+      "line": 34,
+      "summary": "The newly added litellm parametrization of test_basic_multimodal does not pass backend=backend to create_multimodal_llm (unlike test_basic_multimodal_image_url), so it builds the default openai-backend prompter and the litellm branch never exercises the litellm multimodal code path."
+    }
+  ],
+  "level": null
+}

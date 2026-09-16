@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User taps Submit twice quickly (or taps again while the network request is pending); UserActions.submit/UserActions.comment have no in-flight guard, so two identical stories/comments are posted to HN. Previously the synchronous setEnabled(false) at the top of submit() made the second tap a no-op.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/ComposeActivity.java",
+      "line": 281,
+      "summary": "Removing submitButton.setEnabled(false) lets the user tap Submit repeatedly while a request is in flight, firing multiple submit/comment requests and creating duplicate posts on Hacker News."
+    },
+    {
+      "failure_scenario": "Downloading a PDF URL whose server responds with HTTP 204 (no body) makes response.body() return null; response.body().source() throws NullPointerException, which is not an IOException and escapes onResponse, crashing the app.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/FileDownloader.java",
+      "line": 68,
+      "summary": "The null check on response.body() was removed (old code guarded with `if (body != null)`), so an empty HTTP response (e.g. 204/205) now dereferences null and throws an uncaught NPE on OkHttp's dispatcher thread."
+    },
+    {
+      "failure_scenario": "Network drops mid-download or disk fills up: writeAll throws IOException, onFailure is posted, but sink.close() is never called (open file descriptor to the partial file remains) and response.close() is never called (connection never returned to OkHttp's pool); repeated failed downloads accumulate leaked connections/handles.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/FileDownloader.java",
+      "line": 66,
+      "summary": "Replacing try-with-resources and the `finally { response.close(); }` block with a bare try means both the BufferedSink and the Response are left open whenever writeAll fails, leaking the file handle and the HTTP connection on every failed download."
+    },
+    {
+      "failure_scenario": "Open the user dialog from a comment, rotate the device (fragment recreated via no-arg constructor, callback lost) — or have the profile load fail and tap Retry, which recreates the dialog through the 2-arg showUserDialog overload with a null callback. Saving a tag then persists to prefs, but onResult is never invoked, so CommentsFragment.updateUserTags never runs and visible by-lines keep the stale name until the rows happen to re-bind.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/UserDialogFragment.java",
+      "line": 243,
+      "summary": "setTagCallback is a plain instance field that is neither saved across configuration changes nor set on the retry path, so after a rotation or a retry the Save handler silently skips the refresh callback and the comments list never updates."
+    },
+    {
+      "failure_scenario": "A user tagged via the dialog has commented three times in the currently visible thread; after saving the tag, only the first matching row is re-bound and the other two visible rows still show the old name until they are scrolled out and back in.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/CommentsFragment.java",
+      "line": 1714,
+      "summary": "updateUserTags breaks after refreshing the first comment by the changed user, so when the same user has multiple comments in the thread only one visible row is refreshed and the rest keep the stale by-line."
+    },
+    {
+      "failure_scenario": "A thread with hundreds of comments plus several tags: each row bind allocates a HashMap and parses the full JSONObject, so scrolling or a notifyItemChanged refresh runs repeated JSON parsing on the main thread, causing frame drops; the same map could be loaded once per bind cycle.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/adapters/CommentsRecyclerViewAdapter.java",
+      "line": 491,
+      "summary": "Utils.getUserTag is called in onBindViewHolder for every comment row (and the header), and each call re-reads and re-parses the entire tags JSON from SharedPreferences on the UI thread, making scrolling long threads O(rows x tags) parsing work."
+    },
+    {
+      "failure_scenario": "User tags 'Bob' and then opens a comment by a different account 'bob': the lookup uses the same lowercase key and shows Bob's tag on bob's comments. Likewise a tag saved while the device is in Turkish locale is keyed with dotless 'ı' and can no longer be found (getUserTag returns empty) after switching to an English locale.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 364,
+      "summary": "Tags are keyed by lowercased username even though HN usernames are case-sensitive, so distinct users differing only in case share one tag slot, and the locale-dependent toLowerCase() (Turkish 'I' maps to 'ı') makes stored keys silently stop matching after a locale change."
+    },
+    {
+      "failure_scenario": "CommentsFragment.downloadPdf (called from WebView download callbacks/button clicks on the main thread) now triggers a WrongThread lint/IDE warning against the annotated method; a maintainer trusting the annotation could move the enqueue call off the main thread or add needless threading, while the code itself remains main-thread safe.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/FileDownloader.java",
+      "line": 42,
+      "summary": "The diff replaced the javadoc stating downloadFile 'may be called from the main thread' with a @WorkerThread annotation, but the method only enqueues async work and its sole caller, CommentsFragment.downloadPdf, invokes it on the main thread, so the annotation misstates the contract and will flag a false lint error at the call site."
+    }
+  ],
+  "level": null
+}

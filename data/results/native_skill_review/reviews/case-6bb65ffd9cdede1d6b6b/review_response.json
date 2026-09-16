@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user copies the PerfCriticalData recipe verbatim; javac fails with 'package net.openhft.chronicle.core.io does not exist' / 'cannot find symbol: class zowel'. Grep confirms the token appears nowhere else in the repo or the chronicle-core `core.io` package.",
+      "file": "src/main/adoc/wire-cookbook.adoc",
+      "line": 549,
+      "summary": "The BytesMarshallable recipe contains the bogus import `import net.openhft.chronicle.core.io. zowel;` — no such class exists in chronicle-core, so the flagship performance example does not compile."
+    },
+    {
+      "failure_scenario": "A user following the README writes `WireType.YAML_RETAIN_TYPE.apply(bytes)` (as shown in src/main/adoc/wire-architecture.adoc:160) and gets a compile error. Verified: WireType only defines TEXT, BINARY, BINARY_LIGHT, FIELDLESS_BINARY, COMPRESSED_BINARY, JSON, JSON_ONLY, YAML, YAML_ONLY, RAW, CSV, READ_ANY. The same nonexistent constants are taught in wire-architecture.adoc:240, wire-error-handling.adoc:103/164, and wire-faq.adoc:92.",
+      "file": "README.adoc",
+      "line": 152,
+      "summary": "The new WireType Overview table documents `YAML_RETAIN_TYPE` and `JSON_RETAIN_TYPE` as WireTypes, but these constants do not exist in the WireType enum in this codebase."
+    },
+    {
+      "failure_scenario": "Running the sample throws IllegalStateException ('released') when `binaryBytes.readPosition(0)` is called at line 248 (the doc's own comment at 252 admits 'Original binaryBytes was already released... Better: use a new Bytes object'), and the second releaseLast() at 252 releases an already-released store.",
+      "file": "src/main/adoc/wire-cookbook.adoc",
+      "line": 248,
+      "summary": "LongConversionDemo uses `binaryBytes` after `binaryBytes.releaseLast()` at line 245 and then calls `releaseLast()` on it a second time at line 252 — use-after-release plus double release of the same Bytes."
+    },
+    {
+      "failure_scenario": "The sample serializes to yamlBytes, releases it at line 318, then at line 321 wraps `yamlBytes.toString()` in `Bytes.fromString(...)` to deserialize. chronicle-bytes throws IllegalStateException on use of a released buffer (or produces empty/garbage input), so the deserialization half of the demo cannot run as written.",
+      "file": "src/main/adoc/wire-cookbook.adoc",
+      "line": 321,
+      "summary": "NanoTimeDemo calls `yamlBytes.toString()` at line 321 after `yamlBytes.releaseLast()` at line 318 — use-after-release of a Bytes buffer."
+    },
+    {
+      "failure_scenario": "The license link in the rendered README is a dead link, and the repository (and any Maven source artifact built from it) no longer carries the Apache License 2.0 text, which section 4(a) of the license requires to be given to recipients of the work — a redistribution-compliance regression introduced by deleting LICENSE.",
+      "file": "README.adoc",
+      "line": 184,
+      "summary": "The new README links `link:LICENSE[Apache 2.0 License]` but this PR deletes the LICENSE file, and its replacement LICENSE.adoc contains only the 9-line boilerplate notice, not the Apache 2.0 terms and conditions."
+    },
+    {
+      "failure_scenario": "The MIT license under which these JSONTestSuite fixtures (e_*.yaml, n_*.json, y_*.json) are distributed requires that 'The above copyright notice ... shall be included in all copies or substantial portions of the Software'. Replacing the original author's notice removes the required attribution and falsely asserts Chronicle Software ownership of third-party work.",
+      "file": "src/test/resources/nst_files/README.adoc",
+      "line": 5,
+      "summary": "The bulk copyright-header update replaced the third-party MIT notice `Copyright (c) 2016 Nicolas Seriot` with `Copyright 2016-2025 chronicle.software` for files copied from nst/JSONTestSuite."
+    },
+    {
+      "failure_scenario": "A user copies the NanoTimeDemo listing verbatim (imports included) and javac reports 'cannot find symbol: class SystemTimeProvider'.",
+      "file": "src/main/adoc/wire-cookbook.adoc",
+      "line": 311,
+      "summary": "NanoTimeDemo uses `SystemTimeProvider.CLOCK.currentTimeNanos()` but the snippet's imports (Bytes, Wire, WireType, java.time.Instant) do not import `net.openhft.chronicle.core.time.SystemTimeProvider`, so the sample does not compile."
+    },
+    {
+      "failure_scenario": "Copying the CompactIdData class from the cookbook verbatim fails compilation with 'cannot find symbol: class Base85' at the getSymbol() method.",
+      "file": "src/main/adoc/wire-cookbook.adoc",
+      "line": 211,
+      "summary": "The CompactIdData recipe calls `Base85.INSTANCE.asString(this.symbol)` but imports only `ShortText`, not the `net.openhft.chronicle.wire.converter.Base85` annotation class, so the sample does not compile."
+    },
+    {
+      "failure_scenario": "The snippet does not compile ('cannot find symbol: ClassAliasPool'). If the missing import is added, the two addAlias calls (lines 416-417) bind the same alias to two different classes, making the type-hint resolution ambiguous/conflicting and defeating the demo's schema-evolution scenario.",
+      "file": "src/main/adoc/wire-cookbook.adoc",
+      "line": 417,
+      "summary": "SchemaEvolutionDemo uses `ClassAliasPool.CLASS_ALIASES.addAlias(...)` without importing ClassAliasPool, and registers two different classes (VersionedDataV2 and VersionedDataV1) under the same alias 'VersionedData'."
+    },
+    {
+      "failure_scenario": "A reader pasting `!StockInfo { symbol: GOOGL, // ShortText encoded as Base 85 ... }` into a YAML parser gets a parse error or the trailing `// ...` text folded into the scalar value, and the output shown cannot round-trip to the StockInfo class defined directly above. Same defect at line 164 (`eventTimestamp: ..., // ISO 8601 format`).",
+      "file": "src/main/adoc/wire-annotations.adoc",
+      "line": 92,
+      "summary": "The claimed YAML output samples use C++-style `//` comments (invalid YAML, which uses `#`) and a field name (`symbol:`) that does not match the class field (`stockSymbol`) shown in the example it claims to serialize."
+    },
+    {
+      "failure_scenario": "The 'Project requirements' section points agents at a Decision Log file that was never added (the only files under src/main/adoc are index, project-requirements, wire-{annotations,architecture,cookbook,error-handling,faq,glossary,schema-evolution,visual-guide}.adoc), so agents and contributors following the house rules hit a dead link.",
+      "file": "AGENTS.md",
+      "line": 58,
+      "summary": "The newly added AGENTS.md links to `src/main/adoc/decision-log.adoc`, which does not exist in the repository."
+    },
+    {
+      "failure_scenario": "AGENTS.md states '**ASCII-7 only** (code-points 0-127) ... If a symbol is not available in ASCII-7, use a textual form such as `micro-second` ... Unicode must not be inserted.' But this PR's own files contain U+2011 non-breaking hyphens (YAML2SpecificationCompliance.adoc lines 9 'real‑world' and 32 'ISO‑8601') and U+2013 en-dashes (YAML2SpecificationCompliance.adoc line 35, wire-schema-evolution.adoc line 10), so the policy is violated at introduction and any tooling that enforces it flags these files.",
+      "file": "YAML2SpecificationCompliance.adoc",
+      "line": 9,
+      "summary": "The same PR that adds AGENTS.md's rule 'ASCII-7 only ... Unicode must not be inserted' ships doc files containing non-ASCII characters, violating its own newly introduced house rule."
+    }
+  ],
+  "level": null
+}

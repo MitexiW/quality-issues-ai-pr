@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "modules/adotBidAdapter.js",
+      "line": 151,
+      "summary": "pubProvidedId was removed from the user.ext object in getOpenRTBUserObject, dropping all publisher-provided user identifiers from the bid request sent to the ad exchange",
+      "failure_scenario": "A publisher configures the pubProvidedId user ID module. Prebid.js populates bidderRequest.userId.pubProvidedId with the publisher's user identifier. When the Adot adapter calls getOpenRTBUserObject() to build the OpenRTB request, the returned user.ext object no longer includes pubProvidedId. The ad exchange receives a user object with only the GDPR consent string and no user identifier, resulting in reduced match rates, less relevant bids, and lost ad revenue. The removed guard expression 'bidderRequest.userId && bidderRequest.userId.pubProvidedId' was the sole mechanism for forwarding this data -- no replacement path exists elsewhere in the adapter.",
+      "finding_id": "mf-4e84b843a3ff94801e30"
+    }
+  ]
+}

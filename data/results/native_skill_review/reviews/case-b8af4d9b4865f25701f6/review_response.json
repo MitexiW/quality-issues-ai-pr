@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Sidecar workers run as a separate subprocess (SidecarSubProcess Popen's sidecar_worker.py, sidecar_subprocess.py:93-138), which instantiates SpotTerminationMonitorSidecar (sidecar_worker.py:59), and _monitor_loop runs in a multiprocessing Process forked from that worker. So getppid() inside _monitor_loop is the sidecar worker's pid. When the IMDS termination-time endpoint returns 200, the metadata is recorded but the SIGTERM kills only the sidecar worker; the user's task keeps running until AWS reclaims the instance (~2 min later), with no graceful shutdown or retry. Additionally, the worker's death breaks its stdin pipe, and SidecarSubProcess._send_internal (sidecar_subprocess.py:180-181) restarts the worker on the next message send, which re-runs _is_aws_spot_instance (still \"spot\") and re-records duplicate termination metadata until the instance dies.",
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 74,
+      "summary": "os.kill(os.getppid(), SIGTERM) targets the sidecar worker subprocess, not the Metaflow task process, so the task is never notified of the imminent spot termination."
+    },
+    {
+      "failure_scenario": "Line 193 seeds env = {\"METAFLOW_FLOW_FILENAME\": os.path.basename(sys.argv[0])}, but line 196 assigns env = env_deco[0].attributes[\"vars\"] whenever the step has an @environment decorator (attributes[\"vars\"] is {} even for a bare @environment). The pod then launches without METAFLOW_FLOW_FILENAME, so in the sidecar flow_filename is None and it runs `python /metaflow/None spot-metadata record ...`, which fails with 'can't open file'; the termination metadata is never registered for any flow using @environment(vars=...), a very common kubernetes configuration, and the failure is only a print to the sidecar's stderr.",
+      "file": "metaflow/plugins/kubernetes/kubernetes_cli.py",
+      "line": 196,
+      "summary": "The env dict is replaced wholesale by the @environment decorator's vars, silently dropping the newly added METAFLOW_FLOW_FILENAME for any step with @environment."
+    },
+    {
+      "failure_scenario": "MetaflowEnvironment.get_package_commands (metaflow_environment.py:162-175) runs `mkdir metaflow; cd metaflow; ... tar xf job.tar`, so the flow file lands at $WORKDIR/metaflow/<filename>, where $WORKDIR is the image's default working directory (neither kubernetes.py/kubernetes_job.py nor argo_workflows.py sets working_dir in the pod spec). The hardcoded /metaflow/<filename> is correct only when the image workdir is /. With any custom image that sets WORKDIR (e.g., WORKDIR /root, common with @kubernetes(image=...)/@argo), the record subprocess fails with [Errno 2] No such file or directory, and the spot-termination metadata is silently never recorded.",
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 91,
+      "summary": "The sidecar hardcodes the absolute path /metaflow/{flow_filename}, but the runtime bootstrap extracts the code package to a metaflow/ directory relative to the container's working directory, which no pod spec in this repo sets."
+    },
+    {
+      "failure_scenario": "_monitor_loop calls _emit_termination_metadata, which runs `python <flow> spot-metadata record ...` with subprocess.run(capture_output=True, text=True) and no timeout. If the metadata CLI blocks (e.g., a slow or unreachable metadata service whose client retries for a long time, or local-metadata lock contention), the run never returns, os.kill(os.getppid(), SIGTERM) at line 74 never executes, and the task keeps running unaware of the termination notice until AWS forcibly reclaims the instance; even on the correct target process, the entire graceful-shutdown mechanism hinges on an unbounded external call.",
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 106,
+      "summary": "subprocess.run has no timeout and the SIGTERM to the parent is sequenced after it, so a hang in the spot-metadata CLI permanently blocks the termination signal."
+    },
+    {
+      "failure_scenario": "The --tag option is declared required=False with default=None, so running `python flow.py spot-metadata record --run-id 1 --step-name start --task-id 2 --termination-notice-time 2024-01-01T00:00:00Z` without --tag passes tags=None into validate_tags, whose first statement is frozenset(tags) (tagging_util.py:42), raising an unhandled TypeError. The defensive `tag_list = list(tags) if tags else []` on the next line is never reached; the CLI advertises tags as optional but crashes when they are omitted.",
+      "file": "metaflow/plugins/kubernetes/spot_metadata_cli.py",
+      "line": 48,
+      "summary": "validate_tags(tags) is called before the None-guard, so invoking record without --tag crashes with TypeError: 'NoneType' object is not iterable."
+    },
+    {
+      "failure_scenario": "_get_imds_token swallows RequestException and returns None, so _make_ec2_request sends the GET without the X-aws-ec2-metadata-token header. On a spot instance in a cluster with IMDSv2 enforced (HttpTokens=required, a recommended AWS hardening), or on a transient 1s-timeout of the token PUT during the sidecar's first second of life, the instance-life-cycle request returns 401, _is_aws_spot_instance returns False, the monitor process is never started, and there is no retry: the task runs with the spot-termination feature silently absent and gets force-terminated by AWS.",
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 62,
+      "summary": "A single-shot IMDS token failure at startup silently disables the monitor on clusters that enforce IMDSv2, because the headerless fallback GET returns 401 and _is_aws_spot_instance gives up."
+    },
+    {
+      "failure_scenario": "current._update_env (metaflow_current.py:65-67) only sets a property on the current class object; a repo-wide grep shows no reader of spot_termination_notice anywhere, and SpotTerminationMonitorSidecar hardcodes \"/tmp/spot_termination_notice\" when opening the file (which itself is written but never consumed). The env-var/file indirection misleads future maintainers into thinking the notice path is configurable or observed, and the write of the file plus the per-task _update_env call are wasted work on every Kubernetes task.",
+      "file": "metaflow/plugins/kubernetes/kubernetes_decorator.py",
+      "line": 551,
+      "summary": "current._update_env({\"spot_termination_notice\": \"/tmp/spot_termination_notice\"}) is dead code: nothing ever reads current.spot_termination_notice, and the notice file the sidecar writes is never read either."
+    }
+  ],
+  "level": null
+}

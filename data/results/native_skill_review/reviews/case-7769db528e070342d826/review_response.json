@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Eval with 500 tests viewed in the UI: `fetchEvalData` stores only the first page (50 rows) in `useTableStore.table`, so 'Download CSV/table/failed tests' produces a file with just 50 rows instead of all 500; previously ResultsView loaded the full results file via /results/:id and exported everything",
+      "file": "src/app/src/pages/eval/components/DownloadMenu.tsx",
+      "line": 156,
+      "summary": "All export functions (CSV, table JSON, DPO, failed-tests YAML, burp payloads) build from the store's `table`, which after the server-side pagination change contains only the current 50-row page, so exports are silently truncated"
+    },
+    {
+      "failure_scenario": "Eval with 1,000 tests: score distribution and scatter charts silently aggregate only the first 50 tests, showing wrong pass/fail distributions and trends with no indication the data is page-scoped",
+      "file": "src/app/src/pages/eval/components/ResultsCharts.tsx",
+      "line": 83,
+      "summary": "Charts (score histograms, scatter, named-score comparisons) are computed from `table.body`, which now holds only the current page of results instead of the whole eval"
+    },
+    {
+      "failure_scenario": "User selects 'Show different outputs' or 'Show highlights only' in the UI; the request sends `filter=different`/`filter=highlights`, no SQL condition is added, and all rows are returned while the UI still shows the filter as active (previously these were filtered client-side by output-diff and '!highlight' comment)",
+      "file": "src/models/eval.ts",
+      "line": 433,
+      "summary": "Server-side filter in `queryTestIndices` only implements 'errors', 'failures', and 'passes'; the 'different' and 'highlights' modes offered by FilterModeSelector silently behave like 'all'"
+    },
+    {
+      "failure_scenario": "Eval has a named score 'answer-relevance' or 'rubric.v1'; user picks it from the MetricFilterSelector dropdown (which lists real metric names) -> `json_extract(named_scores, '$.answer-relevance')` is a malformed path (and '$.rubric.v1' traverses nested keys), returning NULL, so the table shows 'No results found' even though rows have that metric",
+      "file": "src/models/eval.ts",
+      "line": 444,
+      "summary": "Metric filter interpolates the raw metric name into an unquoted SQLite JSON path (`json_extract(named_scores, '$.${metric}')`), so any metric whose name contains '.', '-', space, or other non-`[A-Za-z0-9_$]` characters yields a malformed/divergent path and matches nothing"
+    },
+    {
+      "failure_scenario": "Eval with 100 tests and 2 prompts: `getResultsCount()` returns 200 while `filteredCount` returns 100 distinct tests, so ResultsView displays '100 of 200 results' for an unfiltered view (and pageCount/pagination uses the test count, confirming the intended unit is tests)",
+      "file": "src/models/eval.ts",
+      "line": 513,
+      "summary": "`getTablePage` mixes count units: `totalCount` comes from `getResultsCount()` (number of eval_results rows = tests x prompts) while `filteredCount` is `COUNT(DISTINCT test_idx)` (number of tests), so the UI's 'X of Y results' chip shows a wrong total for multi-prompt evals"
+    },
+    {
+      "failure_scenario": "User sets filter 'failures' (or a search/metric) and switches to another eval: `loadEvalById` fetches page 0 unfiltered while the ResultsTable effect fetches page 0 with the current filters (triggered by the `comparisonEvalIds` reset or the pageIndex reset from a non-zero page); whichever response resolves last wins, so the table nondeterministically shows unfiltered data under an active filter selector",
+      "file": "src/app/src/pages/eval/components/ResultsTable.tsx",
+      "line": 338,
+      "summary": "On evalId change the fetch effect's skip-guard can never fire (the evalId-reset effect always updates `previousEvalIdRef` first), so a stale/duplicate fetch races with `Eval.tsx loadEvalById`, which fetches with default filter/search options while the active filter UI state persists"
+    },
+    {
+      "failure_scenario": "Opening a pre-v4 eval in the UI: `this.prompts` is empty (prompts column was not used in v3), `eval_results` has no rows, and the vars backfill returns an empty set, so the table shows zero rows and no columns even though `getTable()`/`getPrompts()` still support oldResults and the data exists in the `results` JSON",
+      "file": "src/models/eval.ts",
+      "line": 583,
+      "summary": "`getTablePage` never consults `oldResults`/`useOldResults()`, so legacy version-3 evals (results stored as JSON in `evals.results`) render an empty table and empty var headers through the new `/eval/:id/table` endpoint"
+    },
+    {
+      "failure_scenario": "URL `?rowId=150` with pageSize 50: `rowIndex = min(149, 49) = 49`, `rowPageIndex = floor(49/50) = 0`, so the view scrolls to row 50 of page 0 instead of navigating to page 3 and highlighting row 150 (previously the full table was in memory and the correct page was computed)",
+      "file": "src/app/src/pages/eval/components/ResultsTable.tsx",
+      "line": 773,
+      "summary": "rowId deep-link handling clamps `parsedRowId - 1` to the current page's `tableBody.length - 1` before computing the target page, so deep links to rows beyond the first page always land on the last row of page 0"
+    },
+    {
+      "failure_scenario": "In 'Show failures only' mode with 2 prompts, unchecking 'Show failures' for column 1 previously excluded that column's failures from the row filter; now the checkbox has no effect on which rows appear (the server condition is `success = 0 AND failure_reason != 2` over all prompts regardless of checkbox state)",
+      "file": "src/app/src/pages/eval/components/ResultsTable.tsx",
+      "line": 645,
+      "summary": "The per-column 'Show failures' checkboxes (`failureFilter`) no longer influence filtering: they are not sent to the server, not in the fetch effect's dependencies, and `queryTestIndices` has no column-scoped condition, so toggling them is a no-op"
+    },
+    {
+      "failure_scenario": "User compares eval B, then eval C (columns for A+B+C), then selects B again -> duplicated prompt columns with identical `[id]` labels; there is no menu item to remove a comparison eval or leave comparison mode short of reloading the page (old code replaced the single comparison each time)",
+      "file": "src/app/src/pages/eval/components/ResultsView.tsx",
+      "line": 284,
+      "summary": "Comparison eval IDs accumulate without dedupe or removal UI: `setComparisonEvalIds([...comparisonEvalIds, compareEvalId])` appends forever, and the only reset is the Eval.tsx mount effect, so selecting the same eval twice duplicates its columns and comparison mode can't be exited without a reload"
+    },
+    {
+      "failure_scenario": "Request `GET /eval/:id/table?limit=-1` -> SQLite treats negative LIMIT as unlimited, returning all test indices; `inArray` with more than SQLITE_MAX_VARIABLE_NUMBER (999/32766) bind params makes better-sqlite3 throw and the route 500s; `limit=Infinity` embeds `LIMIT Infinity` into the raw SQL, also 500ing",
+      "file": "src/server/routes/eval.ts",
+      "line": 169,
+      "summary": "`/eval/:id/table` parses `limit`/`offset` with `Number(...) || default` and no validation, so malformed or extreme values produce SQL errors or an oversized IN-list and a 500 response"
+    },
+    {
+      "failure_scenario": "Every search query in `queryTestIndices` filters on `json_extract(test_case, '$.metadata')` which has no index, so filtered searches on large evals do full table scans, while eval_results inserts pay write amplification for two identical indexes on `metadata` (the duplication is also baked into drizzle migration 0013)",
+      "file": "src/database/tables.ts",
+      "line": 131,
+      "summary": "Index `eval_result_test_case_metadata_idx` is defined on `json_extract(${table.metadata}, '$')` (copy-paste of the metadata index) instead of `test_case` metadata, duplicating `metadataIdx` and leaving the actually-searched expression `json_extract(test_case, '$.metadata')` unindexed"
+    }
+  ],
+  "level": null
+}

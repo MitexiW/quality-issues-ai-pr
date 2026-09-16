@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User maps 'Last Modified' to a date column in a CSV whose Icon column is also mapped (KeePassXC's own CSV export puts icon numbers there, e.g. '48'): data(index(r,9)).isValid() is true, but the parsed value is the Icon cell '48', which matches ^\\d+$, so t=48*1000 and the entry's modification/access times are set to 1970-01-01, silently discarding the real last-modified date.",
+      "file": "src/gui/csvImport/CsvImportWidget.cpp",
+      "line": 282,
+      "summary": "Modified-time block checks the Last Modified column (index 9) but reads the Icon column (index 8): inserting the Tags column shifted the validity guard from 8 to 9 but the data read was left at 8."
+    },
+    {
+      "failure_scenario": "User maps both 'Created' and 'Last Modified' to different CSV columns: the entry's creation time is silently set from the Last Modified cell's value (or to 1970 when that cell is numeric like a Unix timestamp), and the mapped Created column is never read — the Created mapping has no effect.",
+      "file": "src/gui/csvImport/CsvImportWidget.cpp",
+      "line": 301,
+      "summary": "Creation-time block checks the Created column (index 10) but reads the Last Modified column (index 9): the guard was shifted from 9 to 10 but the data read stayed at 9."
+    },
+    {
+      "failure_scenario": "Non-behavioral test-coverage loss: the 'NULL device' error path added to CsvParser::parse (CsvParser.cpp:59-62) and the reparse-on-empty-buffer path are now exercised by no test, so future regressions there (e.g., reparse() dereferencing an empty table or misreporting status) would pass CI undetected.",
+      "file": "tests/TestCsvParser.cpp",
+      "line": 287,
+      "summary": "Deleted testEmptyReparsing removes the only coverage of the parse(nullptr) null-device guard and of reparse() after a failed/cleared parse."
+    }
+  ],
+  "level": null
+}

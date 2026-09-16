@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "app/helper/memory.py",
+      "line": 38,
+      "summary": "tracemalloc.start(25) in __init__ starts tracing but tracemalloc.clear_traces() is never called, causing the internal trace table to grow unbounded for the entire process lifetime — a memory leak inside the memory monitoring tool itself.",
+      "failure_scenario": "A long-running production process with thousands of allocations per second will see tracemalloc's internal trace buffer (storing 25 frames per allocation entry) grow without bound. Since tracemalloc is never cleared or stopped, this adds progressively more RSS overhead — the monitoring tool becomes a significant contributor to the very memory pressure it monitors.",
+      "finding_id": "mf-2dfdcd58da3741126d7e"
+    },
+    {
+      "file": "app/helper/memory.py",
+      "line": 326,
+      "summary": "create_detailed_memory_analysis() writes to self._memory_snapshot_dir without ensuring the directory exists; directory creation only happens inside start_monitoring() which is gated on settings.MEMORY_ANALYSIS (default: False).",
+      "failure_scenario": "With default configuration (MEMORY_ANALYSIS=false), calling MemoryHelper().create_detailed_memory_analysis() hits FileNotFoundError when trying to open the analysis file for writing. The error is swallowed by the broad except on line 352, so the caller gets None back with only an error-level log, creating a silent failure.",
+      "finding_id": "mf-429351e2c9471c144603"
+    },
+    {
+      "file": "app/helper/memory.py",
+      "line": 326,
+      "summary": "create_detailed_memory_analysis() creates detailed_memory_analysis_*.txt files, but _cleanup_old_snapshots() only globs for memory_snapshot_*.txt (line 688) — detailed analysis files accumulate without bound and are never pruned.",
+      "failure_scenario": "Repeated manual or automated calls to create_detailed_memory_analysis() fill the memory_snapshots directory with ever-growing detailed_memory_analysis_*.txt files. Since the cleanup glob pattern at line 688 does not match these filenames, they persist forever, eventually exhausting disk space.",
+      "finding_id": "mf-d274fd50ca5fa1c69337"
+    },
+    {
+      "file": "app/helper/memory.py",
+      "line": 236,
+      "summary": "_write_python_objects_info() calls muppy.get_objects() + summary.summarize() (lines 212-213) then immediately calls _get_unaccounted_memory() (line 236) which redundantly repeats the identical expensive scan (lines 256-257), doubling the cost of every monitoring cycle.",
+      "failure_scenario": "In a process with millions of live Python objects, each monitoring cycle scans all objects twice via muppy.get_objects() and summary.summarize(). This doubles CPU time and temporary memory pressure during snapshot creation, making the monitoring more expensive than necessary in memory-constrained scenarios.",
+      "finding_id": "mf-54149849285b7d6f7854"
+    },
+    {
+      "file": "app/helper/memory.py",
+      "line": 293,
+      "summary": "_append_memory_leak_analysis calls tracemalloc.take_snapshot() on every monitoring cycle but never stores or diff-compares snapshots — the method claims to analyze 'memory leaks' but only reports static allocation stats and discards the snapshot.",
+      "failure_scenario": "Every monitoring cycle allocates a potentially large tracemalloc.Snapshot object (which copies the entire trace table), formats tracebacks, then discards the snapshot. This wastes both CPU and peak memory per cycle without delivering actual leak detection (which requires comparing at least two snapshots to identify growth).",
+      "finding_id": "mf-0217923431cd129563c5"
+    },
+    {
+      "file": "app/helper/memory.py",
+      "line": 5,
+      "summary": "Unused import 'os' added by the diff — it is never referenced by any code in the file.",
+      "failure_scenario": "The import adds a dead dependency that misleads readers about the module's requirements. Only a code-quality concern; no runtime crash.",
+      "finding_id": "mf-4ce3a87d1affe05bac75"
+    }
+  ]
+}

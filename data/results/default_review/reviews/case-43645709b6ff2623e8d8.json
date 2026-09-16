@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "src/bentoml/_internal/bento/build_config.py",
+      "line": 889,
+      "summary": "Config-file `args` are silently dropped when `docker.distro` is not explicitly set, because `if self.args:` is incorrectly nested inside `if self.docker.distro is not None:` at line 862",
+      "failure_scenario": "User writes `bentofile.yaml` with `args: {model_name: gpt-4}` and no explicit `docker.distro`. During `__attrs_post_init__`, `self.docker.distro` is None (default), so the entire `if self.docker.distro is not None:` block (lines 862–892) is skipped. The `if self.args:` block at line 889 -- nested at 12-space indent inside the 8-space `distro` guard -- never executes. Later `with_defaults()` creates a `FilledBentoBuildConfig` without forwarding `args`, so that instance's `self.args` is `{}` and the block is also skipped. The config-file args never reach `BentoMLContainer.bento_arguments`, so `bento.info.args` is `{}` and `use_arguments()` in the service sees nothing.",
+      "finding_id": "mf-de8ac9a24f08a10d4e5b"
+    }
+  ]
+}

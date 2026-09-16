@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "context_bin_map has 2+ entries (a model split into multiple pieces with distinct .bin files, or two models with different binaries). Each loop iteration push_backs into context_params_list and stores &context_params_list.back() into context_params_ptr_list; the second push_back reallocates the vector, invalidating the previously stored pointer. QNN then iterates context_params_ptr_list and dereferences freed memory, reading garbage QnnContext_Params_t (version/pointer fields) -> crash or corrupt context creation. With exactly 1 entry (the test's case) no reallocation happens, so the bug is untested.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 824,
+      "summary": "Pointers into context_params_list dangle after vector reallocation and are passed to contextCreateFromBinaryListAsync."
+    },
+    {
+      "failure_scenario": "contextCreateFromBinaryListAsync is an asynchronous API whose contract requires the binary buffers and notifyParam to remain valid until the callback fires. The code clears buffer_list/context_params_list (lines 833-836) immediately after the call, and GetCapability clears context_bin_map (qnn_execution_provider.cc:945), destroying the std::vector<std::string> objects the callback reads via notifyParam. If QNN completes the creation after these clears (the normal case for an async API), ContextCreateAsyncCallback -> ProcessContextFromBinListAsync iterates *ep_node_names over freed memory -> crash or garbage node-name-to-context mappings. The configs array also points to stack locals that die when the function returns.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 836,
+      "summary": "Binary buffers, params, and the notifyParam vectors are freed before the asynchronous context creation callback runs (use-after-free)."
+    },
+    {
+      "failure_scenario": "A second session enables enable_vtcm_backup_buffer_sharing and its GetCapability runs SetupBackend after the first session finished backend setup. The filepath key was inserted into ep_context_handle_map_ only by the first session's async callback. If that callback has not completed yet, or the second session resolves a different context-cache directory/working directory (different key string), .at(context_bin_filepath) throws std::out_of_range, which nothing catches -> process termination during session creation.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 1170,
+      "summary": "SetupBackend's early-return path calls unordered_map::at() on a key that may not exist, throwing an uncaught std::out_of_range."
+    },
+    {
+      "failure_scenario": "Two sessions are created concurrently (the feature exists to share one manager across sessions; SharedContext's own comment says producer sessions can be parallel). Session 1's ContextCreateAsyncCallback thread inserts into ep_context_handle_map_ under ep_context_handle_map_mutex_, while session 2's SetupBackend early-return path (line 1170-1172, holding only logger_recursive_mutex_) emplaces into the same map and LoadCachedQnnContextFromBuffer (line 1075) reads it with no map lock. Concurrent insert/read on std::unordered_map is UB -> heap corruption, crash, or silently lost/wrong node-to-context mappings.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 1172,
+      "summary": "ep_context_handle_map_ is read and mutated without its mutex on the setup/compile paths while the QNN callback thread mutates it, a data race on std::unordered_map."
+    },
+    {
+      "failure_scenario": "User sets enable_vtcm_backup_buffer_sharing=1 with a QNN SDK runtime < 2.26. The constructor only logs a warning and keeps the option enabled; CreateContextVtcmBackupBufferSharingEnabled's #else branch also only logs, then calls qnn_interface_.contextCreateFromBinaryListAsync. The QnnInterface struct member (added in 2.26) was never written by the older lib, so it remains at its QNN_INTERFACE_VER_TYPE_INIT value (null) -> null function-pointer call -> segfault, instead of a clean error/fallback.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 827,
+      "summary": "contextCreateFromBinaryListAsync is called unconditionally even when the loaded QNN runtime is older than 2.26, where the function pointer is null."
+    },
+    {
+      "failure_scenario": "(1) A session with enable_vtcm_backup_buffer_sharing=1 plus ep.stop_share_ep_contexts=1 takes the shared manager and resets the singleton (qnn_execution_provider.cc:571-573); the first session's pending async callbacks then get GetSharedQnnBackendManager() == nullptr and call ->ProcessContextFromBinListAsync on it (only `context` is null-checked) -> null-pointer deref. (2) Concurrent vtcm sessions: SetSharedQnnBackendManager's false return (manager already set) is ignored at qnn_execution_provider.cc:587, so the loser's callbacks register its contexts and node-name mappings into the winner's manager; the loser's own manager never gets them -> 'Failed to retrieve context' and its session fails.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 721,
+      "summary": "ContextCreateAsyncCallback resolves the backend manager from the singleton at callback time instead of the manager that initiated the creation, enabling null deref or cross-manager misregistration."
+    },
+    {
+      "failure_scenario": "GetCapability returns immediately after contextCreateFromBinaryListAsync queues the async creation, and Compile immediately calls LoadCachedQnnContextFromBuffer, which looks up the EPContext node name in ep_context_handle_map_. If the QNN callback has not completed by then, the lookup fails and the code returns 'Failed to retrieve context for <node_name>' -> the QNN partition compile fails and the model silently falls back to CPU EP (or session creation fails with disable_cpu_ep_fallback). Nothing waits for or joins the async creations before the map is used.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 1078,
+      "summary": "LoadCachedQnnContextFromBuffer has no synchronization with the async context creation, so Compile can run before the callback populates the map and fail."
+    },
+    {
+      "failure_scenario": "QNN invokes the callback with status != QNN_CONTEXT_NO_ERROR (context creation failed) but a non-null context handle. The code calls ProcessContextFromBinListAsync anyway: node names get mapped to the failed context and AddQnnContextHandle takes ownership of an invalid handle. Later LoadCachedQnnContextFromBuffer binds graphs to this invalid context -> garbage inference or crash, while the actual creation failure is never surfaced (the failure is only discoverable through a missing error status check).",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 723,
+      "summary": "The callback processes and takes ownership of the context handle without checking the status/notifyType, registering failed context creations."
+    },
+    {
+      "failure_scenario": "User sets the option on a plain model or a context-generation session (context_cache_enable=1). GetMainEPCtxNodes finds no EPContext nodes, so context_bin_map is empty and SetupBackend calls CreateContextVtcmBackupBufferSharingEnabled with only a nullptr sentinel; QNN rejects the empty list, SetupBackend fails, GetCapability returns no capabilities and the model silently falls back to CPU EP. Weight-sharing generation (share_ep_contexts) is also bypassed, since the vtcm branch replaces CreateContext(enable_htp_weight_sharing) entirely.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 1245,
+      "summary": "Enabling enable_vtcm_backup_buffer_sharing on a model without EPContext nodes passes an empty params list to contextCreateFromBinaryListAsync, silently disabling the QNN EP."
+    },
+    {
+      "failure_scenario": "Session 1 loads a ctx model with enable_vtcm_backup_buffer_sharing=1 (flag true on the shared manager). Session 2 in the same process loads with ep.context_enable=1 + ep.share_ep_contexts=1 but no vtcm option, so it reuses the same manager. Session 2's SetupBackend early-returns and its LoadCachedQnnContextFromBuffer takes the vtcm branch, but session 2's node names were never mapped -> 'Failed to retrieve context' -> CPU fallback. In the reverse order (non-vtcm session first), a later vtcm session early-returns before the flag is set and never creates shared contexts, silently ignoring the option.",
+      "file": "onnxruntime/core/providers/qnn/builder/qnn_backend_manager.cc",
+      "line": 1180,
+      "summary": "The vtcm flag is stored on the shared backend manager, so a session without the option inherits the first session's vtcm behavior and fails or silently loses sharing."
+    },
+    {
+      "failure_scenario": "User loads a ctx model by a bare relative filename such as \"model_ctx.onnx\" (no \"./\" prefix) or from memory without qnn_context_cache_path. std::filesystem::path(...).parent_path() is empty, so context_bin_filepath becomes \"/model_ctx.bin\" (filesystem root). CreateContextVtcmBackupBufferSharingEnabled then fails to open it ('Failed to retrieve context binary'), SetupBackend fails, and the QNN EP is silently disabled. The existing GetEpContextFromMainNode appends to the possibly-empty path (staying relative) and works; the new code deviates.",
+      "file": "onnxruntime/core/providers/qnn/qnn_execution_provider.cc",
+      "line": 924,
+      "summary": "Building the .bin path from parent_path().string() + \"/\" + filename produces an absolute root path when the model path has no directory component."
+    },
+    {
+      "failure_scenario": "User enables enable_vtcm_backup_buffer_sharing on an embed-mode ctx model. The constructor only logs the conflict ('will not work as expected') and proceeds. GetCapability reads node_helper.Get(qnn::EP_CACHE_CONTEXT, \"\"), which in embed mode is the entire context binary content (see onnx_ctx_model_helper.cc:240), and concatenates it as a filename, creating a path string of megabytes. ifstream open of that path fails, SetupBackend fails, and the QNN EP is silently disabled with a confusing error instead of a clean up-front rejection.",
+      "file": "onnxruntime/core/providers/qnn/qnn_execution_provider.cc",
+      "line": 925,
+      "summary": "For embed-mode ctx models the ep_cache_context attribute holds the multi-megabyte binary payload, which is used as a filename component for the .bin path."
+    }
+  ],
+  "level": null
+}

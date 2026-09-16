@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "cmake/ftxui_modules.cmake",
+      "line": 79,
+      "summary": "install(FILES my_package-config.cmake ...) references a file that does not exist in the repository, causing cmake --install failure when FTXUI_BUILD_MODULES=ON and FTXUI_ENABLE_INSTALL=ON.",
+      "failure_scenario": "Build with -DFTXUI_BUILD_MODULES=ON -DFTXUI_ENABLE_INSTALL=ON, then run 'cmake --install .' or 'make install'. CMake fails with error: 'Cannot find source file: my_package-config.cmake'. This is a placeholder filename that was never replaced with the actual config file path.",
+      "finding_id": "mf-b5f4e40767c8e6a00cc6"
+    },
+    {
+      "file": "cmake/ftxui_modules.cmake",
+      "line": 75,
+      "summary": "Duplicate install(EXPORT ftxui-targets ...) conflicts with the one already defined in cmake/ftxui_install.cmake line 25 — the modules version omits NAMESPACE ftxui:: and adds CXX_MODULES_DIRECTORY, while the install version has NAMESPACE ftxui:: but no CXX_MODULES_DIRECTORY. CMake may silently overwrite one with the other.",
+      "failure_scenario": "Build with both FTXUI_BUILD_MODULES=ON and FTXUI_ENABLE_INSTALL=ON. Depending on CMake version and processing order, either (a) the installed ftxui-targets.cmake lacks the ftxui:: namespace prefix, breaking find_package(ftxui) consumers, or (b) the installed export file lacks CXX_MODULES_DIRECTORY information, making installed modules unusable by downstream consumers.",
+      "finding_id": "mf-7cc904ed42afa9993782"
+    },
+    {
+      "file": "tools/generate_examples_modules.sh",
+      "line": 15,
+      "summary": "sed -i on lines 15-21 and 25-26 uses GNU sed syntax without a backup extension; the script fails on macOS/BSD where sed -i requires an argument (e.g., sed -i '').",
+      "failure_scenario": "A developer runs ./tools/generate_examples_modules.sh on macOS. sed -i '' /#include \"ftxui/d' treats the empty string '' as the backup suffix and the next argument as the sed command, causing 'sed: 1: \"/#include \"ftxui/d\": invalid command code f' or similar error. The script aborts without generating the examples_modules directory.",
+      "finding_id": "mf-8ba1e3c94cb7f7e91c25"
+    },
+    {
+      "file": "src/ftxui/dom/elements.cppm",
+      "line": 1021,
+      "summary": "@file doxygen tag reads 'canvas.cppm' but the actual filename is 'elements.cppm' — copy-paste error from the canvas module file.",
+      "failure_scenario": "Generated documentation incorrectly attributes the elements module documentation to canvas.cppm, leading to confusion when developers search for the elements module's doxygen documentation.",
+      "finding_id": "mf-cc41afbe2d21f2722d57"
+    },
+    {
+      "file": "src/ftxui/screen/deprecated.cppm",
+      "line": 1433,
+      "summary": "@file doxygen tag reads 'box.cppm' but the actual filename is 'deprecated.cppm' — copy-paste error from the box module file.",
+      "failure_scenario": "Generated documentation incorrectly attributes the deprecated module documentation to box.cppm, leading to confusion.",
+      "finding_id": "mf-9c0da61d62ff14f9f34f"
+    }
+  ]
+}

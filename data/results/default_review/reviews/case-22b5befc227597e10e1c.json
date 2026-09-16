@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "modules/debugging/bidInterceptor.js",
+      "line": 162,
+      "summary": "paapiReplacer missing return in else branch causes TypeError crash when paapiDef is truthy but not an array or function",
+      "failure_scenario": "A bid interception rule with paapi: 'invalid' (truthy string) passes through the array/func checks, logs an error, but returns undefined. When intercept() later calls match.rule.paapi(match.bid, bidRequest), it throws 'TypeError: match.rule.paapi is not a function'.",
+      "finding_id": "mf-8f3eec0bcc61facde566"
+    },
+    {
+      "file": "modules/debugging/bidInterceptor.js",
+      "line": 247,
+      "summary": "intercept() calls addPaapiConfig unconditionally via forEach but JSDoc marks it optional -- throws TypeError if not provided and mockPaapi is non-empty",
+      "failure_scenario": "Call intercept({bids: [...], bidRequest: {...}, addBid: fn, done: fn}) without addPaapiConfig when a matching rule has a non-empty PAAPI config array. mockPaapi.forEach(cfg => addPaapiConfig(...)) throws 'TypeError: addPaapiConfig is not a function'.",
+      "finding_id": "mf-6f413a38154d138657bc"
+    },
+    {
+      "file": "modules/gppControl_usstates.js",
+      "line": 55,
+      "summary": "normalizer inner function accesses cd[field] without null guard -- TypeError when consent data is null or undefined",
+      "failure_scenario": "When no GPP section data exists for a state, getConsentData()?.parsedSections?.[api] evaluates to undefined, flatSection(undefined) returns undefined, and the normalizer's inner function executes cd[field] on undefined consent data, throwing 'TypeError: Cannot read properties of undefined' at the Array.isArray(cd[field]) check.",
+      "finding_id": "mf-3c151d43a6f06111cede"
+    },
+    {
+      "file": "modules/kinessoIdSystem.js",
+      "line": 220,
+      "summary": "JSDoc return type changed from {knssoId} to {string|undefined} but getId returns an object {id: string}, not a string",
+      "failure_scenario": "Developers reading the JSDoc expect getId() to return a plain string or undefined; it actually returns {id: string} on success. Callers checking typeof result === 'string' would incorrectly treat a valid result as invalid.",
+      "finding_id": "mf-7129e16ce9786ad7ca8f"
+    },
+    {
+      "file": "modules/adotBidAdapter.js",
+      "line": 155,
+      "summary": "JSDoc @param {BidderRequest} bidderRequest added to getOpenRTBExtObject which takes zero parameters",
+      "failure_scenario": "Developers reading the JSDoc believe they must pass a bidderRequest argument; the function signature accepts none, so any passed argument is silently ignored. This is a documentation regression introduced by the PR.",
+      "finding_id": "mf-5e3c7221156f54a2b44e"
+    },
+    {
+      "file": "modules/medianetBidAdapter.js",
+      "line": 529,
+      "summary": "JSDoc says @param {Object} bid but the actual onTimeout function parameter is named timeoutData, not bid",
+      "failure_scenario": "Developers reading the JSDoc reference the parameter as 'bid' in their mental model; the actual parameter name available at runtime is timeoutData. The previous JSDoc had the correct parameter name timeoutData; this is a regression introduced by the PR.",
+      "finding_id": "mf-50cf57f4fd4f7d9fbb04"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A client configured with '@' as a word character (e.g., Neovim/Vim with `iskeyword+=@` for SQL, or any LSP client whose document wordPattern includes '@') sends a completion request triggered by typing '@'. The user types '@eac' and selects the '@each' item: because triggered_by_at is true the server returns insert_text='each' with no textEdit range, the client replaces its computed word range '@eac' with 'each', producing 'each(...)' instead of '@each(...)' - the macro invocation loses its '@' and the SQL no longer references the macro. The server-side asymmetry (insert_text differs based on trigger_character) is only safe when the client's word boundary excludes '@', which the server cannot assume.",
+      "file": "sqlmesh/lsp/main.py",
+      "line": 608,
+      "summary": "Macro completion insert_text drops the '@' prefix when the request was triggered by '@', so any client whose word pattern treats '@' as a word character replaces the whole '@name' token and deletes the macro prefix."
+    },
+    {
+      "failure_scenario": "Running `pnpm run test:e2e` executes both 'Macro Completions' tests even though the author documented them as flaky and intended them to be skipped as regular checks (the tests rely on fixed 500ms waits, an '@' trigger round-trip, and exact-count locators like `text=@each`). The stated intent ('Skip ... as regular checks because they are flaky') is not implemented - no `test.describe.skip` or `test.skip` is applied - so the known-flaky tests fail intermittently for anyone running the suite and the comment misleads maintainers into believing they are excluded.",
+      "file": "vscode/extension/tests/completions.spec.ts",
+      "line": 58,
+      "summary": "The comment says the macro completion tests are flaky and are being skipped as regular checks, but the code registers them with plain test.describe/test so they actually run in the normal e2e suite."
+    },
+    {
+      "failure_scenario": "The LSP server is started with a custom `context_class` (a supported configuration) whose context instance lacks the private `_macros` attribute, or a future sqlmesh version renames it, or `_macros` iteration raises for any other reason: the AttributeError/exception is swallowed, get_macros returns only the built-in registry macros, and every user-defined macro silently disappears from autocomplete with no error surfaced anywhere - the very data this feature was added to expose is dropped without a diagnostic.",
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 66,
+      "summary": "get_macros wraps the project-macro lookup in a bare `except Exception: pass`, so any failure while reading context.context._macros silently discards all project macros with no logging."
+    },
+    {
+      "failure_scenario": "A future caller of AllModelsResponse.macros (e.g., the vscode fallback provider in extension/src/completion/completion.ts, which already builds items from the response) follows the docstring and emits labels from the names directly: completions render as bare 'each'/'add_one' without '@', or a defensive caller that adds '@' per the docs produces '@@each'. The contract in the docstring is the inverse of the actual behavior, so the interface cannot be consumed correctly without reading main.py's implementation.",
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 64,
+      "summary": "The get_macros docstring claims the returned names carry the '@' prefix, but both macro.get_registry() keys and Context._macros keys are plain lowercase names with no '@' - main.py only works because it re-adds the '@' itself, so any caller that trusts the documented contract will double-prefix."
+    }
+  ],
+  "level": null
+}

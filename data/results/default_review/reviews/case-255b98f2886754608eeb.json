@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "packages/react/src/components/NovuUI.tsx",
+      "line": 91,
+      "summary": "Missing `options.container` in the useEffect dependency array; the effect reads it but won't re-run when it alone changes.",
+      "failure_scenario": "User renders `<NovuUI options={{ container: newShadowRoot, localization: stableRef, tabs: stableRef, options: stableNovuOptions, routerPush: stableRef }} />`. React re-renders because `options.container` changed, but the effect's deps are `[novuUI, adaptedAppearanceForUpdate, options.localization, options.tabs, options.options, options.routerPush]` — none of which changed. The effect does not re-run, `updateContainer` is never called, and portaled content (popovers, tooltips) continues targeting the old container.",
+      "finding_id": "mf-bc482b840824d55f0e6f"
+    },
+    {
+      "file": "packages/js/src/ui/novuUI.tsx",
+      "line": 181,
+      "summary": "`updateContainer()` only updates the reactive signal but never moves `#rootElement`; the root div stays in the original container.",
+      "failure_scenario": "A JS SDK user calls `novuUI.updateContainer(differentShadowRoot)`. The `container()` signal updates, so PopoverContent and TooltipContent portals now mount into `differentShadowRoot` and register event listeners there. But `#rootElement` — the div that holds all non-portaled content (Inbox, Bell, etc.) — was appended to the original ShadowRoot during construction and is never relocated. The Inbox renders in the old shadow tree while its Popover renders in `differentShadowRoot`, breaking style inheritance and event handling.",
+      "finding_id": "mf-9e9781c8054fb50ff19e"
+    },
+    {
+      "file": "packages/js/src/ui/components/primitives/Popover/PopoverContent.tsx",
+      "line": 76,
+      "summary": "When the container is `document.body`, `handleClickOutside` is registered twice on the same element, invoking `onClose()` twice per click.",
+      "failure_scenario": "A JS SDK user passes `container: document.body`. On mount, the code calls `document.body.addEventListener('click', handleClickOutside)` at line 76 and `container()?.addEventListener('click', handleClickOutside)` at line 77 — both targeting `document.body`. Every outside click fires `handleClickOutside` twice. While `onClose()` is likely idempotent, the double invocation wastes cycles and would cause observably incorrect behavior if any side effect in `onClose` (or downstream state updates) is not idempotent.",
+      "finding_id": "mf-7ebddc001b63896c7038"
+    }
+  ]
+}

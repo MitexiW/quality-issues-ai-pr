@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/services/fetchRecentSessions.ts",
+      "line": 25,
+      "summary": "Cross-organization data leakage: Supabase query filters only by created_by_user_id, omitting the organization_id column that every other design_sessions query in the codebase uses for scoping.",
+      "failure_scenario": "A user belongs to Org A and Org B. They are viewing Org A's dashboard. The RecentsSection fetches sessions with only .eq('created_by_user_id', userId), returning sessions from both Org A and Org B. Session names from Org B (which may contain project-sensitive information) are exposed in the Org A nav. Additionally, GlobalNav has currentOrganization available (line 15, 108) but never passes it to RecentsSection — RecentsSection only receives isExpanded (line 119), so it has no way to scope by the active organization.",
+      "finding_id": "mf-622a656f3bddf65c7440"
+    },
+    {
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/RecentsSection/RecentsSection.tsx",
+      "line": 21,
+      "summary": "useEffect starts an async fetch with no AbortController and no mounted guard; state setters fire on unmounted component after navigation away.",
+      "failure_scenario": "User opens a page, the RecentsSection component mounts and starts fetching sessions. User navigates to another page (via router.push or a link) before the fetch completes. The component unmounts but the in-flight promise resolves and calls setSessions() and setLoading() on the unmounted component, producing a React warning ('Can't perform a React state update on an unmounted component') and leaking the promise closure. The comparable useEffect in GlobalNav.tsx (line 29) correctly cleans up its subscription in the return function.",
+      "finding_id": "mf-9a1aa3fd7a9fddbd10cf"
+    },
+    {
+      "file": "frontend/apps/app/components/CommonLayout/GlobalNav/services/fetchRecentSessions.ts",
+      "line": 29,
+      "summary": "Supabase query errors are silently swallowed: on any error the function returns [] after logging, indistinguishable from the user having no sessions.",
+      "failure_scenario": "The Supabase endpoint is temporarily unreachable or returns a permission error (e.g., RLS policy change). fetchRecentSessions catches the error, logs it, and returns []. The RecentsSection renders 'No recent sessions' — the user sees an empty state and assumes they have no history, when in reality the data could not be loaded. This hides production failures and makes debugging harder.",
+      "finding_id": "mf-2e6078bb9b85b03916a5"
+    }
+  ]
+}

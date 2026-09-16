@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "test/spec/modules/paapi_spec.js",
+      "line": 733,
+      "summary": "Missing `await` on `testAsyncParams(bidRequests.rubicon)` — async assertions for rubicon's PAAPI navigator wrappers are a floating promise and may not complete before the test finishes",
+      "failure_scenario": "If rubicon's `paapi.createAuctionNonce` or `paapi.getInterestGroupAdAuctionData` wrappers are broken (e.g., wrong args forwarded to navigator), the test passes anyway because the un-awaited promise's assertions are never guaranteed to execute before Mocha considers the test done. The sinon stubs in `testAsyncParams` could assert failure after the test already passed.",
+      "finding_id": "mf-495c57f6fde5d0e20269"
+    },
+    {
+      "file": "modules/paapi.js",
+      "line": 530,
+      "summary": "Adding `'serverResponse'` to `ASYNC_SIGNALS` makes it replacified by a Promise in `makeDeferrals`, changing the behavior for any adapter that provides `serverResponse` in `buildPAAPIConfigs` — it was previously used as-is, now it gets async resolution",
+      "failure_scenario": "An adapter that returns `{serverResponse: {data: 'value'}}` from `buildPAAPIConfigs` would previously get that value directly in the auction config. After this change, `serverResponse` is replaced by a Promise that resolves to `null` (unless a matching `interpretResponse` supplies a value). If no response-side config provides `serverResponse`, the adapter's value is silently dropped. No specific test was added to validate this new signal's behavior.",
+      "finding_id": "mf-f2d149030fdedc698be5"
+    },
+    {
+      "file": "test/spec/modules/paapi_spec.js",
+      "line": 36,
+      "summary": "Unused import `buildActivityParams` from `../../../src/activities/params.js` — imported in the diff but never referenced anywhere in the test file",
+      "failure_scenario": "The import adds an unnecessary dependency on `src/activities/params.js`. If that module is removed or renamed, the test file will fail to parse even though it never uses the import. This is dead code introduced by the changeset.",
+      "finding_id": "mf-6237f044c12af2e3e1e3"
+    }
+  ]
+}

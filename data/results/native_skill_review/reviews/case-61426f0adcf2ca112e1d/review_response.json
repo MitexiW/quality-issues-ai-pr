@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "new JSONWire(Bytes.from(\"{\\\"name\\\":\\\"Jérôme\\\"}\")).copyTo(yamlOrBinaryWire) — copyQuote appends bytes 0xC3 0xA9 as chars U+00C3 U+00A9, so the destination wire receives \"JÃ©rÃ´me\" instead of \"Jérôme\". Chronicle-written JSON escapes non-ASCII as \\uXXXX (restored by unescape()), so the corruption hits any externally produced JSON containing raw UTF-8, e.g. output of JSON.stringify.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 463,
+      "summary": "copyQuote reads the quoted string one raw byte at a time and appends each byte as a char, corrupting any non-ASCII (multi-byte UTF-8) character in keys and string values during cross-format copies."
+    },
+    {
+      "failure_scenario": "With useTypes(true), wire.read(\"f\").object(Foo.class) on content \"f\":{\"@type\":\"net.x.Bar\"} returns Bar.class cast to Foo; the caller's first use of the result as a Foo throws ClassCastException (java.lang.Class cannot be cast to Foo) far from the read site. Unlike the hasTypeDefinition branch, this branch performs no targetType.isAssignableFrom / isInstance validation.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 1327,
+      "summary": "parseType returns the resolved Class object cast to E via Jvm.uncheckedCast when the input is a {\"@type\":\"...\"} literal, without checking that the caller actually expects a Class, so a Class instance is silently returned where an instance of the requested type is required."
+    },
+    {
+      "failure_scenario": "Calling the public copyOne(dest, false, false) on a wire whose content is a bare array ([1,2,3] or []), or on copyTo when a trailing array document is followed by more data: after the sequence is copied the read position still points at ']', so a subsequent copyOne/copyTo/read starts at ']' and throws IORuntimeException \"Unexpected chars ']'\". copyTo's own readRemaining() > 1 loop masks the leftover only when nothing follows.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 546,
+      "summary": "copySequence's loop condition (readRemaining() > 1) exits without consuming the closing ']' whenever the array is the last content of the buffer, leaving the source wire positioned on the bracket."
+    },
+    {
+      "failure_scenario": "Input {\"@Foo\" 123} (space instead of colon): with -ea off, the assert is skipped, the byte '1' is consumed as the colon, and super.object(...) then parses from \"23}\", yielding a confusing downstream IORuntimeException or misparsed object instead of the diagnostic 'Expected : but got 1' that only appears with assertions enabled.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 1390,
+      "summary": "readTypeDefinition validates the ':' separator after the \"@Type\" key with a Java assert, so with assertions disabled (the JVM default) a malformed type definition is silently accepted and the wrong byte is consumed as the colon."
+    },
+    {
+      "failure_scenario": "copyOne(dest, false, false) on a truncated value \"abc (no closing quote) copies \"abc\" to the destination and returns with no error; on \"abc\\ (backslash as the final byte) the bytes.readUnsignedByte() at line 467 is invoked past the read limit and throws an unchecked BufferUnderflowException instead of a parse error.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 459,
+      "summary": "copyQuote's read loop ends silently at end-of-input without requiring a closing quote, and the escape branch reads a second byte unconditionally, so truncated input is either silently accepted or blows up with an unchecked BufferUnderflowException."
+    },
+    {
+      "failure_scenario": "Input {\"a\" 1} (space instead of colon): the thrown IORuntimeException reads \"Expected a ':' but got a '\"'\" (or \"got a '''\" for single-quoted keys), telling the user the quote character was the problem and hiding the actual unexpected byte.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 309,
+      "summary": "The colon-expectation error message in copyOne interpolates ch (the opening quote character) instead of ch2 (the byte actually read), so the diagnostic always reports the quote character rather than the offending input."
+    },
+    {
+      "failure_scenario": "Non-behavioral documentation defect introduced by this diff: parseType's javadoc (line 1322) still says 'incompatible with {@code clazz} or {@code using}' although clazz was renamed to targetType, and the method prose at lines 290 and 449 still says 'to {@code wire}' although the parameter is now destWire — javadoc references to non-existent parameters, misleading API documentation and doclint warnings.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 1322,
+      "summary": "The parameter rename left stale javadoc references to the old parameter names — {@code clazz} in parseType's @throws tag and {@code wire} in the copyOne/copyQuote prose — so the javadoc no longer matches the renamed signatures."
+    }
+  ],
+  "level": null
+}

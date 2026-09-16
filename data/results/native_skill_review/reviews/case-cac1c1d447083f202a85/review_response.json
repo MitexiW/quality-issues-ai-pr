@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`ingestr ingest --source-uri 'isoc-pulse://?token=...' --source-table 'resilience::FR' --interval-start '2023-07-01'` computes month=7 → floor(7/4)+1 = 2, so the request asks the API for 2023 Q2 data instead of Q3 and the pipeline silently loads the wrong quarter; October and November similarly map to Q3 instead of Q4. Correct formula: (month - 1) // 3 + 1.",
+      "file": "ingestr/src/isoc_pulse/__init__.py",
+      "line": 133,
+      "summary": "The quarter computation `math.floor(date.month / 4) + 1` is wrong for months 7, 10 and 11, so resilience requests silently fetch the wrong quarter's data."
+    },
+    {
+      "failure_scenario": "User runs the command documented in this same PR (`--source-table 'https:topsites'`): opts=['topsites'], so get_metric_cfg returns path 'https/country/topsites' with topsites=True; the request to /api/https/country/topsites fails or returns empty data, making the documented 'Top sites data' usage unusable. The ipv6 branch special-cases 'topsites' correctly, showing the https branch is missing that check.",
+      "file": "ingestr/src/isoc_pulse/__init__.py",
+      "line": 99,
+      "summary": "For `https:topsites` the https branch builds the path `https/country/topsites`, treating the literal string 'topsites' as a country code, so the documented global top-sites usage requests a nonexistent country endpoint."
+    },
+    {
+      "failure_scenario": "The add_date map exists because Pulse net-loss API rows lack a 'date' field, but dlt's rest_api extracts the 'date' cursor (cursor_path: 'date') from each row at fetch time, before add_map runs, and raises IncrementalCursorPathMissing — so net_loss ingestion fails entirely. If the rows do carry dates, add_date overwrites every row with the same interval start date and the merge write disposition with primary_key 'date' collapses all events into one destination row.",
+      "file": "ingestr/src/isoc_pulse/__init__.py",
+      "line": 80,
+      "summary": "net_loss rows are stamped with the fixed interval start date via add_map while 'date' is both the incremental cursor and the merge primary key, causing either an extraction crash or collapse of all rows into a single destination row."
+    },
+    {
+      "failure_scenario": "`ingestr ingest --source-table 'https' --interval-start '2023-01-01' --interval-end '2023-12-31'`: interval_end is a datetime from typer, so the source sends start_date=2023-01-01 but end_date='2023-12-31 00:00:00' (both as the static param and the incremental end_value). An API that expects the date-only format it receives for start_date rejects the request or misinterprets the inclusive end boundary. ZendeskSource in the same file formats both with strftime('%Y-%m-%d').",
+      "file": "ingestr/src/sources.py",
+      "line": 2814,
+      "summary": "end_date is converted with str() (e.g. '2023-12-31 00:00:00') while start_date uses strftime('%Y-%m-%d'), sending the API an end_date in a datetime format it does not use for start_date."
+    },
+    {
+      "failure_scenario": "User runs `--source-table 'ipv6:topsites:DE'` (the docs table advertises both topsites and country options for ipv6): get_metric_cfg sees 'topsites' in opts and returns path 'ipv6' with params {topsites: True}, dropping 'DE' entirely, so the pipeline silently loads global top-sites data instead of Germany's — a wrong-data result with no error.",
+      "file": "ingestr/src/isoc_pulse/__init__.py",
+      "line": 109,
+      "summary": "For `ipv6:topsites:<country>` the topsites branch returns the global 'ipv6' path and silently ignores the country option, returning global data instead of country-specific data."
+    }
+  ],
+  "level": null
+}

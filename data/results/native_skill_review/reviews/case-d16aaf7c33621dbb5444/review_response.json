@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "class LimitedTool(BaseTool): max_usage_count = 1. Calling tool.run('a'), tool.run('b'), tool.run('c') directly executes all three calls — no error is ever raised. The only enforcement added by this PR lives in ToolUsage._use (tool_usage.py:203), and the agent flow never reaches run(): it executes via CrewStructuredTool.invoke → func=BaseTool._run (base_tool.py:108, structured_tool.py:242), so the counter run() increments is dead state in agent execution and the documented 'Maximum number of times this tool can be used' contract is not enforced on this path.",
+      "file": "src/crewai/tools/base_tool.py",
+      "line": 85,
+      "summary": "BaseTool.run() increments current_usage_count but never checks max_usage_count, so the tool's public execution entry point bypasses the new usage limit entirely."
+    },
+    {
+      "failure_scenario": "lite = LiteAgent(tools=[t]) with t.max_usage_count = 2; lite.kickoff() uses the tool until the agent gets 'has reached its usage limit of 2 times' (ToolUsage increments the CrewStructuredTool copy in lite._parsed_tools); the user then calls t.reset_usage_count() and kicks off again — still blocked, because the enforced counter was never reset. Conversely t.current_usage_count still reads 0 after the agent used the tool twice. The same divergence makes the limit effectively per-task-executor: Agent.execute_task calls create_agent_executor per task, re-running parse_tools → to_structured_tool() with a fresh snapshot, so the 'maximum times this tool can be used' silently resets between tasks.",
+      "file": "src/crewai/tools/base_tool.py",
+      "line": 111,
+      "summary": "Usage state is split across two independent counters: to_structured_tool() copies current_usage_count by value into each CrewStructuredTool (which ToolUsage then checks/increments), so reset_usage_count() and run() mutate a BaseTool field the enforcement path never reads, and agent usage never shows up in tool.current_usage_count."
+    },
+    {
+      "failure_scenario": "With caching enabled (default cache_function returns True) and max_usage_count = 2: agent calls search('x') (executed, count 1), search('y') (executed, count 2), then search('x') again — the cache read at line 188 finds the previous result, but _check_usage_limit returns 'has reached its usage limit of 2 times' and the available cached output is discarded; the tool is reported unusable even though no execution would have occurred. Each cache hit also silently consumes a unit of the limit.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 314,
+      "summary": "Cache hits consume the usage quota: the increment runs unconditionally even when from_cache is True, and the limit check at line 203 blocks and discards an already-cached result once the count reaches the limit."
+    },
+    {
+      "failure_scenario": "test_tool_usage_with_toolusage_class constructs ToolUsage with a BaseTool (production passes CrewStructuredTool instances from parse_tools) and calls only _check_usage_limit directly with a manually incremented count (lines 140-150); test_tool_usage_limit drives tool.run(), the path that bypasses enforcement. No test asserts that a third agent-driven use() call is blocked end-to-end, so the divergent-counter and cache-hit defects above would all pass CI undetected.",
+      "file": "tests/tools/test_tool_usage_limit.py",
+      "line": 140,
+      "summary": "The new tests never exercise the actual enforcement path in ToolUsage.use()/_use(), so they pass while the counting is broken in the real agent flow."
+    },
+    {
+      "failure_scenario": "Tool(name='t', description='d', func=f, args_schema=s, max_usage_count='5') raises TypeError: '<=' not supported between instances of 'str' and 'int' at model construction instead of the documented ValueError; max_usage_count=0.5 constructs successfully and yields a fractional limit that blocks the tool after a single use.",
+      "file": "src/crewai/tools/base_tool.py",
+      "line": 64,
+      "summary": "The new max_usage_count validator compares the raw pre-coercion value with <= 0, raising an unhandled TypeError for non-numeric inputs and accepting floats despite the 'positive integer' contract."
+    },
+    {
+      "failure_scenario": "ToolUsage constructed with a custom tool object that sets max_usage_count = 3 but has no current_usage_count attribute: _check_usage_limit raises AttributeError('current_usage_count') at line 367, which propagates out of _use/_check_usage_limit (the limit check sits outside the try at line 204) and surfaces as a generic agent tool-error instead of the intended limit message.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 367,
+      "summary": "_check_usage_limit guards max_usage_count with hasattr but accesses tool.current_usage_count unguarded, so a tool exposing only max_usage_count raises AttributeError from _use outside any try block."
+    }
+  ],
+  "level": null
+}

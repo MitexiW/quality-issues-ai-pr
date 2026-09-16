@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "skyvern/services/task_v2_service.py",
+      "line": 1652,
+      "summary": "bare json.dumps() crashes on datetime objects from model_dump() — webhook delivery always fails",
+      "failure_scenario": "Any call to send_task_v2_webhook() with a valid webhook_callback_url and organization_id calls model_dump() on both TaskV2 and TaskRunResponse, each containing created_at/modified_at datetime fields. The merged dict is passed to json.dumps() which raises TypeError: Object of type datetime is not JSON serializable. The exception is caught at line 1680 and re-raised as FailedToSendWebhook, blocking all task v2 webhook delivery (failed, completed, canceled, terminated, timed_out transitions). Fix: use model_dump(mode='json') or the project's _custom_json_serializer from forge/sdk/db/utils.py.",
+      "finding_id": "mf-a1600d11992286e37002"
+    },
+    {
+      "file": "skyvern/services/task_v2_service.py",
+      "line": 1587,
+      "summary": "except Exception swallows workflow fetch errors, silently returning incomplete TaskRunResponse",
+      "failure_scenario": "If the database or workflow service is temporarily unavailable, build_task_v2_run_response() catches the exception and returns a TaskRunResponse where failure_reason, recording_url, screenshot_urls, and downloaded_files are all None. In get_run_response (the API endpoint at run_service.py:70), this means a 200 OK response with missing data instead of a 500 error. Clients receive no indication that recording/screenshots are missing due to a server error rather than being genuinely absent from the run.",
+      "finding_id": "mf-16eb74fd4d335e2ae3aa"
+    }
+  ]
+}

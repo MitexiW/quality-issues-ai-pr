@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "packages/kit/src/views/ReferFriends/pages/OneKeyId/index.tsx",
+      "line": 106,
+      "summary": "Unreachable dead code: the 'coming soon' Badge is nested inside an outer conditional that only renders when isPrimeAvailable is true, so the badge's inner check 'isPrimeAvailable ? null : (<Badge>...)' always resolves to null and the badge never renders",
+      "failure_scenario": "The outer ternary on line 84 (`{isPrimeAvailable ? (` ... `) : null}`) means the entire ListItem (including its children) only renders when isPrimeAvailable === true. Inside that ListItem, the children block on line 106 checks `isPrimeAvailable ? null : (<Badge>...)`. Since isPrimeAvailable is guaranteed to be true at that point, the badge branch is never taken. Result: when isPrimeAvailable is false, NO Prime section renders at all (not even a 'coming soon' teaser). The presence of the inner badge code indicates the refactoring is incomplete — either the outer conditional should be restructured to show a ListItem with a badge when Prime is unavailable, or the dead badge JSX (lines 106-114) should be removed.",
+      "finding_id": "mf-30bec1e6b3f34bb58a5f"
+    }
+  ]
+}

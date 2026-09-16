@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A session (or two sessions sharing the same WebGpuContext) runs an NCHW DepthToSpace on [1,8,8,8] and an NHWC-domain DepthToSpace on [1,8,8,8], both blocksize=2 mode=DCR. Both compute the identical key 'DepthToSpace[1-8-8-8|2|DCR]:1:1:<uniforms>:<rank6,f32>' (same name, hint, uniform length 1, override rank 6, type), but their generated WGSL perm functions differ ({0,3,4,1,5,2} vs {0,1,3,2,4,5}). ProgramManager::Get returns the first op's cached pipeline for the second op with no validation, and the NHWC op computes silently wrong output. Peer kernels avoid this by including the layout in the hint (e.g., pool.cc 'CacheHint(kernel_shape.size(), is_max_pool, is_nhwc, ...)').",
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.cc",
+      "line": 141,
+      "summary": "The NCHW and NHWC DepthToSpace kernels share the program name 'DepthToSpace' and a cache hint (input dims + blocksize + mode) that omits the layout discriminator, so when both variants run on one device with identical dim strings their shader-cache keys collide and the second op silently reuses the first op's compiled shader, which encodes a different permutation."
+    },
+    {
+      "failure_scenario": "Model with DepthToSpace input [1,9,2,2] and blocksize=2 (9 % 4 != 0): ONNX shape inference does not check divisibility so the model loads; on the CPU EP the kernel fails with 'DepthToSpace requires input depth to be a multiple of (block_size * block_size)', but the WebGPU kernel allocates output [1,2,4,4] and silently computes a result from only 8 of the 9 input channels (in debug builds ValidateVariableShape in shader_helper.cc catches the size mismatch only because it is a debug assertion).",
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.cc",
+      "line": 80,
+      "summary": "ComputeInternal never validates that the channel count is divisible by blocksize^2 (the CPU kernel returns INVALID_ARGUMENT for this), so integer division silently truncates both the 6-D input view and the output shape, producing a wrong output from invalid-but-loadable models instead of an error."
+    },
+    {
+      "failure_scenario": "The test harness for test/providers/cpu/tensor/ registers no WebGPU EP, so these tests execute the pre-existing CPU kernel and pass even if the new WebGPU kernel is broken; any defect in the new kernel (e.g., the cache-key collision or a perm error) is undetectable in CI. The tests also duplicate CPU DCR/CRD/default-mode coverage already present in the same file (DepthToSpaceTest_1..5, DepthToSpaceTest_CRD_Batched).",
+      "file": "onnxruntime/test/providers/cpu/tensor/space_depth_ops_test.cc",
+      "line": 471,
+      "summary": "The six new 'DepthToSpaceTest_WebGPU_*' tests are added to the CPU test suite, where OpTester runs them against the CPU EP only, so the newly registered WebGPU kernel (both NCHW and NHWC variants and its shader generation) ships with zero test coverage despite the misleading names."
+    },
+    {
+      "failure_scenario": "A model with mode=\"CRd\" passes the ONNX checker (mode is an unconstrained string attribute) and errors on the CPU EP, but on the WebGPU EP it silently computes CRD-ordered results; the same model yields an error on one EP and plausible-looking wrong data on the other, with no diagnostic.",
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.h",
+      "line": 28,
+      "summary": "The mode attribute is parsed as 'is_dcr_ = (mode == \"DCR\")', so any string other than exactly 'DCR' (including invalid values like 'CRd' or 'FOO') silently runs the CRD path, whereas the CPU kernel throws 'only DCR and CRD modes are supported'."
+    },
+    {
+      "failure_scenario": "Generation is currently safe only because ProgramManager::Build runs synchronously inside RunProgram within ComputeInternal's frame; any deferred or asynchronous pipeline build, or any use of the program object after ComputeInternal returns (e.g., a future recompile path), would dereference freed stack memory and emit a shader with garbage permutation values. Copying the 6-element array into the program object (as transpose.h does) removes the lifetime coupling.",
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.h",
+      "line": 14,
+      "summary": "DepthToSpaceProgram stores a raw non-owning int64_t* perm_ pointing into the stack array 'perm' of ComputeInternal (depth_to_space.cc line 136), unlike the sibling TransposeProgram which copies its permutation into an owning InlinedVector<int64_t> perm_; the program object is only valid for shader generation while that stack frame is alive."
+    },
+    {
+      "failure_scenario": "A session with a dynamic input shape (e.g., W varying across inference requests) triggers CreateShaderModule and CreateComputePipeline for every distinct shape although the shader source is identical; the sibling Transpose kernel hints only the permutation (which actually affects the shader), showing the shape string is unnecessary work here.",
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.cc",
+      "line": 141,
+      "summary": "The cache hint embeds the full input shape even though the generated WGSL depends only on layout and mode (shapes are passed via uniforms and the key already carries rank), so every distinct input shape forces a redundant shader compile and pipeline creation."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The main source tree no longer compiles: javac reports `cannot find symbol: variable instance` at this line, so `mvn -q verify` (required by AGENTS.md) fails before any code can build or run.",
+      "file": "src/main/java/net/openhft/chronicle/wire/WireMarshaller.java",
+      "line": 2855,
+      "summary": "The rename changed `unsafePutLong(o, offset, i)` to `unsafePutLong(instance, offset, i)` inside `IntConversionFieldAccess.setValue(Object o, ValueIn read, boolean overwrite)`, where no variable named `instance` exists (the parameter is still `o`, and neither `IntConversionFieldAccess` nor its superclass `FieldAccess` has an `instance` field)."
+    },
+    {
+      "failure_scenario": "Compiling the test sources fails with 'method does not override or implement a method from a supertype' (and the anonymous class fails to implement the now-abstract `lastReadIndex()`), so `mvn -q verify` fails at test-compile and the project cannot be verified.",
+      "file": "src/test/java/net/openhft/chronicle/wire/MessageHistoryTest.java",
+      "line": 123,
+      "summary": "The anonymous `SourceContext` implementation still declares `@Override public long index()`, but the interface method was renamed to `lastReadIndex()`, so the override targets nothing and the required `lastReadIndex()` is not implemented."
+    },
+    {
+      "failure_scenario": "Any downstream project compiled against the previous release throws `java.lang.NoSuchMethodError: 'long net.openhft.chronicle.wire.SourceContext.index()'` at runtime when a document is read (e.g., chronicle-queue readers calling through `VanillaMessageHistory`), and any external class implementing `SourceContext` fails to compile against the new artifact.",
+      "file": "src/main/java/net/openhft/chronicle/wire/SourceContext.java",
+      "line": 44,
+      "summary": "The public interface method `index()` was removed/renamed to `lastReadIndex()` with no deprecated default-method bridge, breaking every external implementor and precompiled consumer of `SourceContext`/`DocumentContext` in this published library (the interface javadoc explicitly invites external implementations such as queue document contexts)."
+    },
+    {
+      "failure_scenario": "Any call such as `fieldInfo.set(tupleProxy, 5)` or `set(tupleProxy, 'c')` resolves to `set(Object,Object)`, executes `getMap(name)` and `Proxy.getInvocationHandler(name)` on a String, and throws `IllegalArgumentException` (not a proxy instance) instead of storing the value into the tuple's field map.",
+      "file": "src/main/java/net/openhft/chronicle/wire/Wires.java",
+      "line": 1982,
+      "summary": "`TupleFieldInfo`'s typed setters (`set(Object instance, char/int/long/double value)`) call `set(name, (Object) value)`, passing the field-name String as the instance instead of the tuple proxy — a latent defect in methods this change touched, now made glaring because the renamed parameter is `instance` while `name` is passed."
+    },
+    {
+      "failure_scenario": "No runtime failure; the cost is that the public API Javadoc now names parameters that do not exist, so IDE tooltips, `javadoc` output, and developers reading the signature get wrong parameter names, and the change violates the explicit AGENTS.md guideline 'Leave stale comments that now contradict the code'.",
+      "file": "src/main/java/net/openhft/chronicle/wire/WireMarshaller.java",
+      "line": 2835,
+      "summary": "Renamed parameters left contradictory Javadoc in place: `getInt` (line 2835) and `putInt` (line 2861) still document `@param o` although the parameter is now `instance`, `WireIn.readDocument` (line 243) still documents `@param position` for the renamed `startPosition`, and `AbstractWire.updateHeader` (lines 433-434) still refers to `{@code position}` and `{@code expectedHeader}` for `headerPos`/`templateHeader`, violating AGENTS.md's Javadoc rule against leaving stale comments that contradict the code."
+    }
+  ],
+  "level": null
+}

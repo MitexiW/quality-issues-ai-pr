@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Converting a pktmon ETL where a component has a 5-character name: TdhGetPropertySize returns ParamNameSize=10, malloc(11) succeeds, then NameBuffer[10/2]=L'\\0' writes 2 bytes at offsets 10-11 of an 11-byte allocation. The write at offset 11 corrupts the adjacent heap chunk (allocator metadata or a neighboring allocation), leading to heap corruption, a crash in a later free/malloc, or data corruption during conversion.",
+      "file": "src/main.c",
+      "line": 1531,
+      "summary": "ParsePktmonComponent allocates ParamNameSize+1 bytes for NameBuffer but writes the wide NUL terminator at byte offset ParamNameSize, overflowing the heap allocation by 1 byte on every ComponentDesc event with a name (same for DescriptionBuffer at line 1548)."
+    },
+    {
+      "failure_scenario": "Converting an ETL captured on another machine: for an event whose provider has no local manifest, TdhGetEventInformation returns ERROR_NOT_FOUND after tei=malloc(teisize). With a reused heap block, tei->ProviderNameOffset holds garbage, so ProviderName points far outside the buffer; wcslen(ProviderName) in the body-size computation (line 1849) then reads out of bounds and crashes the tool with an access violation.",
+      "file": "src/main.c",
+      "line": 1783,
+      "summary": "ParseProviderEvent does not check the return value of the second TdhGetEventInformation call, so when it fails (e.g. the event's provider manifest is not registered on the machine doing the conversion) the code proceeds to read ProviderNameOffset/EventMessageOffset/PropertyCount from an uninitialized malloc'd TRACE_EVENT_INFO buffer."
+    },
+    {
+      "failure_scenario": "Any provider event whose UTF-8 message length is not a multiple of 4 (e.g. RequiredSize=101): WriteSize becomes 104, and BufferBytes(File, Message, 104) copies 3 bytes beyond the 101-byte malloc'd block into the output file. This is an out-of-bounds heap read (undefined behavior, potentially caught by hardened allocators) and writes uninitialized garbage instead of the zero padding the pcapng spec requires for the Systemd Journal Export block.",
+      "file": "src/main.c",
+      "line": 530,
+      "summary": "PcapNgWriteSystemdJournal rounds WriteSize up to a 4-byte multiple and then writes that many bytes from Message, but Message was only allocated RequiredSize (the unpadded UTF-8 length), so the BufferBytes call reads 1-3 bytes past the end of the heap allocation."
+    },
+    {
+      "failure_scenario": "PktMon emits ComponentDesc/ComponentIPv4Addr/ComponentIPv6Addr/ComponentHWAddr events when a component registers, before its packets flow. In pass 1, the dispatch (lines 1927-1943) calls the parser and returns; the parser's while loop over InterfaceHashTable finds no interface (none created yet, since AddInterface only runs on packet events), so the name/description/MAC/IP data is dropped. The interface created later by the first packet event has Name=NULL, Has*Address=FALSE, so the output pcapng gets an IDB with an empty if_name, no if_desc, and no if_mac/if_ipv4/if_ipv6 options - exactly the information the README claims this version preserves.",
+      "file": "src/main.c",
+      "line": 1552,
+      "summary": "ParsePktmonComponent and the IPv4/IPv6/MAC address parsers only update interfaces that already exist in the hash table, so component metadata events (Name, Description, addresses) emitted before the component's first packet event are silently discarded and never recovered."
+    },
+    {
+      "failure_scenario": "Converting a large ETL that contains many non-ndiscap/pktmon provider events (e.g. a system trace with millions of events): pass 2 calls ParseProviderEvent for each, and each call with a property leaks the 1024-byte formatted-value buffer (plus any failure-path leaks), so heap usage grows without bound during ProcessTrace and the tool eventually fails with out-of-memory or degraded performance on long traces.",
+      "file": "src/main.c",
+      "line": 1828,
+      "summary": "ParseProviderEvent never frees the malloc'd buffer returned by GetFormattedProperty (per property, per event), and GetFormattedProperty itself leaks its output buffer on its failure paths (map-info malloc failure at line 1723 and TdhFormatProperty failure at line 1755), so pass 2 leaks memory for every non-capture event in the trace."
+    },
+    {
+      "failure_scenario": "A pktmon capture containing a TCP-layer component packet (PacketType=5) immediately after an Ethernet packet (Type=1) from the same component: the switch hits default and returns, leaving PktmonPacket.Type=1; EventCallback proceeds with Type=PCAPNG_LINKTYPE_ETHERNET and GetInterface matches the Ethernet interface, so the TCP payload is written to the pcapng as an Ethernet frame with the wrong linktype and interface - corrupting the converted capture. If no matching interface exists (e.g. first packet has an unmapped type, Type stays 0), pass 2 hits the 'packet with unrecognized IfIndex' exit(1) and the conversion aborts.",
+      "file": "src/main.c",
+      "line": 1658,
+      "summary": "ParsePktmonPacketFragment returns without updating PktmonPacket.Type when a packet has an unmapped PacketType (TCP, UDP, ARP, ICMP, ESP, AH, L4PAYLOAD - values 4-11), and EventCallback then converts the event using the previous packet's stale Type."
+    },
+    {
+      "failure_scenario": "Converting any pktmon capture that contains sent packets: pktmon's provider keywords are not the ndiscap KW_SEND/KW_RECEIVE values this code tests, so !!(Keyword & KW_SEND) is 0 for all pktmon events, and PcapNgWriteEnhancedPacket writes epb_flags direction='reception' (value 1) for every packet. In Wireshark, all pktmon traffic is shown with the inbound direction indicator, mislabeling half the traffic.",
+      "file": "src/main.c",
+      "line": 2240,
+      "summary": "The EPB direction flag is computed solely from the ndiscap-specific KW_SEND keyword, with no pktmon-specific direction handling, so every pktmon packet is written with IsSend=0 and appears as an inbound packet."
+    },
+    {
+      "failure_scenario": "Non-behavioral maintainability cost: the diff advertises drop handling via the verdict option (the only writer for drops), so the DROPCOUNT option struct/define and the unused payload-type constants (the switch only handles ETHERNET/WIFI/IP and defaults everything else) are leftover scaffolding that a reader must reconcile against the actual write paths; they should be removed or the dropcount option actually emitted.",
+      "file": "src/main.c",
+      "line": 165,
+      "summary": "Dead code: struct PCAPNG_BLOCK_OPTION_EPB_DROPCOUNT, PCAPNG_OPTIONCODE_EPB_DROPCOUNT, and the PKTMONPAYLOADTYPE_HTTP..L4PAYLOAD constants (lines 763-770) are defined but never referenced anywhere in the file."
+    }
+  ],
+  "level": null
+}

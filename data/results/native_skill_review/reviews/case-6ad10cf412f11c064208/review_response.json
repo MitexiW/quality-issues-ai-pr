@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Any `get_conversations` tool call: osascript fails at `exists (processes where name is \"ChatGPT\")` (System Events terms used under the ChatGPT application context — compile error or -1708 event error, and this check sits outside the inner try), runAppleScript rejects, and the handler always returns 'Error retrieving conversations: ...'. The unchanged checkChatGPTAccess (lines 54-58) shows the correct `tell application \"System Events\"` form.",
+      "file": "index.ts",
+      "line": 269,
+      "summary": "getConversations' AppleScript evaluates System Events vocabulary (exists/processes) inside `tell application \"ChatGPT\"`, so osascript cannot resolve those terms and the script aborts before any conversation logic runs, making the get_conversations operation always fail."
+    },
+    {
+      "failure_scenario": "`docker build .`: after COPY package*.json, npm install runs the prepare lifecycle script, which invokes `tsc` with tsconfig `include: [\"index.ts\"]`; index.ts is not copied until line 12, so tsc errors 'No inputs were found in config file', npm install exits non-zero, and the build fails every time.",
+      "file": "Dockerfile",
+      "line": 9,
+      "summary": "`RUN npm install` triggers the package's `prepare` script (`npm run build` -> `tsc`) before index.ts is copied into the image, so tsc fails with TS18003 (no inputs) and the Docker build deterministically fails."
+    },
+    {
+      "failure_scenario": "User has something important on the clipboard and calls `ask`; the ChatGPT window closes mid-poll, an accessibility permission prompt appears, or any UI change makes runAppleScript(script) reject -> execution jumps to the catch (line 252), the restore at line 225 is skipped, and the user's clipboard is left permanently holding the prompt text while the call returns an error.",
+      "file": "index.ts",
+      "line": 222,
+      "summary": "The user's clipboard is overwritten with the prompt and never restored when the main AppleScript throws, because the restore at line 225 sits inside the try with no finally and the catch path rethrows without restoring."
+    },
+    {
+      "failure_scenario": "User copies two lines of text, then asks a question: ChatGPT answers, but `set the clipboard to \"line1<LF>line2\"` is an AppleScript syntax error, runAppleScript rejects, the tool returns 'Failed to get response from ChatGPT' despite having the answer, and the clipboard is left containing the prompt. A Finder-copied file round-trips as a plain-text path string instead of the file.",
+      "file": "index.ts",
+      "line": 225,
+      "summary": "The clipboard restore script breaks when the saved clipboard text contains a newline (encodeForAppleScript only escapes double quotes), turning a successful ask into an error and clobbering the clipboard; non-text clipboard content (copied files/images) is likewise destroyed or converted to text."
+    },
+    {
+      "failure_scenario": "Prompt \"Write a haiku\\nabout spring\" produces `set the clipboard to \"Write a haiku<LF>about spring\"` — a raw newline inside an AppleScript string literal is a compile error; prompt \"What is C:\\\" produces `\"...C:\\\"` where the trailing backslash escapes the closing quote (unterminated string). Either way runAppleScript rejects and ask fails for ordinary multi-line prompts.",
+      "file": "index.ts",
+      "line": 129,
+      "summary": "The rewritten prompt encoding (which claims to handle special characters) still leaves newlines and backslashes unescaped, so multi-line prompts or prompts ending in a backslash generate syntactically invalid AppleScript and the ask operation fails."
+    },
+    {
+      "failure_scenario": "get_conversations returns a chat titled `Say \"hi\"`; the client passes it back as conversation_id and `click button \"Say \"hi\"\"` is a syntax error, failing the ask. A malicious conversation_id such as `\" & do shell script \"...\" & \"` executes arbitrary AppleScript via System Events with the user's privileges.",
+      "file": "index.ts",
+      "line": 117,
+      "summary": "conversation_id is interpolated into the AppleScript `click button \"${conversationId}\"` with no escaping, so a conversation title containing a quote breaks the script and a crafted value injects arbitrary AppleScript that runs with the user's permissions."
+    },
+    {
+      "failure_scenario": "User asks \"How do I regenerate my SSH keys?\" — the answer's own occurrences of \"Regenerate\" are deleted by `.replace(/Regenerate( response)?/g, '')`, producing garbled, truncated sentences in the returned text even though the response was complete.",
+      "file": "index.ts",
+      "line": 229,
+      "summary": "Post-processing removes every occurrence of the words \"Regenerate\"/\"Continue generating\" from the ChatGPT answer itself, silently corrupting legitimate response text rather than only cleaning UI chrome."
+    },
+    {
+      "failure_scenario": "A multi-line prompt is pasted with line breaks, so `fullText contains promptPattern` (promptPattern has spaces instead) is false; the fallback at lines 208-210 returns all AXStaticText of the window — conversation sidebar, buttons, and profile labels interleaved with the answer — polluting the client's context. Single-line prompts also include everything after the first prompt occurrence, i.e. UI text below the transcript.",
+      "file": "index.ts",
+      "line": 198,
+      "summary": "The response-extraction anchor replaces newlines in the prompt with spaces while the rendered UI text contains real line breaks, so multi-line prompts never match and the tool falls back to returning the entire window's accessibility text dump (sidebar titles, 'New chat', UI labels) as the response."
+    },
+    {
+      "failure_scenario": "User has a chat titled \"Error: budget review\"; osascript returns \"Error: budget review, other chat\", `result.startsWith(\"Error:\")` matches, and the tool throws an error instead of returning the conversation list.",
+      "file": "index.ts",
+      "line": 340,
+      "summary": "Result parsing classifies conversations by string-prefix sentinels, so a conversation whose title starts with \"Error:\" (or is exactly \"ChatGPT is not running\" / \"No ChatGPT window found\" / \"No conversations found\") is misclassified as an error state instead of being listed."
+    },
+    {
+      "failure_scenario": "Deploy the image via Smithery or run the container: the server starts, but every `ask`/`get_conversations` call fails with `spawn osascript ENOENT` (no osascript on Linux), making the shipped Docker/Smithery deployment path fundamentally non-functional for a macOS-only tool.",
+      "file": "Dockerfile",
+      "line": 1,
+      "summary": "The new Docker/Smithery packaging targets Linux, but the tool's only functionality spawns `osascript` via run-applescript/System Events, so the containerized artifact can never perform a successful tool call."
+    },
+    {
+      "failure_scenario": "During generation the 'Regenerate' element is visible: each unchanged poll adds +1 (stability) and +1 (indicator), so stableCount reaches requiredStableChecks=3 after 2 polls instead of 3, exiting the loop mid-stream and returning a truncated response (the post-hoc completeness warning does not prevent the truncation).",
+      "file": "index.ts",
+      "line": 182,
+      "summary": "The completion-indicator branch increments the same stableCount used for the 3-consecutive-stable-checks exit condition, so when the 'Regenerate'/'Continue generating' UI element is visible the loop can exit after only 2 unchanged polls while the response is still streaming."
+    },
+    {
+      "failure_scenario": "A large ChatGPT window with thousands of AX elements, or any per-second UI change (timestamp, animations) preventing stabilization: the AppleScript re-traverses the entire element tree once per second for the full 120-second budget, pegging CPU in the osascript process and holding the tool call open for two minutes.",
+      "file": "index.ts",
+      "line": 150,
+      "summary": "The wait loop rebuilds `entire contents of frontWin` (a full accessibility-tree traversal with a per-element try/catch in interpreted AppleScript) every second for up to 120 iterations, wasting heavy CPU work and blocking the MCP call for up to two minutes whenever the UI text keeps changing."
+    }
+  ],
+  "level": null
+}

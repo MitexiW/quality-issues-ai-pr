@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/formatters/fileNameDisplayFormatter.ts",
+      "line": 18,
+      "summary": "FileNameDisplayFormatter inherits the updated base replaceDateVariableInString that now throws (was continue/infinite-loop) when NLP is missing or parse fails, but format() has no try-catch and no VDATE-preview override unlike FormatDisplayFormatter",
+      "failure_scenario": "User configures a template with {{VDATE:myvar,YYYY-MM-DD}} in the file name format field without the Natural Language Dates plugin installed. The base class throws an unhandled error through FileNameDisplayFormatter.format(), and the preview text is never updated. Even WITH the NLP plugin installed, promptForVariable returns '_myvar_' which NLP.parseDate cannot interpret, causing the same else-throw path. The FormatDisplayFormatter was correctly updated with an override + try-catch in this same PR; FileNameDisplayFormatter was not.",
+      "finding_id": "mf-5d287f79a18c9906dc15"
+    },
+    {
+      "file": "src/formatters/formatDisplayFormatter.ts",
+      "line": 130,
+      "summary": "generateDateFormatPreview replaces format tokens via sequential regex substitutions without token-aware parsing, producing wrong preview output for overlapping character sequences like MMMM (full month name) and DDD (day-of-year)",
+      "failure_scenario": "User specifies {{VDATE:event,MMMM D, YYYY}} expecting a preview of 'July 28, 2025'. The sequential replacements first convert MMM to 'Jul', then the remaining standalone M is replaced by the numeric month (7), producing 'Jul7 28, 2025' instead of 'July 28, 2025'. Similarly, all time components are collapsed to the literal '12' regardless of actual hour/minute/second values. Cosmetic only (preview, not runtime execution).",
+      "finding_id": "mf-e69d15c0931a242e1b4a"
+    },
+    {
+      "file": "src/gui/ChoiceBuilder/captureChoiceBuilder.ts",
+      "line": 336,
+      "summary": "checkVdateWarning function is duplicated identically between captureChoiceBuilder.ts (line 336) and templateChoiceBuilder.ts (line 113), and both also duplicate the vdateWarning div creation and styling",
+      "failure_scenario": "Maintenance cost: any change to the VDATE warning logic or styling must be applied in two places. The two call sites share the same app, the same getNaturalLanguageDates import, and identical div/styling/guard logic. Extracting a shared helper would prevent future drift.",
+      "finding_id": "mf-8d913518204ec438f793"
+    },
+    {
+      "file": "src/formatters/formatDisplayFormatter.test.ts",
+      "line": 78,
+      "summary": "Test expects output to contain literal '2025' but uses new Date() for the preview generation; the assertion hardcodes the year and will fail starting from 2026",
+      "failure_scenario": "The test 'should handle multiple commas in date format' asserts expect(result).toContain('2025'), but generateDateFormatPreview uses new Date().getFullYear() which returns 2026 in 2026. This test will start failing on January 1, 2026 without the code under test changing.",
+      "finding_id": "mf-f25dca1d73c9ee9b39dd"
+    }
+  ]
+}

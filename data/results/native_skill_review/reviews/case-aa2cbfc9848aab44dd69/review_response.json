@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "On the Project Key rate limits page, dragging the window slider fires one native input event per tick; both handlers now run handleInput, so handleChangeWindow runs twice per tick, invoking FormField onChange and onBlur twice each. With the form's saveOnBlur enabled, saveField issues an undebounced API PUT per call (saveFieldRequest in static/app/components/forms/model.tsx has no debounce), so each drag tick sends two concurrent PUT requests to /projects/{org}/{project}/keys/{keyId}/ and shows two save toasts per tick — double server load and racing writes, where before this change exactly one PUT was sent per tick. The replay scrubber similarly calls setCurrentTime twice per tick.",
+      "file": "static/app/components/forms/controls/rangeSlider/index.tsx",
+      "line": 199,
+      "summary": "Adding onInput={handleInput} alongside the existing onChange={(_, e) => handleInput(e)} makes handleInput (and the consumer's onChange callback) fire twice for every single slider input event, since React dispatches both synthetic onChange and onInput for the same native input event on an <input type=\"range\">."
+    },
+    {
+      "failure_scenario": "In Explore > Spans (spansTab.tsx) or any Insights span search using this builder, a user typing 'release.version:' no longer gets autocomplete suggestions, and because useSearchQueryBuilderProps sets disallowUnsupportedFilters: true (parseSearch validateKeys), any existing saved search, dashboard deep link, or shared URL containing release.version:1.2.3 / release.build:... / release.package:... / release.stage:... is now parsed with the filter token flagged invalid, blocking the search that previously worked.",
+      "file": "static/app/components/performance/spanSearchQueryBuilder.tsx",
+      "line": 220,
+      "summary": "Removing the STATIC_SEMVER_TAGS merge from useEAPSpanSearchQueryBuilderProps deletes the release.version / release.build / release.package / release.stage filter keys from the EAP spans search query builder, and nothing in the new code re-establishes them (the attributes endpoint does not return these virtual semver tags — that is why they were added statically)."
+    },
+    {
+      "failure_scenario": "A user viewing an Insights chart at a 1m or 5m interval (e.g., URL interval=1m, or a short time range whose resolved interval is 5m/15m/30m) opens Widget actions > Create Alert for avg(span.duration): the old button generated a URL with interval=5m (getInterval clamps 1m to 5m), pre-filling the alert rule with the chart's interval; the new dropdown always produces interval=1h, so the pre-filled alert rule silently evaluates at 1h instead of the interval the user was looking at.",
+      "file": "static/app/views/insights/common/components/chartActionDropdown.tsx",
+      "line": 62,
+      "summary": "The merged ChartActionDropdown drops the interval that the deleted CreateAlertButton obtained from useChartInterval() and passed to getAlertsUrl, so every create-alert URL now omits the interval query param and getAlertsUrl silently defaults it to '1h' regardless of the chart's displayed interval."
+    }
+  ],
+  "level": null
+}

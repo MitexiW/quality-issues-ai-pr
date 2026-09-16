@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Reverting btcrpass.py:9086 to the previous `outer_iterations = int(round(...))` plus `assert outer_iterations > 0` leaves run-all-tests.py green, even though seedrecover on an Eth2 wallet whose passwords_per_seconds (btcrseed.py:2249) returns 0.4 (e.g. 40 / checksum_ratio / addrs_to_generate / len(derivation_salts)) still aborts in main() with AssertionError — the exact crash this PR fixes. The test is a tautology over its own copy of the formula: it also duplicates CHUNKSIZE_SECONDS, so it silently drifts from production and the max(1,...) semantics being tested are the test's own, not main()'s.",
+      "file": "btcrecover/test/test_passwords.py",
+      "line": 160,
+      "summary": "The new test re-implements the production formula inline (lines 157-160 copy btcrpass.py:9083-9086) instead of exercising btcrpass.main(), so it cannot detect any regression in the code it claims to cover."
+    },
+    {
+      "failure_scenario": "The method with its `pass` body is copy-paste residue from the wallet interface (main() calls loaded_wallet.return_verified_password_or_false at btcrpass.py:9094) that nothing in the test references; it misleads readers into thinking the benchmark path is exercised and will never execute or fail, adding maintenance noise with no coverage value.",
+      "file": "btcrecover/test/test_passwords.py",
+      "line": 154,
+      "summary": "Dead code: DummyWallet.return_verified_password_or_false is defined but never called — the test never invokes the wallet's verification path, only the duplicated arithmetic."
+    }
+  ],
+  "level": null
+}

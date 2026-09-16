@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "context.context._macros is typed UniqueKeyDict[str, ExecutableOrMacro] (sqlmesh/core/context.py:364), and Executable (sqlmesh/utils/metaprogramming.py:406) is a PydanticModel with no `func` field. If any entry in the registry is a plain Executable, getattr(m.func, '__doc__', None) raises AttributeError mid-iteration; the `except Exception: pass` aborts the loop and every macro after that entry silently disappears from the completion response with no error surfaced. The identical deref in the registry loop (line 70) was left outside the try, so the same condition there makes get_macros raise outright: the completion handler returns no completions at all (main.py catches and returns None), and _custom_all_models returns a response_error to the client.",
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 74,
+      "summary": "get_macros dereferences m.func on context macro registry values whose declared type (ExecutableOrMacro) includes Executable objects that have no func attribute, and the broad except swallows the resulting AttributeError, silently truncating the completion list."
+    },
+    {
+      "failure_scenario": "The `sqlmesh/all_models` response previously serialized as {\"macros\": [\"each\", \"add_one\", ...]}. After the change it serializes as {\"macros\": [{\"name\": \"each\", \"description\": ...}, ...]}. An editor extension built against the old contract (e.g. one that renders each entry directly as `@${macro}`) now inserts '[object Object]' completions or breaks, since the protocol change ships without negotiation; only the in-repo consumer (main.py:628) was updated.",
+      "file": "sqlmesh/lsp/custom.py",
+      "line": 40,
+      "summary": "AllModelsResponse.macros changes the sqlmesh/all_models custom-method wire format from List[str] to List[MacroCompletion], breaking any existing LSP client that consumes macro names as a plain string array, with no versioning or fallback."
+    },
+    {
+      "failure_scenario": "The docstring is parsed as `untyped column will be a sqlglot column and return a sqlglot exp \"column > 0` (the original trailing `\"` was consumed by the closing `\"\"\"`). This malformed text is what get_macros now returns as `description` and what main.py sends as CompletionItem documentation, so users see a broken/unbalanced quoted string in macro completion hover text.",
+      "file": "examples/sushi/macros/utils.py",
+      "line": 15,
+      "summary": "The comment-to-docstring conversion for the multiply macro absorbed the original closing double-quote into the terminating triple quotes, producing a docstring with an unbalanced quote that is surfaced verbatim as the macro's completion description."
+    },
+    {
+      "failure_scenario": "If the `each` or `add_one` macro ever stops being returned by get_macros (e.g. the AttributeError truncation in completions.py, or a loader change), the `next((m for m in completions.macros if m.name == \"each\"))` expression raises StopIteration inside the test; pytest reports an opaque 'StopIteration' error at the next() line rather than the previous descriptive assertion failure naming the missing macro.",
+      "file": "tests/lsp/test_completions.py",
+      "line": 36,
+      "summary": "test_get_macros replaces the clear `assert \"each\" in completions.macros` membership checks with next(...) generator lookups that have no default, so the regression this test guards against now surfaces as a bare StopIteration instead of a readable assertion failure."
+    }
+  ],
+  "level": null
+}

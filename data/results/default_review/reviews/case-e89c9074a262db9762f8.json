@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "source/EngineTestData/DescriptionTestDataFactory.cpp",
+      "line": 7,
+      "summary": "Multiple unused default-value local variables left behind after refactoring — the old code used default instances for random-exclusion logic but the new code accesses none of them, leaving 13 dead declarations across the file.",
+      "failure_scenario": "The variables at lines 7, 26, 38, 49, 68, 69, 141, 160, 174, 201, 252, 266, and 309 each construct a default description object (e.g. CellDescription, ParticleDescription, ConstructorDescription, etc.) but are never read afterward. This is unreachable dead code that compilers warn about; it misleads readers into thinking default values are still consulted, and it wastes constructor/destructor work for non-trivial types.",
+      "finding_id": "mf-bb6a3f0a23ca48b754ae"
+    },
+    {
+      "file": "source/EngineTests/ConstructorTests.cpp",
+      "line": 573,
+      "summary": "Variable named 'randomNode' no longer holds a random value — the underlying factory method now produces deterministic hardcoded data.",
+      "failure_scenario": "A future maintainer reading the test may assume the variable contains randomized test data and spend time debugging an intermittent failure that cannot exist. The name is misleading after the factory rename. Rename to e.g. 'nonDefaultNode'.",
+      "finding_id": "mf-96b6c500864da9fdbd21"
+    }
+  ]
+}

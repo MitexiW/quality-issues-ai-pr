@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "An attacker POSTs /join with a valid invite code and token='invalid'. is_invite_valid passes, so session['wizard_access'] is set and the user is redirected into /wizard/ immediately, while the daemon thread handle_oauth_token crashes on MyPlexAccount(token='invalid') — no User row is created and the invite is never marked used. The visitor has full wizard access, falsifying the new gate's stated policy ('Only allow access right after signup'), and the invite remains usable by someone else.",
+      "file": "app/blueprints/public/routes.py",
+      "line": 86,
+      "summary": "The Plex join path grants wizard access before the background OAuth join completes, so a valid invite code plus any garbage token grants access with no completed signup."
+    },
+    {
+      "failure_scenario": "A user joins via an invite that expires in 1 day. The flag lives in the server-side session (Flask-Session SESSION_TYPE='cachelib' FileSystemCache; config.py sets neither SESSION_PERMANENT nor SESSION_IDLE_TIMEOUT, so flask-session's permanent-session default gives a 31-day sliding TTL). There is no session.pop('wizard_access') anywhere in the repo, no logout route (auth blueprint has only /login), and the gate checks only truthiness — the stored invite code is never re-checked against expiry/used. Days later the same browser can re-enter /wizard/, and every GET /wizard/ synchronously runs run_all_importers(), an authenticated POST to the configured Ombi/Overseerr API.",
+      "file": "app/blueprints/wizard/routes.py",
+      "line": 18,
+      "summary": "The wizard_access flag is never cleared or revalidated anywhere, so once granted it keeps granting access for the entire server-side session lifetime instead of only 'right after signup'."
+    },
+    {
+      "failure_scenario": "A user mid-onboarding whose session no longer carries the flag (cookie cleared, FileSystemCache entry evicted or expired, browser switched) clicks Next. The hx-get to wizard.step hits restrict_wizard, receives 302 → '/', and HTMX transparently follows the redirect chain (root → /admin → auth login) and swaps the admin login page HTML into #wizard-wrapper via hx-swap='outerHTML', destroying the onboarding UI mid-flow with no error and no way to resume.",
+      "file": "app/blueprints/wizard/routes.py",
+      "line": 19,
+      "summary": "The gate's denial path returns a 302 to '/' which HTMX wizard step requests follow, silently swapping the admin login page into the wizard card mid-onboarding instead of showing an error."
+    },
+    {
+      "failure_scenario": "Non-behavioral condition: public/routes.py:86, emby/routes.py:54 and jellyfin/routes.py:46 each re-implement the same grant inline with the invite code as the value; wizard/routes.py:18 reads only session.get('wizard_access') truthiness, so the stored code is never validated. Any policy change (expiry, one-shot clearing on wizard completion, revocation when an invite is revoked) must be replicated in three places, and the misleading stored value hides the fact that the gate never revalidates the invite — the concrete maintenance cost already realized in the missing-revocation defect above.",
+      "file": "app/blueprints/emby/routes.py",
+      "line": 54,
+      "summary": "The wizard-access grant is copy-pasted into three blueprints and stores the invite code as the flag value even though the gate only ever checks truthiness, leaving dead state that implies a validation which doesn't exist."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "dace/frontend/fortran/ast_transforms.py",
+      "line": 1783,
+      "summary": "visit_Call_Expr_Node mutates AST node name via 'for node.name.name in dict' loop, appending the same node N times and corrupting the call target name to an arbitrary last dict key rather than checking if the call target is in the dict",
+      "failure_scenario": "A Call_Expr_Node for 'allocated_test_nested' has its name overwritten to whichever function key appears last in self.functions_with_alloc dict order. The same node is appended to call_nodes for every key regardless of match. Downstream at line 1829, alloc_nodes is fetched for the wrong (mutated) function name, generating flag variable names for the wrong subroutine.",
+      "finding_id": "mf-dc4954d1eb1974297928"
+    },
+    {
+      "file": "dace/frontend/fortran/ast_transforms.py",
+      "line": 1832,
+      "summary": "Allocatable flag variable names derived from callee's renamed parameter don't exist in caller scope after assign_globally_unique_variable_names is enabled",
+      "failure_scenario": "Entry point 'allocated_test' has allocatable arg 'data' (not renamed). Nested subroutine 'allocated_test_nested' has same-named allocatable arg 'data' renamed to 'data_var_0'. The allocatableReplacer generates call-site flag argument '__f2dace_ALLOCATED_data_var_0' from the callee's renamed name, but only '__f2dace_ALLOCATED_data' exists in the caller's scope. SDFG creation fails with undefined variable '__f2dace_ALLOCATED_data_var_0'.",
+      "finding_id": "mf-0ff9a273f4afff9c2c9c"
+    },
+    {
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 2369,
+      "summary": "assign_globally_unique_variable_names generates unique names like 'd_var_0' without checking whether a user-defined variable with that exact name already exists, risking name collision",
+      "failure_scenario": "A Fortran program defines a variable named 'd_var_0' in one module, and another variable 'd' in a different module collides. The rename generates 'd_var_0' for the second one, creating two distinct variables with the same name 'd_var_0', breaking all references that rely on unique names.",
+      "finding_id": "mf-3196b332ad88737ce586"
+    },
+    {
+      "file": "tests/fortran/non-interactive/pointers_test.py",
+      "line": 10,
+      "summary": "Rewritten pointer test lost all correctness assertions; test now only validates SDFG structure without compiling or running, removing regression coverage for pointer-to-array semantics",
+      "failure_scenario": "A future change breaks pointer dereferencing (e.g., p_area(1,1,1) resolves to wrong element). The old test would have caught this via 'assert np.allclose(lout[0], 6.5)'. The new test only calls validate() and simplify() and will silently pass regardless of output correctness.",
+      "finding_id": "mf-a1e2c4a05a445ece64da"
+    }
+  ]
+}

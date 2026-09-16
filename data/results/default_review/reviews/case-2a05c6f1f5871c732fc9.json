@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 196,
+      "summary": "Copy-LocalGeneratorDlls uses $MyInvocation.PSCommandPath to locate the script, which resolves to the caller's path under dot-sourcing, causing $packageRoot (and all derived paths: $sourceDir, solution path) to point to the wrong location silently",
+      "failure_scenario": "Script is dot-sourced from /home/user/helper.ps1 (a common pattern for reusing script functions) -> $MyInvocation.PSCommandPath inside Copy-LocalGeneratorDlls returns /home/user/helper.ps1 -> $scriptDir = /home/user -> $packageRoot = /home -> $sourceDir = /home/dist/generator (does not exist) -> all three DLL copy operations fail with 'Source DLL not found' warnings -> script continues and creates a debug profile pointing to empty/missing DLLs -> user tries to debug and dotnet fails with 'Cannot find assembly'",
+      "finding_id": "mf-1d853c4a8a5e49c3895e"
+    },
+    {
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 263,
+      "summary": "DLL path constructed via string interpolation with hardcoded forward slashes produces mixed-separator paths on Windows when $resolvedSdkPath from Resolve-Path uses backslashes",
+      "failure_scenario": "On Windows, Resolve-Path returns 'C:\\Users\\dev\\azure-sdk\\sdk\\storage' -> $dllPath becomes '\"C:\\Users\\dev\\azure-sdk\\sdk\\storage/TempTypeSpecFiles/node_modules/@azure-typespec/http-client-csharp/dist/generator/Microsoft.TypeSpec.Generator.dll\"' -> the mixed-slash path embedded in the JSON launchSettings.json profile -> some path-consuming tools or scripts that post-process the launchSettings.json may fail to parse the non-canonical path",
+      "finding_id": "mf-d1e89d01a8fab57897be"
+    },
+    {
+      "file": "packages/http-client-csharp/eng/scripts/Add-Debug-Profile.ps1",
+      "line": 197,
+      "summary": "Copy-LocalGeneratorDlls and Get-LaunchSettingsPath duplicate the same package-root computation from the script location using different approaches ($MyInvocation.PSCommandPath chain vs $PSScriptRoot + Resolve-Path), creating a maintenance hazard if the script moves or directory layout changes",
+      "failure_scenario": "If the script is relocated from eng/scripts/ to a different depth (e.g., tools/), the Split-Path parent-chain logic on line 197 must be updated to match the new depth, but a developer might only notice and update one of the two locations (line 124 vs line 197) -> one function produces a wrong $packageRoot -> either launchSettings.json is written to the wrong file OR DLLs are copied from/to the wrong directory",
+      "finding_id": "mf-548197042f1d7c4448cb"
+    }
+  ]
+}

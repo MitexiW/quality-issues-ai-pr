@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Bidder runs in a cross-origin iframe where refererDetection cannot reach the top window (refererInfo.page is null: no pageUrl config, no canonical link). getBidRequestUrl returns encodeURIComponent(document.referrer), e.g. 'https%3A%2F%2Fwww.publisher.com%2Farticle'. new URL(pageUrl) throws because the encoded string has no scheme; the catch calls getBidderRequestUrl(bidderRequest) with the same arguments and receives the same encoded string, which also throws; subid is set to widgetId and the request is sent with s=<widget id> instead of s=www.publisher.com, even though the hostname was available from document.referrer/window.location.href. Same outcome when a publisher sets a relative pageUrl (e.g. '/store'): both attempts fail identically on the same relative string.",
+      "file": "modules/condorxBidAdapter.js",
+      "line": 135,
+      "summary": "The subid hostname retry is dead code in the fallback path: getBidderRequestUrl returns a percent-encoded (or relative) page URL when refererInfo.page is unavailable, so the inner catch re-runs the same function with the same arguments and gets the identical unparseable string, degrading subid to widgetId instead of the hostname."
+    },
+    {
+      "failure_scenario": "A publisher configures a banner ad unit with sizes such as [[650, 1215]], [[680, 1280]], or [[350, 660]]: with [650, 1168] present, the ratio-deviation check passes (e.g. 650x1215: 0.5565068/650*1215 = 1.0402, within 5%, and (650-650)/650 = 0), but after removal no remaining entry matches (the nearest tall entry [1080, 1920] gives 1.0514, outside 5%), so isValidAdSize returns false, isBidRequestValid returns false, and the condorx adapter is silently excluded from the auction for those placements. Exact 650x1168 units now survive only via an implicit 5%-deviation match against [1080, 1920] rather than the explicit entry.",
+      "file": "modules/condorxBidAdapter.js",
+      "line": 11,
+      "summary": "Removing [650, 1168] from SUPPORTED_AD_SIZES silently narrows the accepted ad-size set: sizes near that entry's 0.5565 aspect ratio previously validated by the deviation rule now fail isBidRequestValid and lose all CondorX bidding with no error or deprecation notice."
+    },
+    {
+      "failure_scenario": "When the page URL parses but has no hostname — e.g. refererInfo.page is 'about:srcdoc' when the adapter runs inside a srcdoc iframe (refererDetection collects window.location.href, which is 'about:srcdoc' there), or a publisher sets pageUrl to 'about:blank' — new URL(pageUrl) succeeds, url.hostname is '', and the outer catch never fires, so the request goes out with s= (empty string) rather than the widgetId fallback.",
+      "file": "modules/condorxBidAdapter.js",
+      "line": 137,
+      "summary": "The subid fallback only handles URL parse exceptions, not URLs that parse without a hostname, so a hostnameless page URL sends an empty s= parameter instead of falling back to widgetId."
+    }
+  ],
+  "level": null
+}

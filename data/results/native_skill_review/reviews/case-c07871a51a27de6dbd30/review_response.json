@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user gives feedback (ask_for_human_input flow); the message appended to self.messages at crew_agent_executor.py:524/575 instructs the model to produce no response. A model that complies literally returns an empty string, so _get_llm_response raises ValueError(\"Invalid response from LLM call - None or empty.\"), which _invoke_loop does not retry; invoke() re-raises and the crew run aborts — and in training mode crew.train()'s except handler calls CrewTrainingHandler.clear(), wiping the training data collected for that iteration. A model that responds with only commentary (\"I will revise it\") instead produces OutputParserException churn until max_iter, after which _handle_max_iterations_exceeded forces an answer that may not incorporate the feedback.",
+      "file": "src/crewai/translations/en.json",
+      "line": 28,
+      "summary": "The new feedback_instructions template ends with \"Note: Do not respond or add commentary.\", which contradicts the executor's requirement that every invoke-loop turn produce a parsable Thought/Action or Final Answer response."
+    },
+    {
+      "failure_scenario": "VCRpy matches requests on method/URL, not body, so the stale cassette replays the recorded 'Final Answer: Hello' even though the shipped code now sends 'User feedback: ... Do not respond or add commentary.'. The feedback loop's prompt change is never actually sent to an LLM in CI, so defects in the new template (such as the do-not-respond contradiction above) cannot be caught by this test — the test passes while validating dead code.",
+      "file": "tests/cassettes/test_agent_human_input.yaml",
+      "line": 315,
+      "summary": "The recorded cassette still contains the pre-change user message \"Feedback: Don't say hi, say Hello instead!\", so test_agent_human_input replays the old LLM response and silently stops exercising the new feedback_instructions template."
+    },
+    {
+      "failure_scenario": "No runtime crash: the concrete cost is that any future change to the feedback message (i18n key rename, role change, extra formatting) must be made in two places; missing one of them makes the training-mode prompt and the regular human-feedback prompt diverge, exactly the inconsistency this change set out to eliminate by centralizing the string in en.json. Extracting a helper such as _append_feedback_message(feedback) removes the duplicated logic.",
+      "file": "src/crewai/agents/crew_agent_executor.py",
+      "line": 524,
+      "summary": "The same five-line i18n lookup, format, and message-append block is duplicated verbatim in _handle_training_feedback (line 524) and _process_feedback_iteration (line 575), so the two feedback paths must be kept in sync manually."
+    }
+  ],
+  "level": null
+}

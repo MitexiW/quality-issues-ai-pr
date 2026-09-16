@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A DSPy model logged without a signature or input_example (schema-less pyfunc, as in test_dspy_save_preserves_object_state) receives `predict(np.array([[\"What is 2 + 2?\"]]))`: `_get_model_input` returns `array(['What is 2 + 2?'], dtype=object)` and `self.model(converted_inputs)` binds that array to `question`; dspy >= 2.6 rejects the ndarray against the pydantic `str` input field (prediction error / HTTP 500), and dspy < 2.6 stringifies it into the LM prompt as \"['What is 2 + 2?']\", corrupting inference. Before the change, `reshape(-1)` + `str(flatten[0])` delivered the plain string, and shape-(1,n>1) arrays raised the documented batch-inference MlflowException. `predict(np.array(5))` (0-d) now also raises `TypeError: len() of unsized object` where the old code returned `\"5\"`.",
+      "file": "mlflow/dspy/wrapper.py",
+      "line": 123,
+      "summary": "The ndarray branch's `len(inputs) != 1` check only inspects the first axis and `inputs = inputs[0]` drops the old `reshape(-1)` + `str(flatten[0])` scalarization, so 2-D arrays with one row are passed to the DSPy model as ndarray rows instead of the scalar string the old code delivered, and 0-d arrays crash with an unhandled TypeError."
+    },
+    {
+      "failure_scenario": "Fresh CI or user environments installing the spark extras (e.g. the spark compatibility matrix in mlflow/ml-package-versions.yml) can now resolve pyspark 4.0.0, the version the deleted comment explicitly documents as not-yet-supported, so the pyspark 4 incompatibility the pin was added to prevent resurfaces in spark dataset/schema-enforcement code paths that still assume the pinned pyspark 3 behavior.",
+      "file": "requirements/constraints.txt",
+      "line": 12,
+      "summary": "Deletes the `pyspark<4.0.0` pin whose own TODO comment states it must remain until MLflow is ready for pyspark 4.0.0 (mlflow/mlflow#15847), without any pyspark-4 compatibility change accompanying the removal."
+    },
+    {
+      "failure_scenario": "The llama_index extra (requirements/extra-ml-requirements.txt:60-63 installs unpinned `llama_index` and `llama-index-agent-openai`, which pull `llama-index-llms-openai` and `openai`) now resolves openai >= 1.82.0, re-exposing the documented llama-index-llms-openai incompatibility that the pin was added to prevent, breaking mlflow.llama_index flows in environments that resolve the newer openai.",
+      "file": "requirements/constraints.txt",
+      "line": 12,
+      "summary": "Deletes the `openai<1.82.0` pin whose TODO states it exists because llama-index-llms-openai is incompatible with openai >= 1.82 (run-llama/llama_index#18823), with no dependency update accompanying the removal."
+    }
+  ],
+  "level": null
+}

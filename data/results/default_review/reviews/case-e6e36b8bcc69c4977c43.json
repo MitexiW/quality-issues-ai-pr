@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "apps/web/app/dashboard/caps/Caps.tsx",
+      "line": 46,
+      "summary": "Caps.tsx still calls the deleted /api/video/analytics route via apiClient.video.getAnalytics(), so the 'My Caps' page will show 0 views for all videos",
+      "failure_scenario": "User visits 'My Caps' dashboard. Caps.tsx useEffect calls apiClient.video.getAnalytics() which issues GET /api/video/analytics. The route handler at apps/web/app/api/video/analytics/route.ts was deleted as part of this PR (the analytics endpoint was migrated to the getVideoAnalytics server action). The request gets a 404. The code check 'if (response.status !== 200) continue' silently skips the video, so analyticsData[cap.id] stays undefined, and every CapCard renders with analytics=0 regardless of actual view count. Note: SharedCaps.tsx was properly updated to call getVideoAnalytics — Caps.tsx was the only caller left behind.",
+      "finding_id": "mf-e5d8ddee77df29eedcae"
+    },
+    {
+      "file": "apps/web/actions/videos/edit-title.ts",
+      "line": 1,
+      "summary": "Rate limiting removed — the old REST API route had rateLimitMiddleware(10, ...) limiting title updates to 10 req/min/IP; the new editTitle server action has no rate limiting whatsoever",
+      "failure_scenario": "An authenticated attacker (or aggressive script) calls the editTitle server action in a tight loop with valid videoId/title. With no rate limiting, thousands of requests per minute hit the database. The old /api/video/title/route.ts wrapped handlePut in rateLimitMiddleware(10, request, headersList), capping at 10 per 60s window per IP. The server action migration dropped this guard entirely. Same concern applies to the new editDate action which also lacks any rate limiting.",
+      "finding_id": "mf-e9b7f00405039fbe2794"
+    },
+    {
+      "file": "apps/web/actions/videos/edit-title.ts",
+      "line": 45,
+      "summary": "Error detail leakage: server actions re-throw internal error messages (DB errors, connection failures) verbatim to the client, where toast.error() displays them to users",
+      "failure_scenario": "The database connection fails during an editTitle call. Drizzle throws an error like 'connect ECONNREFUSED 127.0.0.1:3306'. The catch block (line 44-48) checks 'error instanceof Error' (true), creates 'throw new Error(error.message)', and the client (CapCard.tsx line 70-71 or ShareHeader.tsx line 43-44) shows 'toast.error(error.message)' displaying the raw infrastructure address. The old PUT route returned 'Response.json({ error: true }, { status: 401 })' unconditionally — a sanitized response. Same pattern in edit-date.ts lines 67-72.",
+      "finding_id": "mf-18eda4cf036d02bd880e"
+    },
+    {
+      "file": "apps/web/actions/videos/edit-date.ts",
+      "line": 62,
+      "summary": "editDate doesn't revalidate the share page path /s/${videoId}, unlike editTitle which does — stale date on the share page after a dashboard edit",
+      "failure_scenario": "User edits a video's date from the dashboard (CapCard calls editDate). The DB metadata is updated successfully and /dashboard/caps and /dashboard/shared-caps are revalidated (lines 63-64). However update-date.ts does not call revalidatePath('/s/${videoId}') — compare with edit-title.ts line 41 which does. When the user navigates to the share page for that video, the client router cache may serve stale data with the old createdAt/effectiveDate. The share page component (Share.tsx) computes effectiveDate from data.metadata?.customCreatedAt which requires fresh server data.",
+      "finding_id": "mf-95741a7bbd4fb41c457d"
+    },
+    {
+      "file": "apps/web/actions/videos/edit-date.ts",
+      "line": 40,
+      "summary": "Invalid date string bypasses the server-side future-date guard and crashes at toISOString() — no server-side input validation on the 'date' parameter",
+      "failure_scenario": "Direct call to editDate('some-video-id', 'not-a-valid-date'). The check 'if (!date)' on line 19 passes because the string is truthy. Then 'new Date(date)' on line 40 produces an Invalid Date (NaN). The future-date check 'newDate > currentDate' evaluates to false (any comparison with NaN is false), so the date passes through. Then 'newDate.toISOString()' on line 52 throws RangeError: 'Invalid time value'. The catch block (lines 67-72) re-throws the raw error message. Normal client-path doesn't trigger this (client validates with moment().isValid()), but the server action is callable from anywhere.",
+      "finding_id": "mf-ae710b6f3a3e7dfb3912"
+    },
+    {
+      "file": "apps/web/actions/videos/edit-date.ts",
+      "line": 43,
+      "summary": "Read-modify-write race on metadata JSON column — concurrent updates to different metadata keys can be lost because the entire JSON is read, spread, and replaced",
+      "failure_scenario": "The metadata field is a single JSON column in MySQL. editDate reads currentMetadata at line 43, spreads it at line 50, adds customCreatedAt, and writes the whole object back at line 56. If another feature (now or in the future) also writes a different key to metadata concurrently (e.g., editing thumbnail position), the last writer wins for the entire object. For example: editDate reads '{thumb: {x: 10}}', adds customCreatedAt, writes '{thumb: {x: 10}, customCreatedAt: ...}'. A concurrent thumbnail update reads '{thumb: {x: 10}}', changes to '{thumb: {x: 20}}', overwrites editDate's customCreatedAt. Currently this is theoretical (no other metadata writers exist), but the pattern is fragile for any future metadata field.",
+      "finding_id": "mf-65f1d7d218177cb7ea7c"
+    },
+    {
+      "file": "apps/web/app/dashboard/caps/components/CapCard.tsx",
+      "line": 178,
+      "summary": "handleDateBlur called without await from handleDateKeyDown (Enter key handler), enabling double invocation when Enter is followed by a click-away blur",
+      "failure_scenario": "User focuses the date input, types a new date, presses Enter. handleDateKeyDown (line 175) calls e.preventDefault() then handleDateBlur() on line 178 — without await, so it's fire-and-forget. The async handleDateBlur enters the try block and awaits editDate (line 162). While the server call is in-flight, the user clicks elsewhere, causing the input to lose focus and onBlur (line 247) to fire handleDateBlur() a second time. Both calls proceed in parallel: two editDate server actions fire, two DB writes happen (same data, idempotent), two success toasts appear, two router.refresh() calls run. Wasteful but not data-corrupting. Defense: await the call in handleDateKeyDown, or guard with a submitting flag.",
+      "finding_id": "mf-5ec8ada9f4dc79f2e6cd"
+    }
+  ]
+}

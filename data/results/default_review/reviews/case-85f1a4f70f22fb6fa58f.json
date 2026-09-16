@@ -1,0 +1,74 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/agent.py",
+      "line": 282,
+      "summary": "Crew-level knowledge is no longer queried for agents that don't have their own knowledge_sources — the crew query was moved inside `if self.knowledge:` and `if self.knowledge_search_query:`.",
+      "failure_scenario": "Crew(knowledge_sources=[StringKnowledgeSource(...)], agents=[Agent(role=..., goal=..., backstory=...)]) — the agent has no own knowledge_sources, so set_knowledge() leaves self.knowledge=None. Old code ran self.crew.query_knowledge([task.prompt()]) for every agent, injecting crew knowledge into task prompts. New code skips it entirely, so agents silently answer without the crew's knowledge base (wrong/incomplete answers, no error).",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0001"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 272,
+      "summary": "If the LLM rewrite of the search query fails or returns empty, ALL knowledge retrieval is silently skipped — no fallback to the raw task prompt.",
+      "failure_scenario": "LLM API outage (or an LLM subclass whose call() raises, or a custom Crew(prompt_file=...) whose translation file lacks the new 'knowledge_search_query' keys — I18N.slice raises before the inner try) makes _get_knowledge_search_query return None/raise. Previously the raw task prompt was always used for retrieval; now the agent executes the task with zero knowledge context and no error surfaces (only an event). Custom prompt files are a supported feature, so every such user silently loses all knowledge retrieval after this change.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0002"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 310,
+      "summary": "The new blanket `except Exception` swallows knowledge-storage/embedder errors and mislabels them as search-query failures; the task proceeds without knowledge instead of failing.",
+      "failure_scenario": "Knowledge.query() raises ValueError('Storage is not initialized.') or the vector store/embedder throws (e.g., Qdrant down, bad embedder config). Old behavior: exception propagated to the retry wrapper and the task failed visibly. New behavior: exception is caught, emitted as KnowledgeSearchQueryFailedEvent, and execution continues — the agent produces a knowledge-less answer that looks valid, masking a real infrastructure failure. Also, if _get_knowledge_search_query raised before assigning self.knowledge_search_query (e.g., missing i18n key), the event's query field carries the previous task's stale query or ''.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0003"
+    },
+    {
+      "file": "src/crewai/utilities/events/event_listener.py",
+      "line": 359,
+      "summary": "The knowledge_retrieval_in_progress flag is never reset on failure paths, so subsequent retrieval UI output is corrupted.",
+      "failure_scenario": "Agent 1's retrieval fails (LLM down -> KnowledgeQueryFailedEvent, or storage error -> KnowledgeSearchQueryFailedEvent). Neither handler resets the flag (only on_knowledge_retrieval_completed does). Agent 2's KnowledgeRetrievalStartedEvent hits `if self.knowledge_retrieval_in_progress: return` and is suppressed; agent 2's completed event then fires, prints 'Knowledge Retrieval Completed' for a start that was never shown, and adds a bare Completed node (no matching Started child). Under async_execution (Task.execute_async runs execute_task in threads), the process-global flag also races across concurrent agents.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0004"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 298,
+      "summary": "KnowledgeRetrievalCompletedEvent reports stale context from a previous task when the current retrieval finds no snippets.",
+      "failure_scenario": "Two sequential tasks: task 1 retrieves snippets so self.agent_knowledge_context='Brandon context'. Task 2's rewrite succeeds but its query returns no snippets above score_threshold — the attribute is only overwritten inside `if agent_knowledge_snippets:`, so it keeps task 1's value. The Completed event (emitted whenever knowledge_search_query is truthy) then carries task 1's context as retrieved_knowledge; verbose mode prints a 'Retrieved Knowledge' panel with the wrong content and any event/telemetry consumer is misled.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0005"
+    },
+    {
+      "file": "src/crewai/utilities/events/utils/console_formatter.py",
+      "line": 825,
+      "summary": "Started/completed handlers use opposite branch precedence (agent_branch first at line 796, current_lite_agent_branch first at line 825), and both run before current_agent_branch is set for the executing agent, so the completed handler can't find the started node and adds a duplicate.",
+      "failure_scenario": "Process that used a LiteAgent (current_lite_agent_branch set) then runs a regular agent with knowledge: retrieval start attaches under the agent branch, but completion searches children of the lite-agent branch, finds no 'Knowledge Retrieval Started' node, and adds a dangling 'Knowledge Retrieval Completed' node — the tree shows a completed node with no start and the start node left unresolved. Even without lite agents, the retrieval events fire before AgentExecutionStartedEvent, so nodes attach under the previous agent's branch or the crew root instead of the current agent.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0006"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 651,
+      "summary": "KnowledgeQueryCompletedEvent.query is populated with the original task prompt, not the rewritten query the field name promises.",
+      "failure_scenario": "Any listener/telemetry consuming KnowledgeQueryCompletedEvent.query to record or reuse the generated search query gets the full raw task prompt (which is already in the Started event's task_prompt field) instead of the rewritten query; downstream logic keying on the rewritten query gets the wrong value.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0007"
+    },
+    {
+      "file": "src/crewai/utilities/events/event_listener.py",
+      "line": 383,
+      "summary": "Dead code: on_knowledge_query_started/on_knowledge_query_completed are no-op handlers, knowledge_query_in_progress is never used, and the corresponding console_formatter methods (handle_knowledge_query_started/query_completed, lines 892-959) plus the never-matching fallback loop (lines 857-867) are unreachable.",
+      "failure_scenario": "Maintenance cost only: events are emitted and handlers registered that do nothing; the fallback loop searches for a label containing 'Knowledge Retrieval' without 'Started'/'Completed', which no code path ever creates, so the branch is untestable dead weight.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0008"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 388,
+      "summary": "The retry path re-runs the full knowledge retrieval including a new LLM rewrite call for an unchanged task prompt.",
+      "failure_scenario": "A task fails transiently and execute_task recurses on retry (line 388): the same task_prompt is re-sent to the LLM for query rewriting and both knowledge stores are re-queried on every retry — up to max_retry_limit extra LLM round-trips plus repeated vector-store searches per task, adding cost and latency to a failure path.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0009"
+    },
+    {
+      "file": "tests/agent_test.py",
+      "line": 1635,
+      "summary": "patch(\"crewai.knowledge\") mocks the package module, but Agent.set_knowledge uses the Knowledge class bound at import time, so the mock's search/query return values are never consulted and the test silently depends on real storage plus VCR replay.",
+      "failure_scenario": "Test isolation lost: the mocked search return value has no effect (the real Knowledge instance is constructed and its storage queried with a real embedder). If the embedder network call is not replayed exactly by the cassette, the test fails for reasons unrelated to the assertion, and the assertion 'red' in result.raw no longer verifies what the mock was meant to guarantee.",
+      "finding_id": "case-85f1a4f70f22fb6fa58f-f0010"
+    }
+  ]
+}

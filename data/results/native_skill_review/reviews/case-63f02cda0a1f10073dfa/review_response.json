@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Create pipeline A on day 1 and pipeline B on day 3, then edit A's config on day 5. update_pipeline (pipeline.py:93-107) writes only the client's name/description/config fields, and the entity's onupdate=func.now() never fires because persistence_mgr.execute_async runs Core conn.execute() rather than an ORM flush. A.updated_at stays at day 1, so selecting 'Recently Edited' still shows B before A and the list order is identical to 'Newest Created'.",
+      "file": "pkg/api/http/service/pipeline.py",
+      "line": 51,
+      "summary": "Sorting by updated_at can never differ from sorting by created_at because updated_at is never updated when a pipeline is edited, making the new 'Recently Edited'/'Earliest Edited' sort options non-functional."
+    },
+    {
+      "failure_scenario": "User selects 'Recently Edited' (request R1) and immediately selects 'Earliest Edited' (request R2). If R1's response arrives after R2's, the final setPipelineList applies the recently-edited order while the Select dropdown shows 'Earliest Edited'. The same interleaving can occur between a sort change and the dialog onFinish refetch.",
+      "file": "web/src/app/home/pipelines/page.tsx",
+      "line": 125,
+      "summary": "handleSortChange fires getPipelines without cancelling or sequencing the in-flight request, so a stale response can overwrite the list and leave the displayed order contradicting the selected sort option."
+    },
+    {
+      "failure_scenario": "Maintenance cost: two copies of the sort-state/UI logic now exist (PluginMarketComponent.tsx lines 39-40, 68-72, 120-126, 140-156 vs this page), each with its own i18n keys. The plugin-market copy resets pagination via setNowPage(1) on sort change; if the pipelines list later gains pagination, this copy will silently omit that reset because the two copies diverge.",
+      "file": "web/src/app/home/pipelines/page.tsx",
+      "line": 121,
+      "summary": "The sort-select state pair, comma-joined value parsing, default-parameter plumbing, and Select markup re-implement the identical pattern already present in PluginMarketComponent.tsx instead of extracting a shared component."
+    }
+  ],
+  "level": null
+}

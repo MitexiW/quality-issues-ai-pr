@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "mlflow/tracing/fluent.py",
+      "line": 1085,
+      "summary": "update_current_trace(state=str) stores a plain str in trace.info.state instead of converting to a TraceState enum member, causing silent trace loss on serialization",
+      "failure_scenario": "User calls mlflow.update_current_trace(state=\"OK\"). The assignment trace.info.state = \"OK\" stores a plain Python str. When the trace ends and is exported, TraceInfo.to_proto() calls self.state.to_proto(), but a plain str has no to_proto() method — raising AttributeError. This is caught by MlflowV3SpanExporter._log_trace()'s broad except clause, and the entire trace (including all spans, inputs, and outputs) is silently dropped instead of being persisted to the backend. The fix is to convert: trace.info.state = TraceState(state).",
+      "finding_id": "mf-e41b323c58c3a2e8cf9a"
+    },
+    {
+      "file": ".github/workflows/autoformat.yml",
+      "line": 116,
+      "summary": "CI proto generation script runs once instead of 3 times contrary to the explicit comment that multiple passes are needed",
+      "failure_scenario": "A proto source change requires a second pass of generate_protos.py to produce fully consistent output. With only a single run, the autoformat job may commit incomplete or inconsistent auto-generated proto files, which could cause downstream proto compilation or schema mismatch errors.",
+      "finding_id": "mf-29450cce710a6ab72e1d"
+    },
+    {
+      "file": "mlflow/genai/scorers/validation.py",
+      "line": 47,
+      "summary": "validate_scorers dropped specific error hints for three common user mistakes, replacing them with a generic message that misguides certain callers",
+      "failure_scenario": "A user passes scorers=[get_all_scorers()] (a list-of-list mistake). The old code told them: 'Hint: Use scorers=get_all_scorers() to pass all builtin scorers at once.' The new code says: 'Please use the @scorer decorator to convert a function into a scorer or inherit from the Scorer class' — which is completely irrelevant to their actual mistake, sending them down the wrong debugging path.",
+      "finding_id": "mf-1882f06cc73d4f4fe66d"
+    },
+    {
+      "file": "dev/pyproject.py",
+      "line": 183,
+      "summary": "databricks-agents dependency entirely removed from packaging configs despite TODO comment indicating only the rc2 pre-release qualifier should be removed",
+      "failure_scenario": "The TODO said 'Remove rc2 once databricks-agents==1.0.0 is available on PyPI.' The change removes the entire dependency line instead of updating it to 'databricks-agents>=1.0.0,<2.0'. Users installing mlflow[databricks] will no longer receive databricks-agents automatically, yet the mlflow/genai/datasets/ module still imports from databricks.agents.datasets. If the code path is hit without the package installed, it silently degrades (ImportError guard), but features like Dataset management become unexpectedly unavailable.",
+      "finding_id": "mf-b9be20c2eddc2b7f9b0f"
+    }
+  ]
+}

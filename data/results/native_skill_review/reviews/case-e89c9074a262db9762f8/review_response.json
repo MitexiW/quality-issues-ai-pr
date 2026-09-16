@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "NeuralNetworkDescription() fills all 8 activationFunctions channels with ActivationFunction_Identity (Descriptions.cpp:14), and SerializerService.cpp loadSave restores the default when the Id_NeuralNetwork_ActivationFunctions entry is absent. With 2 % 5 == 2 == Identity, the entire activationFunctions vector of the test cell is now default-valued: if a future change to SerializerService.cpp (or to DescriptionConverterService) drops or corrupts the activationFunctions save/load path, the compare(data, actualData) assertions in SerializerServiceTests.cellWithoutCreature and DataTransferTests.cellsWithoutCreature still pass because the round-tripped default matches the input. The removed code avoided this via getRandomInt(defaultNn._activationFunctions.at(0)) % ActivationFunction_Count, which yielded a non-default function in most runs; the deterministic replacement yields the default in every run.",
+      "file": "source/EngineTestData/DescriptionTestDataFactory.cpp",
+      "line": 30,
+      "summary": "nn._activationFunctions.at(5) is set to 2 % ActivationFunction_Count, which equals ActivationFunction_Identity (2) — the default value every channel is initialized with — so the renamed createNonDefaultCellDescription no longer produces a non-default activation function for that field, silently defeating the purpose of the factory."
+    },
+    {
+      "failure_scenario": "The locals are never read after the diff removed their getRandomInt(defaultX) consumers, so they are pure dead code; because CellDescription(), CreatureDescription(), and NeuralNetworkDescription() constructors allocate state and draw object ids from the global NumberGenerator singleton, every createNonDefault* call still advances the global id counter as a hidden side effect. The cost is noise for readers (variables that look load-bearing) and a factory that is only superficially deterministic; deleting the twelve declarations removes both.",
+      "file": "source/EngineTestData/DescriptionTestDataFactory.cpp",
+      "line": 7,
+      "summary": "The random-value removal leaves twelve now-unused default-constructed locals behind (defaultCell, defaultNn, defaultNode, defaultCreature, defaultGene at lines 7/26/49/68/69, defaultConstructor at 141/252, defaultGenerator at 160/266, defaultBending at 174, defaultCrawling at 201, defaultDetonator at 309) — dead code that retains hidden global-RNG side effects in a factory whose stated purpose is determinism."
+    }
+  ],
+  "level": null
+}

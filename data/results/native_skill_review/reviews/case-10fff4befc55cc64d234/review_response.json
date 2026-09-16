@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run a task through the normal path (e.g. POST /api/.../run in run_api.py). litellm.acompletion returns a ModelResponse whose usage field is a litellm.types.utils.Usage pydantic model (standard for OpenAI-compatible providers). The isinstance guard at line 409 passes, then line 410 `litellm_usage.get(\"prompt_tokens\", None)` raises AttributeError: 'Usage' object has no attribute 'get'. The exception propagates out of _run and invoke, so the task run crashes instead of returning a TaskRun. (If usage ever arrives as a plain dict, isinstance fails and the token counts are silently dropped — either way input/output/total tokens are never recorded. The new test_usage_from_response also fails under this code.)",
+      "file": "libs/core/kiln_ai/adapters/model_adapters/litellm_adapter.py",
+      "line": 410,
+      "summary": "usage_from_response calls .get() on litellm's Usage object, which is a pydantic BaseModel in litellm>=1.67 with no .get method, so every real response that contains usage raises AttributeError and fails the run."
+    },
+    {
+      "failure_scenario": "A task whose prompt builder emits a chain-of-thought prompt on a non-reasoning-capable model triggers the cot_two_call branch: two billed acompletion calls are made (line 86 for COT, line 111 for the final answer), but the returned Usage is built only from the second response via usage_from_response(response). TaskRun.usage — and the Cost/Tokens rows shown in the run details UI — exclude the COT call's prompt/completion tokens and cost, reporting less than what the run actually consumed and cost.",
+      "file": "libs/core/kiln_ai/adapters/model_adapters/litellm_adapter.py",
+      "line": 86,
+      "summary": "For the cot_two_call run strategy, the usage and cost of the first (chain-of-thought) litellm call is discarded, so the recorded usage undercounts the actual run."
+    },
+    {
+      "failure_scenario": "A run whose usage.cost is 0.0 (e.g. a locally hosted or zero-priced model where litellm computes response_cost 0.0) or whose usage.total_tokens is 0: `run?.usage?.cost ? `$${...}` : undefined` and `run?.usage?.total_tokens ? ... : undefined` evaluate to undefined, and the subsequent `.filter(([_, value]) => value !== undefined && value !== \"\")` drops the row — so a $0.00 cost / 0-token usage that was explicitly recorded is not displayed at all instead of showing $0.000000 / 0.",
+      "file": "app/web_ui/src/routes/(app)/dataset/[project_id]/[task_id]/[run_id]/run/+page.svelte",
+      "line": 65,
+      "summary": "Falsy-zero checks hide the Cost and Tokens rows when the recorded values are legitimately 0 (cost 0.0 for free/local models, or 0 total tokens)."
+    },
+    {
+      "failure_scenario": "A provider returns a ModelResponse with no usage field while litellm computes response_cost = 0.0 (free/local models): 0.0 is falsy, so `not litellm_usage and not cost` is True and usage_from_response returns None — the TaskRun records no usage at all even though a real $0.00 cost was computed, and the run's cost information is lost.",
+      "file": "libs/core/kiln_ai/adapters/model_adapters/litellm_adapter.py",
+      "line": 404,
+      "summary": "`if not litellm_usage and not cost` treats a legitimate cost of 0.0 as absent, dropping the entire usage record for responses that have a computed $0 cost but no usage block."
+    }
+  ],
+  "level": null
+}

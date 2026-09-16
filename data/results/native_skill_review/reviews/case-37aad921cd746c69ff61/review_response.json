@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run a task with the 'Simple Chain of Thought' prompt builder (or any COT prompt builder) on a reasoning-capable model (QwQ, DeepSeek R1, etc.). build_chat_formatter selects ChatStrategy.single_turn_r1_thinking and hands it the cot prompt, but the formatter ignores thinking_instructions, so the model receives only [system, user] with no thinking instructions. Pre-change code (litellm_adapter 'cot_as_message' branch) appended the cot prompt as a system message, and the comment at base_adapter.py:231 ('A simple message with the COT prompt appended to the message list is sufficient') says it should be appended — so the user's chosen prompt silently has no effect.",
+      "file": "libs/core/kiln_ai/adapters/model_adapters/base_adapter.py",
+      "line": 233,
+      "summary": "User-selected chain-of-thought instructions are silently dropped for reasoning-capable models: build_chat_formatter passes thinking_instructions=cot_prompt to SingleTurnR1ThinkingFormatter, whose next_turn() builds messages from only system_message and user_input and never includes the COT prompt."
+    },
+    {
+      "failure_scenario": "Download a Vertex Gemini dataset via /api/download_dataset_jsonl with format_type=vertex_gemini and data_strategy='final_and_intermediate' (still an accepted ChatStrategy value; old clients/scripts use it). The legacy formatter produces [system, user, system(thinking instructions), assistant, user, assistant], and VERTEX_GEMINI_ROLE_MAP passes the second 'system' message through into 'contents'. Vertex's tuning API rejects contents entries whose role is not 'user' or 'model', so the dataset fails validation at import. The pre-change code emitted thinking instructions with role 'user' in contents, which was accepted.",
+      "file": "libs/core/kiln_ai/adapters/fine_tune/dataset_formatter.py",
+      "line": 281,
+      "summary": "generate_vertex_gemini now emits the legacy two-message-CoT thinking-instructions message with role 'system' inside the Vertex 'contents' array, but Vertex Gemini tuning datasets only accept 'user'/'model' roles in contents."
+    },
+    {
+      "failure_scenario": "Two-message CoT run on a non-reasoning model whose thinking call returns message.content = None or \"\" (e.g., a provider/OpenRouter fallback that returns only reasoning_content or a filtered/empty first response). The new loop hits 'if not prior_output: raise RuntimeError(\"No output returned from model\")' and the run fails, where the old code appended an empty assistant message and still obtained a final answer.",
+      "file": "libs/core/kiln_ai/adapters/model_adapters/litellm_adapter.py",
+      "line": 112,
+      "summary": "The reworked _run loop aborts the entire run when the intermediate thinking call returns empty or None content, whereas the removed code tolerated it via 'cot_content or \"\"' and proceeded to the final call."
+    },
+    {
+      "failure_scenario": "API call to download_dataset_jsonl with format_type=vertex_gemini and data_strategy='final_and_intermediate_r1_compatible' (the UI blocks this combination, but the endpoint accepts any ChatStrategy value). The old code raised ValueError('R1 style thinking is not supported for Vertex Gemini...'); the new code silently writes '<think>...' tagged assistant messages, yielding training data Vertex models were never intended to consume — a corrupted fine-tune instead of a clear rejection.",
+      "file": "libs/core/kiln_ai/adapters/fine_tune/dataset_formatter.py",
+      "line": 268,
+      "summary": "generate_vertex_gemini lost its explicit rejection of the R1 thinking strategy, so a vertex_gemini download with data_strategy 'final_and_intermediate_r1_compatible' now silently produces a dataset whose assistant messages contain '<think>' tags instead of raising a clear error."
+    },
+    {
+      "failure_scenario": "Maintainability cost: two byte-identical classes must be kept in sync, and the duplication masks the fact that the R1 variant silently ignores thinking_instructions (the root cause of the dropped-CoT-prompt bug above). The R1 strategy behaves identically to single_turn at call time, so no behavioral distinction justifies the second class.",
+      "file": "libs/core/kiln_ai/adapters/chat/chat_formatter.py",
+      "line": 178,
+      "summary": "SingleTurnR1ThinkingFormatter is an exact copy of SingleTurnFormatter (identical next_turn bodies), so the R1 strategy's only differentiation — its thinking-instructions handling — is dead code; the duplicate class should either implement the R1-specific message construction or be removed in favor of SingleTurnFormatter."
+    }
+  ],
+  "level": null
+}

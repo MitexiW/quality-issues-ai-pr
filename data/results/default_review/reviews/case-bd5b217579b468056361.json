@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 338,
+      "summary": "_remove_reference ignores return value of recursive call in the list branch, so $ref entries to templated JsonFileSchemaLoaders inside list elements are never deleted",
+      "failure_scenario": "A manifest has a JsonFileSchemaLoader with a Jinja2-templated file_path (containing '{{'), and a stream with schema_loader: {$ref: '#/definitions/that_loader'}. _remove_reference deletes the loader definition from the definitions dict, but the $ref inside the stream dict (which lives in the 'streams' list) is never removed because the list branch (line 338) calls _remove_reference recursively but discards the True return. The manifest is written back with a dangling $ref to a deleted definition, breaking manifest loading.",
+      "finding_id": "mf-a4375fa96141362ac526"
+    },
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 193,
+      "summary": "Stream schema_loader containing a $ref dict is not resolved before the InlineSchemaLoader skip-check, so the check always fails, leading to unconditional overwrite with {}",
+      "failure_scenario": "A stream has schema_loader: {$ref: '#/definitions/my_loader'} referencing a JsonFileSchemaLoader that _update_json_loaders already converted to InlineSchemaLoader (and unlinked the JSON file). The main loop at line 193 calls yaml_stream['schema_loader'].get('type'), which returns None (the $ref dict has no 'type' key). The skip-check fails. Line 196 overwrites schema_loader with {}. _update_inline_schema then searches json_streams for the stream name, but the entry was already popped, so it returns early leaving schema_loader as {}. The stream now has an empty schema_loader dict instead of either the original $ref or the converted InlineSchemaLoader, producing a broken manifest.",
+      "finding_id": "mf-0df25e44750471402ab3"
+    },
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 283,
+      "summary": "Bare parenthesized f-string is a no-op; intended logger.info(...) call is missing, silently losing log output",
+      "failure_scenario": "When a loader has a templated file_path, the code should log 'Removing reference: #/definitions/...' but the line (f'    Removing reference: {loader.ref}') is just a string expression evaluated and discarded. No log output is produced, making debugging and audit trails incomplete for templated-path loader removal.",
+      "finding_id": "mf-9d3090cac65d206b6fcb"
+    },
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 109,
+      "summary": "RestoreInlineState creates a temp directory backup in __init__ that is only cleaned up on full success; exceptions and step failures leak the temp directory",
+      "failure_scenario": "RestoreInlineState.__init__ calls tempfile.mkdtemp() and copies the schemas directory into it at line 109. The _cleanup method (line 124) removes it with shutil.rmtree, but _cleanup is only called by command.py when all steps succeed (command.py line 90-93). If run_steps raises an exception or any step returns FAILURE, only restore_original_state.run() is called (command.py lines 82, 87) — which restores manifest/schemas but never removes the backup temp directory. The directory under /tmp persists, and over repeated CI runs on the same host this accumulates leaked disk space.",
+      "finding_id": "mf-56be8a06d02102fa15e9"
+    },
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 255,
+      "summary": "_has_subdirectory is dead code — defined but never called (the only call site is commented out)",
+      "failure_scenario": "The function _has_subdirectory (lines 255-262) is fully defined but its only invocation at line 85 is commented out with a TODO. It adds maintenance burden and confuses readers about whether the subdirectory case is handled.",
+      "finding_id": "mf-092eaf587012b3bfaa55"
+    },
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 391,
+      "summary": "json.load in _parse_json_streams has no try/except for JSONDecodeError; a malformed JSON schema file crashes the entire pipeline",
+      "failure_scenario": "A connector's schemas/ directory contains a file with a .json extension that is not valid JSON (e.g., corrupted, empty, or truncated). _parse_json_streams calls json.load(file) at line 391 which raises JSONDecodeError. The exception propagates out of InlineSchemas._run (line 148) and crashes the entire migration pipeline without a StepResult, preventing any other connector migrations from running and producing an opaque stack trace instead of a clear error message.",
+      "finding_id": "mf-9f34871abcceb2ff2228"
+    },
+    {
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 203,
+      "summary": "Post-migration loop logs 'JSON schema not found' for remaining json_streams, but the message is misleading — the files were found and read, they just were not matched to any manifest stream",
+      "failure_scenario": "After migrating inline schemas, any remaining entries in json_streams (JSON files that were parsed from disk but never matched to a manifest stream) produce the log message '!! JSON schema not found: <name>' at line 204. The message says 'not found' but the file was in fact found and read — it simply wasn't consumed by any stream. This misleads operators investigating the migration output into thinking the file was missing, wasting debugging time.",
+      "finding_id": "mf-87f978dd638da8a0356c"
+    }
+  ]
+}

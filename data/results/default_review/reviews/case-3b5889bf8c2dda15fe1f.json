@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/agent.ts",
+      "line": 440,
+      "summary": "dedupQueries return type changed to {unique_queries, tokens} but the reflect-path caller at line 440 was not updated to destructure; newGapQuestions becomes an object instead of an array, breaking the entire reflect/self-correction loop",
+      "failure_scenario": "Agent takes a reflect action to decompose a question into sub-questions. allQuestions.length is always >= 1 (starts with the original question), so dedupQueries always runs. It returns {unique_queries: ['sub-q1'], tokens: 50}. newGapQuestions is assigned this object. newGapQuestions.length is undefined, undefined > 0 is false, so the 'found new gap questions' branch is skipped. The else branch runs, telling the LLM all questions were duplicates and to 'think out of the box' — silently losing all new gap questions and breaking the agent's ability to decompose problems on any reflect after the first. Additionally, tokens from this dedupQueries call are not added to totalTokens, causing the token budget check to undercount.",
+      "finding_id": "mf-6f293a252dd9597a03d2"
+    },
+    {
+      "file": "src/tools/dedup.ts",
+      "line": 122,
+      "summary": "dedupQueries CLI main() treats the new {unique_queries, tokens} return shape as if it were still string[]; console.log prints the wrapper object instead of the array",
+      "failure_scenario": "Running dedup.ts directly via ts-node prints '{ unique_queries: [...], tokens: N }' instead of the expected array of unique query strings.",
+      "finding_id": "mf-2b89f99c16be501884dd"
+    },
+    {
+      "file": "src/tools/query-rewriter.ts",
+      "line": 107,
+      "summary": "rewriteQuery CLI main() treats the new {keywords, tokens} return shape as if it were still string[]; console.log prints the wrapper object instead of the keyword array",
+      "failure_scenario": "Running 'npm run rewrite' prints '{ keywords: [...], tokens: N }' instead of the expected keyword array.",
+      "finding_id": "mf-9c874f6161a35cbd6201"
+    },
+    {
+      "file": "src/tools/evaluator.ts",
+      "line": 105,
+      "summary": "evaluateAnswer CLI main() treats the new {response, tokens} return shape as if it were still EvaluationResponse; console.log prints the wrapper object instead of the evaluation result",
+      "failure_scenario": "Running evaluator.ts directly via ts-node prints '{ response: {...}, tokens: N }' instead of the expected evaluation result object.",
+      "finding_id": "mf-d846b8ce12a430e777ee"
+    },
+    {
+      "file": "src/config.ts",
+      "line": 17,
+      "summary": "GEMINI_API_KEY and JINA_API_KEY are typed 'as string' via TypeScript assertion but access process.env values that are string|undefined at runtime; the downstream module-level throw guards this, but the type assertion is misleading if the guard is ever moved or removed",
+      "failure_scenario": "If the module-level guard (line 21-22) is ever removed or refactored away, consumers importing GEMINI_API_KEY would see it typed as string but receive undefined at runtime, causing downstream crashes with no compile-time warning.",
+      "finding_id": "mf-688817759420cda854ab"
+    }
+  ]
+}

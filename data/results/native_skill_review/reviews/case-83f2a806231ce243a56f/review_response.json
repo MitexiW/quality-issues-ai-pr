@@ -1,0 +1,71 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`/assets?sortBy=barcode_Code128:asc` (or any `barcode_`-prefixed name) is read from `searchParams.getAll(\"sortBy\")`; parseSortingOptions copies everything after `barcode_` unchanged (`field.name.replace(\"barcode_\", \"\")`) into `getNormalizedSortExpression`, whose output goes to `Prisma.raw(orderByClause)`. An authenticated user can therefore inject SQL via the sort field (e.g. `?sortBy=barcode_x)%20asc%2C(SELECT...):asc`), and at minimum break the assets index. Before this change `barcode_*` names only hit the `console.warn(\"Unknown sort field\")` path.",
+      "file": "app/modules/asset/query.server.ts",
+      "line": 1175,
+      "summary": "The new barcode sort branch interpolates the URL-supplied sort field name verbatim into the raw ORDER BY SQL, so arbitrary `sortBy=barcode_<payload>` text is executed as SQL."
+    },
+    {
+      "failure_scenario": "Admin toggles `barcodesEnabled` off (existing Barcode rows are kept). A user with update permission then edits any asset that has barcodes: the BarcodesInput is hidden, `barcodes = canUseBarcodes ? extractBarcodesFromFormData(formData) : []` yields `[]`, and updateAsset (`barcodes !== undefined`) calls updateBarcodes, where `barcodesToDelete` = all of that asset's existing barcodes → `deleteMany`. Re-enabling barcodes later shows the values are gone. Same pattern in `app/routes/_layout+/kits.$kitId_.edit.tsx:122` → updateKit.",
+      "file": "app/routes/_layout+/assets.$assetId_.edit.tsx",
+      "line": 205,
+      "summary": "When the workspace barcode flag is off the edit action sends `barcodes: []`, which updateAsset treats as \"delete every barcode\", silently destroying existing barcode data on any unrelated asset edit."
+    },
+    {
+      "failure_scenario": "Delete an asset whose barcode is `BC001`: the FK sets `assetId = null` and nothing calls `deleteBarcodes` (only the never-used `replaceBarcodes` does). Creating/importing `BC001` afterwards fails with `Some barcode values are already in use…` / `This barcode value is already used by \"Unknown item\"` (validateBarcodeUniqueness's fallback name), so the value can never be reused, and scanning the old label at `/barcode/BC001` answers \"This barcode is not linked to any asset or kit\".",
+      "file": "app/database/schema.prisma",
+      "line": 349,
+      "summary": "Deleting an asset or kit leaves its barcode rows behind (onDelete: SetNull and no cleanup call), permanently reserving those values for the organization."
+    },
+    {
+      "failure_scenario": "With `barcodesEnabled = false`, the loader passes `getKitOverviewFields(false)`, which returns `{}` (app/modules/kit/fields.ts:24) — so the kit is fetched without `assets`. `\"assets\" in kit` is false, totalValue stays 0, and a kit containing assets worth thousands renders `Total value 0.00`.",
+      "file": "app/routes/_layout+/kits.$kitId.overview.tsx",
+      "line": 97,
+      "summary": "The new kit Overview always shows a total value of 0 for workspaces without barcodes because `assets` is only included when `canUseBarcodes` is true."
+    },
+    {
+      "failure_scenario": "In a barcode-enabled workspace the user has barcode columns in their index (added by assets._index.tsx with `canUseBarcodes: true`). Clicking Export calls `getAssetIndexSettings({ userId, organizationId })` → `canUseBarcodes` defaults to false → validateColumns takes the else branch, removes all `barcode_*` columns, sets needsUpdate and persists via `updateColumns`. The user's column visibility/order is silently reset, and the exported CSV can never contain barcode columns.",
+      "file": "app/routes/_layout+/assets.export.$fileName[.csv].tsx",
+      "line": 32,
+      "summary": "The CSV export route calls getAssetIndexSettings without `canUseBarcodes`, so it strips every barcode column from the user's persisted asset-index settings."
+    },
+    {
+      "failure_scenario": "A user sorts the advanced index by a barcode column (URL/cookie stores `sortBy=barcode_Code128:asc`) and then exports; exportAssetsFromIndexToCsv calls getAdvancedPaginatedAndFilterableAssets without withBarcodes, but parseSortingOptions still emits `barcode_Code128` into `ORDER BY`, which does not exist in the CTE → Postgres `column \"barcode_code128\" does not exist`, so the download contains the error payload instead of the CSV. The same missing-alias error is reachable on the index URL (`?sortBy=barcode_Code128:asc`) for any org without the barcode flag, since sortBy names are never validated against the selected columns.",
+      "file": "app/utils/csv.server.ts",
+      "line": 274,
+      "summary": "The export query never passes `canUseBarcodes`, so the `barcode_*` SELECT aliases are missing while a barcode sortBy carried in the filter cookie still references them — the export query fails."
+    },
+    {
+      "failure_scenario": "In a workspace with `barcodesEnabled = false`, any user with asset update permission can POST `intent=add-barcode` (and the equivalent `kits.$kitId.tsx:335`) to create a Barcode row. Nothing calls `validateBarcodeEnabled`/`organizationHasBarcodesEnabled` (they are unused), the row is invisible in the UI (overview and forms hide barcodes), cannot be deleted through the UI, and permanently occupies that value for the organization.",
+      "file": "app/routes/_layout+/assets.$assetId.tsx",
+      "line": 232,
+      "summary": "The `add-barcode` action never checks `canUseBarcodes`, so the barcode feature flag is not enforced server-side."
+    },
+    {
+      "failure_scenario": "In Add barcode → Scan code, scan an EAN-13 (unsupported): processFrame sets paused and reports the error, and `setErrorMessage(error)` is the only write to that state. Press \"Scan again\" (setPaused(false)) and scan a valid Code128: handleScanSuccess sets scannedValue/detectedType/paused=true, but CodeScanner renders `errorMessage ? <error panel> : scanMessage`, so the detected barcode form is never shown and the dialog is stuck until it is closed and reopened.",
+      "file": "app/components/code-preview/scan-barcode-tab.tsx",
+      "line": 36,
+      "summary": "`errorMessage` is set on an unsupported scan but never cleared, so the next successful scan renders the stale \"Unsupported Barcode detected\" panel instead of the add-barcode form."
+    },
+    {
+      "failure_scenario": "generic-item-row requests `/api/get-scanned-barcode/${encodeURIComponent(value)}`; for a Code128/DataMatrix value containing `%` (allowed by the validator, e.g. `50%OFF-1`) the URL carries `50%25OFF-1`, Remix delivers the param as `50%OFF-1`, and the extra `decodeURIComponent` either mangles it or throws `URIError: URI malformed` (for `%OF`), so the loader returns a 500 / \"This barcode doesn't exist\" instead of the scanned item.",
+      "file": "app/routes/api+/get-scanned-barcode.$value.ts",
+      "line": 68,
+      "summary": "The barcode value is decoded a second time even though Remix has already decoded the route param, corrupting any value containing `%`."
+    },
+    {
+      "failure_scenario": "A Code128 value may legally contain `\"` (e.g. `AB\"CD`). Filtering the barcode column with operator \"Matches any\" and that value builds `{\"AB\"CD\"}` → Postgres `malformed array literal` → the advanced asset index errors instead of returning results; a backslash (`A\\B`) silently escapes and matches the wrong values. (Pattern copied from the qrId branch, but qrIds cannot contain those characters.)",
+      "file": "app/modules/asset/query.server.ts",
+      "line": 695,
+      "summary": "The new barcode `matchesAny` filter builds a Postgres array literal by wrapping raw values in double quotes, so barcode values containing `\"` or `\\` produce a malformed literal / wrong matches."
+    },
+    {
+      "failure_scenario": "`replaceBarcodes`/`createBarcodes`/`updateBarcode`/`deleteBarcode`/`getAssetBarcodes`/`getKitBarcodes`, `BarcodeSchema`, `shouldWarnLongBarcode`, `validateBarcodeEnabled`/`organizationHasBarcodesEnabled`, and the \"backward compatibility\" `ASSET_OVERVIEW_FIELDS`/`KIT_OVERVIEW_FIELDS` exports (app/modules/asset/fields.ts:97, app/modules/kit/fields.ts:25) have no production callers (Grep outside the module/tests finds nothing), so the gate that would have rejected barcode creation for disabled workspaces exists but is never wired in; the unused code must be maintained and reviewed while giving a false impression of enforcement.",
+      "file": "app/modules/barcode/service.server.ts",
+      "line": 415,
+      "summary": "Large parts of the new barcode module are dead code that is only referenced by its own tests, including the server-side feature-flag validator."
+    }
+  ],
+  "level": null
+}

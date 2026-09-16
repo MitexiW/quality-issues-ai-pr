@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User calls pygwalker.walk(connector) and interacts with the chart; the frontend POSTs /comm batch_get_datas_by_payload, and conn.query_datas() takes 3+ seconds (network DB query). CustomTCPServer(socketserver.TCPServer) handles one request at a time, so the 1s-interval /health GETs queue behind the POST and never update _GlobalState.last_health_time; the main loop then sees time.time() - last_health_time > 2 and calls httpd.shutdown(). The server exits, the queued health fetches fail, the page runs window.close() (or every later fetch breaks), and the user's charts/session are lost. Cloud actions registered by _init_callback (get_chart_by_chats, get_spec_by_text, upload_to_cloud_dashboard) routinely take far longer than 2s, making this easy to hit.",
+      "file": "pygwalker/api/webserver.py",
+      "line": 127,
+      "summary": "The 2-second health watchdog runs against a single-threaded TCPServer, so any /comm request taking longer than ~2-3 seconds blocks the /health endpoint and makes the server shut itself down mid-session."
+    },
+    {
+      "failure_scenario": "User opens the walker page, then backgrounds the tab or minimizes the browser (Chrome throttles hidden-page timers to once per minute after several minutes; Safari and mobile browsers pause background-tab timers much sooner). The /health fetches stop for more than 2 seconds while the page is still open, so the main loop calls httpd.shutdown(); when the user returns, the tab is closed (window.close) or the app is dead with every comm POST failing, losing the session even though the page was never closed. The +60s grace in _GlobalState only covers initial page load, not backgrounding.",
+      "file": "pygwalker/api/webserver.py",
+      "line": 21,
+      "summary": "The 2-second health timeout combined with 1-second setInterval polling cannot survive browser timer throttling of background tabs, so the server shuts down while the user merely switches to another tab."
+    },
+    {
+      "failure_scenario": "While pygwalker.walk(df) is running on 127.0.0.1, the user visits an attacker-controlled page whose domain rebinds to 127.0.0.1. The attacker's JavaScript fetches http://<rebound-domain>:<port>/any-path — do_GET serves the page HTML containing the entire dataSource records for any path, not just '/' — and POSTs /comm queries whose JSON responses are readable because the server never validates the Host header or the request Origin and issues no CORS restrictions. The user's dataframe is exfiltrated without any interaction.",
+      "file": "pygwalker/api/webserver.py",
+      "line": 60,
+      "summary": "The new localhost server serves the full dataset (embedded in props/dataSource) to any GET path and accepts /comm POSTs with no Host, Origin, or token validation, so a malicious web page can read and query the user's data via a DNS-rebinding attack."
+    },
+    {
+      "failure_scenario": "In a notebook, pygwalker.walk(df, spec='my_spec.json') -> adapter.walk -> jupyter.walk, which runs get_formated_spec_params_code_from_frame(inspect.stack()[1].frame) at pygwalker/api/jupyter.py:56-58. Before this change stack()[1] was the user's frame; now it is adapter.walk's frame, whose current source line is 'return jupyter.walk(' — ast.parse on that line raises SyntaxError, and the except path returns _get_default_code() ('pyg.walk(df, spec=...)'). The reproduce/source-code snippet shown in the notebook no longer reflects the user's actual walk(...) call, a regression for every Jupyter user of the primary API path.",
+      "file": "pygwalker/api/adapter.py",
+      "line": 50,
+      "summary": "Routing walk() through the adapter breaks jupyter.walk's source_invoke_code generation because inspect.stack()[1].frame now points at the adapter's frame (line 50, 'return jupyter.walk('), which cannot be parsed as the user's walk call, so every notebook invocation degrades to the generic default code."
+    },
+    {
+      "failure_scenario": "pygwalker.walk(big_df, use_kernel_calc=False) in a notebook disables kernel computation via jupyter.walk's fallback_value(kernel_computation, use_kernel_calc) (pygwalker/api/jupyter.py:79), embedding all data client-side; the identical call in a script ignores the flag — webserver.walk receives only kernel_computation=None, which falls back to the size-based suggestion in PygWalker.__init__ (data_size > JUPYTER_BYTE_LIMIT, 16MB) and enables kernel computation. Conversely use_kernel_calc=True with a small DataFrame is honored in notebooks but ignored in scripts. The parameter is accepted, documented, and silently ignored with no warning.",
+      "file": "pygwalker/api/adapter.py",
+      "line": 67,
+      "summary": "adapter.walk accepts and documents use_kernel_calc but silently drops it in the non-Jupyter branch, so the same call behaves differently depending on the runtime environment."
+    },
+    {
+      "failure_scenario": "A stray or malformed POST to the localhost port — e.g. curl -X POST http://localhost:<port>/comm with no Content-Length header, or a port scanner/bot probing the server — raises KeyError on self.headers['Content-Length'], or ValueError from json.loads, or KeyError on payload['action']/payload['data']; socketserver catches it only to print a traceback to stderr and reset the connection instead of returning the normal {code, message} error envelope that BaseCommunication._receive_msg is designed to produce, so any client (including an older frontend build sending a payload without 'data') gets a hard connection failure with no diagnostic.",
+      "file": "pygwalker/api/webserver.py",
+      "line": 76,
+      "summary": "do_POST reads Content-Length and parses the JSON body with no validation, so any malformed POST (missing header, invalid JSON, missing action/data keys) raises an unhandled exception inside the handler."
+    },
+    {
+      "failure_scenario": "Maintainability: pygwalker/api/jupyter.py:69-87 and pygwalker/api/webserver.py:170-188 construct PygWalker with near-identical argument lists, yet already diverge (jupyter.walk folds use_kernel_calc via fallback_value and forces kernel computation for str/Connector datasets; webserver.walk does neither and hardcodes source_invoke_code=''). A correctness fix applied to one construction site silently leaves the other divergent — this is exactly how the dropped use_kernel_calc handling arose — and render/table duplicate the pattern twice more.",
+      "file": "pygwalker/api/webserver.py",
+      "line": 170,
+      "summary": "webserver.walk/render/table copy-paste jupyter.py's PygWalker construction (~20 kwargs each) and the copies have already drifted — e.g. walk() drops the use_kernel_calc/fallback_value handling and the isinstance(dataset, (Connector, str)) kernel-computation fallback — so future fixes to walker construction must be made in two places and the drift will keep growing."
+    }
+  ],
+  "level": null
+}

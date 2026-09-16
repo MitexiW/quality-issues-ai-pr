@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "packages/graphic-walker/src/lib/op/offset.ts",
+      "line": 60,
+      "summary": "The `if (!v)` guard treats the number 0 as falsy, returning null for the valid epoch timestamp (1970-01-01). This breaks all callers of `newOffsetDate(offset)(value)` when value can be 0.",
+      "failure_scenario": "`newOffsetDate(480)(0)` returns null instead of an OffsetDate for epoch. Downstream callers that call `.getTime()` on the result throw `TypeError: Cannot read properties of null`. Also affects `newOffsetDate(offset)('')` (falsy empty string) and `newOffsetDate(offset)(false)`. Should use `v == null` instead of `!v`.",
+      "finding_id": "mf-797cdb8e050834555441"
+    },
+    {
+      "file": "packages/graphic-walker/src/computation/index.ts",
+      "line": 444,
+      "summary": "`newDate(rangeRes[MIN_ID]).getTime()` and `newDate(rangeRes[MAX_ID]).getTime()` call `.getTime()` on the result of `newOffsetDate` without a null guard, crashing when the service returns empty results.",
+      "failure_scenario": "When `service(rangeQueryPayload)` returns an empty array, the destructuring default `{ [MIN_ID]: 0, [MAX_ID]: 0 }` kicks in. `newDate(0)` now returns null (due to the offset.ts `!v` bug), and `.getTime()` on null throws `TypeError`. This is a realistic crash path since the destructuring default was explicitly added to handle empty results.",
+      "finding_id": "mf-a759e03a082532d67a4a"
+    },
+    {
+      "file": "packages/graphic-walker/src/lib/op/aggregate.ts",
+      "line": 59,
+      "summary": "`newDate(x).getTime()` calls `.getTime()` on the result of `newOffsetDate` without a null guard. Crashes when a field value `x` is 0 (epoch timestamp) or another falsy value.",
+      "failure_scenario": "During aggregate computation with a temporal field that has a format, `subGroup.map(r => r[mea.field])` produces field values. If any value is `0` (epoch), `newDate(0)` returns null from the offset.ts `!v` check, and `.getTime()` throws `TypeError: Cannot read properties of null (reading 'getTime')`. Epoch can occur as a real timestamp when min/max aggregates return 0 for empty groups.",
+      "finding_id": "mf-d44f0899fe308f31f182"
+    },
+    {
+      "file": "packages/graphic-walker/src/lib/op/dateTimeFeature.ts",
+      "line": 108,
+      "summary": "Non-null assertion `getISOYear(v)!` suppresses TypeScript's type-checking without providing runtime safety for the null case.",
+      "failure_scenario": "`getISOYear` now has a `return null` path (line 21). Although the `if (!v) return null;` guard at line 106 prevents null `v` from reaching this line, if the guard is ever removed or if `getISOYear` is refactored to return null for other reasons, `y` becomes null and propagates into `toOffsetDate(y, 0, 4)` which silently produces an invalid date (Date.UTC coerces null to 0). The `const y` should be checked for null before use, or the non-null assertion should be replaced with a proper null check.",
+      "finding_id": "mf-eb4e01332c9bd1b14146"
+    },
+    {
+      "file": "packages/graphic-walker/src/vis/spec/view.ts",
+      "line": 92,
+      "summary": "The Vega-Lite expression guard `datum[...]!==null` only checks for `null`, not `undefined`. A missing datum key passes the guard and reaches `toDate(undefined)`.",
+      "failure_scenario": "If a Vega-Lite transform references a field `fid` that does not exist in some datums, `datum[fid]` evaluates to `undefined`. Since `undefined !== null` is `true`, the expression proceeds to `toDate(undefined)` which in Vega produces an invalid date result. The guard should use `datum[...] != null` or `datum[...] !== undefined && datum[...] !== null` to catch both.",
+      "finding_id": "mf-3e793998232f166964c9"
+    },
+    {
+      "file": "packages/graphic-walker/src/vis/spec/view.ts",
+      "line": 101,
+      "summary": "Same `!==null` vs undefined issue in the second Vega-Lite expression guard for non-date temporal offsets.",
+      "failure_scenario": "Same as above: `datum[fid]` evaluating to `undefined` passes the `!==null` check. The expression `datum[...]${formatOffset(offsetTime)}` with undefined datum would produce `undefined${offset}` in Vega, resulting in unexpected behavior.",
+      "finding_id": "mf-a7056b43ed65407f7b18"
+    },
+    {
+      "file": "packages/graphic-walker/src/utils/index.ts",
+      "line": 355,
+      "summary": "`formatDate` returns the literal string `'null'` for null dates, which is displayed directly in UIs across data tables, pivot tables, and filter pills.",
+      "failure_scenario": "Callers such as `dataTable/index.tsx:176`, `pivotTable/leftTree.tsx:39`, `filterField/simple.tsx:308`, and `filterField/tabs.tsx:660` all display `formatDate(parsedOffsetDate(...)(value))` directly. When the value is null/undefined/falsy, the chain produces the string `'null'` which appears as literal text in table cells and filter pill labels, confusing end users. Should return an empty string `''` or a localized placeholder instead.",
+      "finding_id": "mf-1995bf70a2f5201a84a7"
+    },
+    {
+      "file": "packages/graphic-walker/src/lib/op/offset.ts",
+      "line": 33,
+      "summary": "The overload signature `function creator(value: number | string | Date | null): OffsetDate | null` indicates null return only for null input, but the implementation returns null for any falsy value (0, '', false).",
+      "failure_scenario": "TypeScript infers `newOffsetDate(offset)(0)` as returning `OffsetDate` (via the non-null overload at line 32), masking the runtime null return. Callers relying on TypeScript's type-checking will not see a type error, but `myDate.getTime()` will crash at runtime because the actual return is `null`. The overloads should either match the implementation's actual falsy-return behavior, or the implementation should use `v == null` to match the stated contract.",
+      "finding_id": "mf-865bcbb70679396fe615"
+    },
+    {
+      "file": "packages/graphic-walker/src/lib/op/offset.ts",
+      "line": 61,
+      "summary": "Missing semicolon after `return null` statement.",
+      "failure_scenario": "Style inconsistency. While JavaScript ASI inserts a semicolon, the rest of the function and codebase uses explicit semicolons. This is a minor maintainability issue but could trigger linter errors in strict configurations.",
+      "finding_id": "mf-aee12e88372ce2626217"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user follows the documented v1 API (`docs/v1/concepts/events.mdx:72`: `from agentops import ToolEvent, record`) and calls `tool_event = ToolEvent(name='scrape_website', params={'url': url})`; the legacy stub accepts `*args/**kwargs` and returns `None`, so no ToolEvent is created or recorded, and any later access like `tool_event.logs` raises `AttributeError: 'NoneType' object has no attribute 'logs'`. Likewise `record(ErrorEvent(exception=e, trigger_event=tool_event))` (docs/v1/concepts/events.mdx:104) passes `None` as the message to `sdk_record`, so no error span is ever emitted — error telemetry is silently lost (in the baseline these names did not exist at top level and the import failed loudly; every internal module imports the real classes via `from agentops.event import ErrorEvent, ToolEvent`, which is the source this import should use).",
+      "file": "agentops/__init__.py",
+      "line": 7,
+      "summary": "The top-level `agentops.ErrorEvent` and `agentops.ToolEvent` names are imported from `agentops.legacy`, binding them to deprecated no-op stub functions that return `None` instead of the real event classes in `agentops.event`, silently discarding all tool/error telemetry for documented API users."
+    }
+  ],
+  "level": null
+}

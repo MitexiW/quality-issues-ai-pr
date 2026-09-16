@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user who explicitly opted out of environment data collection (AGENTOPS_ENV_DATA_OPT_OUT=true or init(env_data_opt_out=True) — the flag is even passed into TracingCore.initialize_from_config via config.dict() at agentops/client/client.py:53 and then silently dropped) still has host.name (their machine hostname), host.system, host.os_release, host.processor, cpu.percent, memory.* and the full imported_libraries list attached to every span and exported to the AgentOps OTLP endpoint.",
+      "file": "agentops/sdk/core.py",
+      "line": 134,
+      "summary": "setup_telemetry unconditionally attaches host name, OS, CPU, memory, and imported-library environment data to every exported span's resource, bypassing the documented env_data_opt_out setting (AGENTOPS_ENV_DATA_OPT_OUT / init(env_data_opt_out=True)) that the SDK's own helpers/system.py get_host_env() path honors."
+    },
+    {
+      "failure_scenario": "Every agentops.init() now takes at least 100ms longer; because the sleep happens while _lock is held, any concurrent TracingCore.get_instance()/initialize()/shutdown() call from another thread blocks for that duration too. The existing collector in agentops/helpers/system.py:95 uses the non-blocking psutil.cpu_percent() for the same data, showing the blocking interval is unnecessary.",
+      "file": "agentops/sdk/core.py",
+      "line": 81,
+      "summary": "psutil.cpu_percent(interval=0.1) blocks the calling thread for ~100ms on every SDK initialization, and it runs inside setup_telemetry while TracingCore.initialize holds the shared TracingCore._lock (acquired at core.py:225 before the call at line 252)."
+    },
+    {
+      "failure_scenario": "On a platform where platform.processor()/platform.machine()/platform.version() raises (platform.processor() shells out to system commands on some systems and can raise subprocess/OSError in restricted or embedded environments), the exception propagates out of setup_telemetry through TracingCore.initialize (core.py:252), and Client.init crashes with a traceback — while the guarded CPU/memory blocks in the same function show the collection was intended to be best-effort.",
+      "file": "agentops/sdk/core.py",
+      "line": 68,
+      "summary": "The platform.* block of get_system_stats runs outside any try/except, unlike the CPU and memory blocks directly below it, so a failure in platform detection aborts the entire setup_telemetry call and agentops.init() instead of degrading gracefully."
+    },
+    {
+      "failure_scenario": "A script containing 'import torch.nn' and 'import torch.nn.functional' yields imported_libraries == ['torch', 'torch'] (and any n submodules of a package yield n copies), so the telemetry attribute shipped to the AgentOps backend contains duplicated, misleading data.",
+      "file": "agentops/sdk/core.py",
+      "line": 54,
+      "summary": "get_imported_libraries appends the top-level module name for every module object found in __main__.__dict__ without deduplication, so multiple submodules of the same package produce duplicate entries in the exported imported_libraries resource attribute."
+    },
+    {
+      "failure_scenario": "'import json' or 'import logging' in a user script adds 'json'/'logging' to imported_libraries as if they were user libraries; conversely, when agentops.init() runs under python -m, pytest, uvicorn, or Django's manage.py, __main__ is the launcher module, so the app's own imports never appear and the attribute is empty or filled with framework modules — the reported library list is wrong in both cases.",
+      "file": "agentops/sdk/core.py",
+      "line": 40,
+      "summary": "The builtin_modules filter set covers only a dozen stdlib modules, so common stdlib imports are reported as user libraries, while the scan of only sys.modules['__main__'].__dict__ silently misses all of the application's real imports whenever the SDK is initialized from a framework entrypoint."
+    },
+    {
+      "failure_scenario": "The repo now has two independent environment-data collectors: helpers/system.py's get_host_env(opt_out=...) which centralizes collection behind the env_data_opt_out switch, and this new unconditional path in setup_telemetry which ignores it (see the opt-out finding). The duplication also means fixes (e.g., the non-blocking cpu_percent() in get_cpu_details, or the importlib.metadata-based get_sys_packages) must be applied in two places, and the new __main__.__dict__ heuristic is strictly less reliable than the existing importlib.metadata approach.",
+      "file": "agentops/sdk/core.py",
+      "line": 61,
+      "summary": "get_system_stats and get_imported_libraries re-implement environment collection that already exists in agentops/helpers/system.py (get_os_details, get_cpu_details, get_ram_details, get_sys_packages) as a second, divergent code path."
+    }
+  ],
+  "level": null
+}

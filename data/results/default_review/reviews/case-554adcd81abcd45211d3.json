@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "alchemy/src/stripe/price.ts",
+      "line": 483,
+      "summary": "Falsy-zero data loss: tier output mapping uses `|| undefined` which converts `unit_amount: 0` (meaningful free tier) to `undefined`",
+      "failure_scenario": "User creates a tiered price with a free tier (`unitAmount: 0`). Stripe returns `unit_amount: 0` on the tier. The output mapping on line 483 evaluates `0 || undefined` as `undefined`, so the returned Price object shows no `unitAmount` for that tier. Downstream code (e.g., billing calculations, UI display of tier rates) treats the tier as having no unit price, billing customers incorrectly or displaying incomplete pricing information. The same `||` pattern on line 481 affects `flat_amount: 0` -- a tier capped at $0 charge (e.g., 'no further charges beyond this tier') would silently lose that information.",
+      "finding_id": "mf-2f57e692c564d02712c5"
+    },
+    {
+      "file": "alchemy/src/stripe/price.ts",
+      "line": 351,
+      "summary": "Validation gap: `props.unitAmount || props.unitAmountDecimal` uses truthiness check, bypassing the 'cannot set both tiers and unitAmount' validation when `unitAmount` is `0`",
+      "failure_scenario": "User specifies `tiers: [{ upTo: 100, unitAmount: 500 }]` and also `unitAmount: 0`. The validation on line 351 evaluates `0 || undefined` (falsy), so no error is thrown. The code proceeds to send both `tiers` and `unit_amount: 0` to Stripe (line 391: `if (props.unitAmount !== undefined)` sets `unit_amount: 0`). Stripe rejects the request with a cryptic API error like 'You cannot set both unit_amount and tiers' instead of the helpful `Cannot set both tiers and unitAmount/unitAmountDecimal` message the validation was intended to provide.",
+      "finding_id": "mf-6a6d572f62b3b2b1e88c"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "truss/templates/server/truss_server.py",
+      "line": 467,
+      "summary": "Falsy-zero check in walrus operator silently drops explicit zero values for websocket ping configuration; uvicorn default (20s) applies instead of the user's explicit setting",
+      "failure_scenario": "User sets `ping_interval_seconds: 0` or `ping_timeout_seconds: 0` in config.yaml intending to disable WebSocket pings. The walrus `if ws_ping_interval_seconds := ...get(\"ping_interval_seconds\"):` captures 0, but `if 0:` is False, so the value is not passed to uvicorn. Uvicorn uses its default 20-second interval — the user's explicit 0 is silently ignored. Fix: check `is not None` instead of truthiness.",
+      "finding_id": "mf-40598673adf56e3f376b"
+    },
+    {
+      "file": "truss/templates/control/control/server.py",
+      "line": 62,
+      "summary": "Same falsy-zero bug as truss_server.py: walrus operator `if ping_interval_seconds := ...` silently drops zero values for websocket ping configuration",
+      "failure_scenario": "Same as above — user sets `ping_interval_seconds: 0` or `ping_timeout_seconds: 0`. The `if` check treats 0 as falsy and skips passing the value, leaving uvicorn's 20-second default in place. Fix: use `is not None` instead of truthiness.",
+      "finding_id": "mf-8af7d3a0e5bbb385db55"
+    },
+    {
+      "file": "truss-chains/truss_chains/deployment/code_gen.py",
+      "line": 720,
+      "summary": "assert used for input validation in production code; disappears under `python -O`, silently allowing invalid transport through if validation is bypassed",
+      "failure_scenario": "If the upstream validation in `_validate_transport_options` is somehow bypassed (or the code runs with `python -O`), the `assert isinstance(transport, truss_config.WebsocketOptions)` is compiled away. A non-WebsocketOptions transport for a websocket endpoint would silently corrupt `config.runtime.transport`. Fix: use an explicit `if not isinstance(...): raise TypeError(...)` instead of `assert`.",
+      "finding_id": "mf-405ed915ba99a8903464"
+    }
+  ]
+}

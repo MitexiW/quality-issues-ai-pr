@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The PR's own example workflows template the value (`replicas: \"{{ alert.target_replicas | default(3) }}\"` in openshift_monitoring_and_remediation.yml, `replicas: \"{{ alert.replicas }}\"` in openshift_pod_restart.yml). keep/iohandler/iohandler.py render_context returns a str, so `__scale_deployment` (and `__scale_deploymentconfig` at line 633) send `{\"spec\": {\"replicas\": \"3\"}}`; the API server responds 422 (cannot unmarshal string into int32 ScaleSpec.replicas) and the step fails after retries. Raw untemplated YAML ints work (as in eks_advanced.yml), which masks the bug. Fix: `int(replicas)` in both scale methods.",
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 608,
+      "summary": "Scale actions never coerce `replicas` to int, so workflow-templated replicas arrive as strings and the Kubernetes API rejects the patch body."
+    },
+    {
+      "failure_scenario": "Pod phase is always one of Pending/Running/Succeeded/Failed/Unknown; CrashLoopBackOff is a container state (`status.containerStatuses[].state.waiting.reason`), and crash-looping pods have phase Running. `selectattr('status.phase', 'in', ['CrashLoopBackOff', 'Failed'])` therefore never matches the crash-looping pods the action claims to restart; only already-terminated phase=Failed pods match, where deletion has no restorative effect. The automatic remediation silently does nothing for its stated target.",
+      "file": "examples/workflows/openshift_monitoring_and_remediation.yml",
+      "line": 110,
+      "summary": "The restart-failed-pods action filters on pod `status.phase` using a container-state value, so CrashLoopBackOff pods are never matched and the workflow's core remediation never runs."
+    },
+    {
+      "failure_scenario": "The previous documented interface was `notify(kind, name, project_name)` (old docs snippet and old docstring). A user's existing saved workflow with `with: {kind: deployment, name: nginx, project_name: default}` now calls `_notify(kind=..., name=..., project_name=...)`, raising TypeError (missing required positional argument 'action'); BaseProvider.notify propagates it, the step retries and fails with StepError. No compatibility shim or migration exists in the diff.",
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 217,
+      "summary": "The `_notify` contract was changed from positional `(kind, name, project_name)` to a required `action` keyword with no fallback, breaking every existing user workflow that uses the old interface."
+    },
+    {
+      "failure_scenario": "`__get_logs`, `__get_events`, `__get_pods`, `__get_node_pressure`, `__get_pvc`, `__rollout_restart`, and `__restart_pod` are near-identical copies of the existing KubernetesProvider (e.g. the same `sort_by` getattr fallback, the same restartedAt timestamp construction, the same labels-check-then-patch-by-name pattern). A fix or hardening in either provider silently fails to reach the other; the openshift copy already diverges (cached client, added scale actions) while inheriting the original's defects.",
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 239,
+      "summary": "The new openshift code duplicates ~300 lines of keep/providers/kubernetes_provider/kubernetes_provider.py nearly verbatim instead of reusing it, so the two providers will drift and every fix must be made twice."
+    },
+    {
+      "failure_scenario": "`datetime.now(timezone.utc).isoformat(\"T\")` yields \"2026-09-13T09:00:00.123456+00:00\"; appending \"Z\" produces \"...+00:00Z\", which is not valid RFC 3339 and differs from kubectl's canonical \"...Z\" format. The restart still triggers because the annotation string changes each call, but any tooling or user logic that parses or diffs `kubectl.kubernetes.io/restartedAt` values gets an unparseable/incomparable timestamp.",
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 459,
+      "summary": "The rollout-restart timestamp is a malformed RFC 3339 string with both a UTC offset and a trailing Z."
+    },
+    {
+      "failure_scenario": "When any tenant validates an insecure OpenShift provider, `warnings.filterwarnings('ignore', message='Unverified HTTPS request')` is inserted into the global filter list and never removed, so all subsequent requests-library TLS verification warnings from every provider and thread in the server process are silently suppressed; only `__test_connection_via_rest_api` does this, while `__get_routes`/`__get_deploymentconfigs`/`__get_projects` with insecure=True still emit the warning, leaving the suppression inconsistent.",
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 116,
+      "summary": "Suppressing the TLS warning via `warnings.filterwarnings` mutates the process-wide warning registry permanently, hiding unrelated InsecureRequestWarnings in the long-lived Keep API process."
+    },
+    {
+      "failure_scenario": "The diff removed both call sites of `__get_ocp_client` (old validate_scopes and old _notify) but left the method and the `from openshift_client import Context` import in place. The provider now depends on the openshift_client package for a method nothing calls, so the dependency and ~7 lines of dead code must be maintained and cannot be dropped.",
+      "file": "keep/providers/openshift_provider/openshift_provider.py",
+      "line": 87,
+      "summary": "Dead code left behind by the rewrite: `__get_ocp_client` has no remaining callers, and the `openshift_client` import exists only to serve it."
+    }
+  ],
+  "level": null
+}

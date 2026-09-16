@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/agents/tracing/util.py",
+      "line": 1,
+      "summary": "New `from .setup import GLOBAL_TRACE_PROVIDER` in util.py creates a circular import that makes the entire `agents` package unimportable",
+      "failure_scenario": "`import agents` runs agents/__init__.py line 8 (`from . import _config`), which triggers `tracing/__init__.py` line 3 (`from .create import ...`), then create.py line 7 (`from .setup import GLOBAL_TRACE_PROVIDER`), then setup.py line 10 (`from . import util`), then util.py line 1 (`from .setup import GLOBAL_TRACE_PROVIDER`). At that point setup.py is partially initialized and `GLOBAL_TRACE_PROVIDER` (assigned at setup.py line 232) is not yet bound, so Python raises `ImportError: cannot import name 'GLOBAL_TRACE_PROVIDER' from partially initialized module 'agents.tracing.setup' (most likely due to a circular import)`. Every entry point — `import agents`, `from agents import Agent`, pytest collection via tests/conftest.py — crashes on import.",
+      "finding_id": "case-ff75976eee40d72f7511-f0001"
+    },
+    {
+      "file": "src/agents/tracing/setup.py",
+      "line": 238,
+      "summary": "set_trace_provider() is a silent no-op for all SDK consumers because create.py, tracing/__init__.py, and util.py hold import-time snapshots of the provider (`from .setup import GLOBAL_TRACE_PROVIDER`) that the rebinding never updates",
+      "failure_scenario": "A user calls `agents.set_trace_provider(CustomProvider())` after import. create.py's snapshot means `trace()`/`agent_span()` etc. still call the default provider's create_trace/create_span; tracing/__init__.py's snapshot means `add_trace_processor`, `set_trace_processors`, and `set_tracing_disabled` still mutate the default provider (so the custom provider can't even be given processors through the public API); util.py's snapshot means `gen_trace_id()/gen_span_id()/gen_group_id()/time_iso()` still call the default provider. All spans keep flowing to the old provider/backend, the custom provider receives nothing, and `atexit.register(GLOBAL_TRACE_PROVIDER.shutdown)` (tracing/__init__.py line 114) never shuts down the custom provider — the new API's entire purpose silently fails.",
+      "finding_id": "case-ff75976eee40d72f7511-f0002"
+    },
+    {
+      "file": "src/agents/tracing/setup.py",
+      "line": 154,
+      "summary": "TraceProvider.create_trace calls the module-level `util.gen_trace_id()` instead of `self.gen_trace_id()`, so a custom provider's overridden ID generators are bypassed for actual trace/span creation",
+      "failure_scenario": "A user subclasses TraceProvider (the point of the new gen_* methods) and overrides `gen_trace_id` to emit W3C-format IDs, then installs it via set_trace_provider. `trace(\"workflow\")` still produces `trace_<uuid4-hex>` IDs because create_trace routes through `util.gen_trace_id()` (which targets the default global provider) rather than the instance method; likewise span IDs are generated in SpanImpl.__init__ (spans.py line 181) and TraceImpl.__init__ (traces.py line 141) via the util module functions, so `gen_span_id`/`gen_trace_id` overrides are dead code — traces get silently malformed IDs for the custom ID scheme.",
+      "finding_id": "case-ff75976eee40d72f7511-f0003"
+    }
+  ]
+}

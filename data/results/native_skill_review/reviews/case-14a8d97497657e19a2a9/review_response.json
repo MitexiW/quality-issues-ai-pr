@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user subclasses BaseLLM and implements only call() (the sole @abstractmethod) and uses it in an Agent. Running a Task with output_pydantic or output_json hits convert_with_instructions() in src/crewai/utilities/converter.py, which does `llm = agent.function_calling_llm or agent.llm` and then `if llm.supports_function_calling():` (converter.py:219) -> AttributeError -> task execution fails. Same crash occurs via ToolUsage._function_calling() (tool_usage.py:342) when function_calling_llm is set to the custom LLM, via TaskEvaluator.evaluate() (task_evaluator.py:63) during crew.train()/long-term memory, and via CrewEvaluator when calling crew.test() with a custom eval LLM. The docs list supports_function_calling() as a required interface method, but the ABC does not declare it, so the framework's contract with implementors is unenforced.",
+      "file": "src/crewai/llms/base_llm.py",
+      "line": 76,
+      "summary": "BaseLLM omits supports_function_calling(), but core components call llm.supports_function_calling() unconditionally, so any custom LLM that only implements the abstract call() method raises AttributeError at runtime."
+    },
+    {
+      "failure_scenario": "A user copies the 'Basic Custom LLM' example and instantiates CustomLLM(api_key='...', endpoint='...'). BaseLLM.__init__(self, model: str, temperature=None) has no default for model, so super().__init__() raises TypeError: BaseLLM.__init__() missing 1 required positional argument: 'model'. The same broken pattern appears in the JWTAuthLLM, LoggingLLM, RateLimitedLLM, and MetricsCollectingLLM examples (docs lines 194, 238, 386, 424, 467). Even if model were passed, none of the examples set self.model, which CrewEvaluator.evaluate() reads directly (crew_evaluator_handler.py:185, self.llm.model) and would then raise AttributeError during crew.test().",
+      "file": "docs/custom_llm.md",
+      "line": 24,
+      "summary": "Every documented custom-LLM example calls super().__init__() without the required `model` argument, so the headline example crashes with TypeError at construction."
+    },
+    {
+      "failure_scenario": "AISuiteLLM(model='openai:gpt-4o', timeout=30) or AISuiteLLM(model='anthropic:claude-3-5-sonnet', anthropic={'api_key': '...'}) raises TypeError: BaseLLM.__init__() got an unexpected keyword argument 'timeout' (or 'anthropic'). Even if the super() call were fixed, the kwargs are silently discarded because self.client = ai.Client() is constructed without them, so provider credentials/config that the caller passes in (and that aisuite's Client would accept) are never applied.",
+      "file": "src/crewai/llms/third_party/ai_suite.py",
+      "line": 10,
+      "summary": "AISuiteLLM.__init__ accepts **kwargs but forwards them to BaseLLM.__init__, whose signature (model, temperature) rejects them, and the kwargs are never passed to ai.Client(), so any extra argument crashes construction and provider configuration is impossible."
+    },
+    {
+      "failure_scenario": "A custom LLM sets self.stop = '<|im_end|>' (the string form the built-in LLM constructor accepts via Union[str, List[str]]). In CrewAgentExecutor.__init__, existing_stop = self.llm.stop or [] is truthy but isinstance(existing_stop, list) is False, so self.llm.stop is replaced with list(set(self.stop)) — crewAI's default stop words only. The user's '<|im_end|>' is dropped and the executor mutates the LLM object, so the custom LLM's call() now forwards crewAI's stop words to its provider instead of the user-configured one. The merge also runs unconditionally even when the LLM overrides supports_stop_words() to return False.",
+      "file": "src/crewai/agents/crew_agent_executor.py",
+      "line": 94,
+      "summary": "The stop-word merge silently discards the LLM's own configured stop sequences whenever llm.stop is not a list (e.g. a string), overwriting the custom LLM's stop attribute with only crewAI's default stop words."
+    },
+    {
+      "failure_scenario": "AISuiteLLM(model='openai:gpt-4o').call('What is 2+2?') -> _prepare_completion_params returns messages='What is 2+2?' and client.chat.completions.create(**params) sends a bare string as messages to the provider's OpenAI-compatible client, which requires a list of message dicts, causing a client-side validation error. The BaseLLM.call docstring states 'If string, it will be converted to a single user message', and the built-in LLM implements this in _prepare_completion_params, but AISuiteLLM does not.",
+      "file": "src/crewai/llms/third_party/ai_suite.py",
+      "line": 21,
+      "summary": "AISuiteLLM.call passes string messages straight through to aisuite without the string-to-message-list conversion that the BaseLLM.call contract promises, unlike the built-in LLM which performs this conversion."
+    },
+    {
+      "failure_scenario": "Dead imports added by the change: grep for TypeVar and LangchainBaseTool in src/crewai/crew.py matches only the import lines themselves. They add an unused langchain_core.tools dependency reference at import time and clutter the typing surface; both should be removed.",
+      "file": "src/crewai/crew.py",
+      "line": 11,
+      "summary": "The diff adds imports of TypeVar (line 9) and LangchainBaseTool (line 11) to crew.py that are never used anywhere in the file."
+    }
+  ],
+  "level": null
+}

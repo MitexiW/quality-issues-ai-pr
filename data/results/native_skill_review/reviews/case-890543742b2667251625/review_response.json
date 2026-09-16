@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User clicks Run in the Test Explorer; the run-profile callback receives a VS Code CancellationToken that exposes only isCancellationRequested/onCancellationRequested. runTests forwards it as options.signal to execAsync, which passes it through to child_process.exec (utilities/exec.ts:40). Node's normalizeSpawnArguments calls validateAbortSignal, which requires an object with an 'aborted' property, so exec() throws ERR_INVALID_ARG_TYPE synchronously. The execAsyncCore promise rejects, the rejection escapes runTests, run.end() is never reached, no sqlmesh process ever runs, and the run stays stuck in the Test Explorer. Even if Node tolerated the object, cancellation would silently do nothing because nothing subscribes to onCancellationRequested (the repo's own convention in utilities/sqlmesh/sqlmesh.ts:239 bridges a token to an AbortController and passes abortController.signal).",
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 77,
+      "summary": "A vscode.CancellationToken is passed where execAsync requires an AbortSignal, which makes child_process.exec throw and every test run abort before the sqlmesh process is even spawned."
+    },
+    {
+      "failure_scenario": "Once the signal is bridged correctly, pressing the cancel button on a running test makes execAsync reject with AbortError (utilities/exec.ts:46-47 rethrows AbortError unchanged). The await on line 74 throws before the passed/failed loop and before run.end() on line 85, so every item already marked run.started(t) remains 'running' forever and no error is shown to the user. The same happens if execAsync rejects for a spawn failure.",
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 85,
+      "summary": "There is no try/catch/finally around execAsync, so any rejection skips run.end() and leaves started tests without a terminal state."
+    },
+    {
+      "failure_scenario": "Activation registers one Run profile (extension.ts:181). Changing any VS Code setting fires workspace.onDidChangeConfiguration (utilities/common/vscodeapi.ts:35 re-exports the unfiltered API), which calls restart() and then setupTestController(lspClient) at line 132; each invocation calls controller.createRunProfile (tests.ts:18) on the singleton controller. After N restarts the Test Explorer run menu contains N duplicate 'Run' entries, and they are never disposed (only the initial activation pushes testController into context.subscriptions).",
+      "file": "vscode/extension/src/extension.ts",
+      "line": 132,
+      "summary": "setupTestController is not idempotent but is invoked from every LSP restart, registering a duplicate 'Run' test profile each time."
+    },
+    {
+      "failure_scenario": "Project at /Users/john doe/project (or C:\\\\Users\\\\John Doe\\\\...): execAsync builds `sqlmesh test /Users/john doe/project/audits/test_orders.yaml::test_orders` and exec runs it through a shell (utilities/exec.ts:41 joins command and args with plain spaces). The path becomes two shell arguments, sqlmesh is asked to open Path('/Users/john'), exits non-zero, and runTests marks every selected test failed with the shell's stderr.",
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 74,
+      "summary": "Absolute file-system paths are inserted into a shell command without quoting, so paths or test names containing spaces are split and the wrong tests run."
+    },
+    {
+      "failure_scenario": "Expanding any file in the Test Explorer calls resolveHandler(fileItem) (tests.ts:14), but the handler drops the argument and calls discoverWorkspaceTests(), which performs a fresh sqlmesh/list_workspace_tests round trip (the server runs context.load_model_tests() over the whole project) and then controller.items.replace([]), deleting and recreating the very item being expanded. Every expand repeats the expensive call even though children were already populated at discovery time, violating the API contract that resolveHandler resolves the item it is given.",
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 38,
+      "summary": "File items are marked canResolveChildren=true while resolveHandler ignores the TestItem argument, so expanding a node triggers full workspace rediscovery and rebuilds the tree instead of resolving that node's children."
+    },
+    {
+      "failure_scenario": "A YAML unit test key such as `stg::orders_test` yields id `file:///.../test_x.yaml::stg::orders_test`; split('::') returns three elements and the destructuring keeps 'stg', so the pattern passed to `sqlmesh test` becomes `...test_x.yaml::stg`. The loader's split('::', maxsplit=1) then looks up the test key 'stg', which does not exist (KeyError / non-zero exit), and runTests reports every selected test as failed.",
+      "file": "vscode/extension/src/tests/tests.ts",
+      "line": 69,
+      "summary": "Splitting the test item id on '::' and keeping only the first two segments truncates any test name that itself contains '::'."
+    },
+    {
+      "failure_scenario": "Because the interface lacks response_error, `result.response_error` no longer type-checks in internal_call_custom_method, so the change replaces it with `(result as any).response_error` and `result as any` (lsp.ts:255-256). Any response model that later drops or renames response_error is no longer caught at compile time for any of the six custom methods sharing that code path; declaring `interface ListWorkspaceTestsResponse extends BaseResponse` restores the check and removes the casts.",
+      "file": "vscode/extension/src/lsp/custom.ts",
+      "line": 130,
+      "summary": "ListWorkspaceTestsResponse omits the response_error field declared by every other custom response and by the Python CustomMethodResponseBaseClass, which forced the new (result as any) casts in lsp.ts and disables response_error type checking for all custom methods."
+    }
+  ],
+  "level": null
+}

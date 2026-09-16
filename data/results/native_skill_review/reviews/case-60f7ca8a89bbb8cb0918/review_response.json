@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Two JVMs compete for cores on an HT machine. JVM A holds cpu 4 (sibling of cpu 0). JVM B calls acquireCore(): tryAcquireLockOnFile(0) succeeds (lockReference acquired, meta written), then tryAcquireLockOnFile(4) returns null, so the code calls releaseLock(0) — but locks[0] was never assigned, so releaseLock no-ops and the new lockReference/channel/FileLock is dropped without close(). The OS-level exclusive lock on cpu 0 remains held by JVM B while no AffinityLock owns it: isLockFree(0) now returns false forever (OverlappingFileLockException on the shared tryLock), releaseLock(0) still no-ops (locks[0] == null), and cpu 0 can never be acquired again by any process until JVM B exits. The same leak occurs when tryAcquireLockOnFile(id2) throws ConcurrentLockFileDeletionException or IOException: the retry then fails on id with OverlappingFileLockException and the leaked lock keeps id stranded.",
+      "file": "affinity/src/main/java/net/openhft/affinity/lockchecker/FileLockBasedLockChecker.java",
+      "line": 118,
+      "summary": "obtainLock leaks the first CPU's exclusive FileLock when the second (paired) lock acquisition fails, permanently stranding that CPU."
+    },
+    {
+      "failure_scenario": "The new code path LockCheck.updateCpu(al.cpuId(), wholeCore ? al.cpuId2() : 0) makes obtainLock create and hold locks[id] and locks[id2]. On release, releaseAffinityLock calls LockCheck.releaseLock(al.cpuId()) only, and the sibling's AffinityLock has assignedThread == null unless bindWholeCore was invoked. So AffinityLock.acquireCore(false) followed by lock.close() (or the documented reserve-then-bind flow where the user calls lock.bind() instead of bind(true)) releases only the primary cpu: the sibling's cpu-N.lock file and exclusive FileLock stay held by the JVM, the sibling appears busy forever (isLockFree returns false via the non-null locks[] entry), it can never be re-acquired or released, and other processes are blocked from it until JVM exit. Repeating reserve/release cycles permanently bleeds CPUs from the pool.",
+      "file": "affinity/src/main/java/net/openhft/affinity/LockInventory.java",
+      "line": 85,
+      "summary": "Whole-core locks acquire a second OS lock for the paired CPU (cpuId2) but release only releases the primary CPU, leaking the sibling's lock."
+    },
+    {
+      "failure_scenario": "The profile was gated to linux + !arm to stop building the native C code on ARM, but the negation matches only the literal arch string \"arm\". On any Linux/aarch64 machine (AWS Graviton, Raspberry Pi 64-bit, ARM CI runners) os.arch is \"aarch64\", which is not \"arm\", so !arm evaluates true and the profile activates; exec-maven-plugin runs `make` in src/main/c at process-classes, where the x86-oriented JNI C sources fail to compile or produce a broken libCEInternals.so — the Maven build fails on exactly the platform the exclusion was meant to protect.",
+      "file": "affinity/pom.xml",
+      "line": 115,
+      "summary": "Maven os activation <arch>!arm</arch> does not exclude 64-bit ARM (os.arch is \"aarch64\"), so the make-c native build still runs and fails on ARM64 Linux."
+    },
+    {
+      "failure_scenario": "CpuLayout is a public extension point (users pass custom layouts to AffinityLock.cpuLayout(CpuLayout)). A downstream project's class implementing CpuLayout, compiled against the previous release of the library, lacks pair(int). With the new jar, AffinityLock's static initializer runs LockInventory.set, which invokes cpuLayout.pair(i) for every CPU — the JVM throws AbstractMethodError during class initialization, making AffinityLock unusable (app startup crash) until the downstream code is recompiled. The same PR gave LockChecker.obtainLock a default method precisely to preserve compatibility, but CpuLayout got no default; a default `int pair(int cpuId) { return 0; }` would avoid the break.",
+      "file": "affinity/src/main/java/net/openhft/affinity/CpuLayout.java",
+      "line": 57,
+      "summary": "Adding the abstract method pair(int) to the public CpuLayout interface breaks binary compatibility for third-party implementations."
+    },
+    {
+      "failure_scenario": "On hardware with 3- or 4-way SMT per core (e.g., Xeon Phi, POWER8 SMT4/8), a core has cpus {0,4,8,12}: acquireCore() calls updateCpu(0, pair(0)=4), locking only cpus 0 and 4. LockCheck.isCpuFree(8) and isCpuFree(12) remain true, so another thread can acquireLock one of them and get bound to the same physical core the whole-core holder believes it owns exclusively, defeating the whole-core reservation guarantee. The new test wholeCoreLockReservesAllLogicalCpus asserts isCpuFree(i) is false for every CPU of the core and will fail on such machines, because only one cpuId2 is stored and locked.",
+      "file": "affinity/src/main/java/net/openhft/affinity/impl/VanillaCpuLayout.java",
+      "line": 181,
+      "summary": "pair() returns only one sibling, so whole-core locking reserves at most 2 of a core's logical CPUs; on cores with more than 2 SMT threads the remaining siblings stay free."
+    }
+  ],
+  "level": null
+}

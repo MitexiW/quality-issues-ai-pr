@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`mlflow.pyfunc.spark_udf(spark, uri, result_type=MapType(StringType(), StringType()))` on a `list[dict[str, str]]` model (including the PR's own `test_spark_udf` case): the model returns `[{\"a\": \"b\"}, {\"c\": \"d\"}]` for a 2-row batch; `pandas.DataFrame([result])` yields shape (1, 2), and `return result[result.columns[0]]` produces a 1-element Series, so Spark fails with 'Length of object (1) does not match with length of fields (2)'. Building the single column via `pandas.DataFrame({0: result})` matches the comment and the column-0 convention used on the input side.",
+      "file": "mlflow/pyfunc/__init__.py",
+      "line": 2425,
+      "summary": "For MapType results, `pandas.DataFrame([result])` wraps the whole list of dicts as a single row (shape 1 x n) instead of building a single column of dicts, so the UDF returns a length-1 Series for an n-row batch."
+    },
+    {
+      "failure_scenario": "`mlflow.evaluate` or a direct `predict(pd.DataFrame({\"input\": [{...}, ...]}))` on a model hinted `list[SomePydanticModel]` (or bare `list[dict]`): the conversion now returns `[{\"input\": {...}}, ...]` instead of `[{...}, ...]`; strict pydantic validation then raises 'Failed to validate the input data against the type hint', and for bare `list[dict]` the model silently receives dicts wrapped under the column name. Old code unwrapped named single columns and worked.",
+      "file": "mlflow/types/type_hints.py",
+      "line": 603,
+      "summary": "`list(data.columns) == [0]` sends any single-column DataFrame whose column is not literally labeled 0 down `to_dict(orient=\"records\")`, wrapping each element under the column name; the previous code unwrapped via `data.iloc[:, 0].tolist()`."
+    },
+    {
+      "failure_scenario": "`spark_udf(spark, uri, result_type=DecimalType())` previously raised the documented 'Invalid spark_udf result type' MlflowException immediately; now the UDF is created and the error surfaces only mid-execution inside executors (e.g. 'Unsupported field type' or spark cast errors), or silently mis-typed output. The comment only justifies skipping the check for MLflow-inferred types, not for user-provided type objects.",
+      "file": "mlflow/pyfunc/__init__.py",
+      "line": 2360,
+      "summary": "`_check_udf_return_type` was moved inside `if isinstance(result_type, str)`, so user-supplied pyspark type objects (MapType, DecimalType, ByteType, non-string-key MapType, etc.) are no longer validated at spark_udf() call time."
+    },
+    {
+      "failure_scenario": "A flat-signature `list[dict[str, str]]` model called as `pyfunc_model.predict(pd.DataFrame({\"input\": [{\"a\": \"b\"}]}))` (e.g. via mlflow.evaluate or serving): `_get_first_string_column` returns None for the dict column, `len(model_input.columns) == 1` is true, and `{\"input\": [...]}[0]` raises KeyError: 0 — the branch added to support non-string single-column inputs only covers DataFrames built by spark_udf (where the unnamed schema names the column 0).",
+      "file": "mlflow/pyfunc/model.py",
+      "line": 741,
+      "summary": "The new single-column fallback `model_input.to_dict(\"list\")[0]` indexes the result dict by the hardcoded label 0, so it only works when the DataFrame column is literally named 0 and raises KeyError for any other single-column name."
+    },
+    {
+      "failure_scenario": "A spark_udf StructType result containing a nullable map field (e.g. a pydantic model with `optional_map: Optional[dict[str, str]] = None` omitted in one record, as the PR's own test does for `optional_int`) produces a None cell; the pandas branch then evaluates `None.items()` and raises AttributeError mid-UDF execution.",
+      "file": "mlflow/pyfunc/__init__.py",
+      "line": 1703,
+      "summary": "The new MapType branch of `_convert_struct_values` iterates `field_value.items()` with no None guard, crashing on null map fields, unlike the sibling primitive branch which was explicitly given an all-None guard."
+    },
+    {
+      "failure_scenario": "A Bedrock Converse response with `toolUse.input = '{\"location\": \"SF\"}'` (a string, as the SDK returns for invalid JSON) now yields `ToolCall.arguments == '\"{\\\"location\\\": \\\"SF\\\"}\"'` — a quoted/escaped JSON string instead of the original JSON text — so any consumer parsing the recorded chat-trace arguments gets a string instead of the tool arguments.",
+      "file": "mlflow/bedrock/chat.py",
+      "line": 43,
+      "summary": "`json.dumps(tool_call[\"input\"])` double-encodes tool inputs that Bedrock returns as strings (documented behavior when the model emits invalid JSON), which the removed `input if isinstance(input, str) else json.dumps(input)` handled by passing the string through."
+    },
+    {
+      "failure_scenario": "Maintainability: the same error-message text now exists in two modules; model.py's copy is never referenced anywhere (dead code), so future wording changes will drift between the two copies.",
+      "file": "mlflow/pyfunc/model.py",
+      "line": 71,
+      "summary": "New `_INVALID_SIGNATURE_ERROR_MSG` constant is an unused duplicate of the identical message already defined and used in `mlflow/pyfunc/utils/data_validation.py` (line 22)."
+    }
+  ],
+  "level": null
+}

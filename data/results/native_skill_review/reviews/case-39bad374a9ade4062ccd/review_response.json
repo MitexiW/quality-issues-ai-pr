@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user passes messages_modifier=lambda messages: [{\"role\": \"system\", \"content\": ...}] + list(messages), or a Runnable returning a PromptValue/str — all now explicitly permitted by MessagesModifier at lines 70-71 — yet the wrapper at lines 126-127 declares its return as Sequence[BaseMessage]. Type checkers and IDEs that consume `Prompt` therefore propagate a wrong, now-unreachable guarantee about the prompt result, and because pyproject.toml sets `disable_error_code = \"typeddict-item, return-value, override, has-type\"`, mypy will not even flag the mismatch; the annotation should be widened to LanguageModelInput to stay consistent with the alias the change introduced.",
+      "file": "libs/langgraph/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 126,
+      "summary": "The diff widens MessagesModifier's callable/Runnable output to LanguageModelInput (lines 70-71), but the wrapper built in _convert_messages_modifier_to_prompt is still annotated `-> Sequence[BaseMessage]`, so the helper no longer implements the contract its own alias advertises."
+    }
+  ],
+  "level": null
+}

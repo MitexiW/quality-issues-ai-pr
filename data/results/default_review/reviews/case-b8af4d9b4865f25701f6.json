@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "metaflow/plugins/kubernetes/kubernetes_cli.py",
+      "line": 196,
+      "summary": "env dict is completely replaced when an @environment decorator exists, silently dropping METAFLOW_FLOW_FILENAME needed by the spot monitor sidecar",
+      "failure_scenario": "A step decorated with @environment(vars={'KEY':'VAL'}) enters this code path. Line 193 sets env = {'METAFLOW_FLOW_FILENAME': 'myflow.py'}, then line 196 overwrites env with the decorator's vars, losing METAFLOW_FLOW_FILENAME. The Kubernetes pod launches without this env var. When the spot monitor detects termination, spot_monitor_sidecar.py line 81 reads None from os.getenv, line 91 produces '/metaflow/None' as the script path, and subprocess.run crashes with FileNotFoundError -- the termination metadata is never recorded.",
+      "finding_id": "mf-ada9ee34d15609abb579"
+    },
+    {
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 83,
+      "summary": "MF_PATHSPEC env var can be None, causing AttributeError on .split('/') during spot termination handling",
+      "failure_scenario": "In any execution context where MF_PATHSPEC is not set (local testing, custom deployment, or misconfigured pod), os.getenv('MF_PATHSPEC') at line 82 returns None, and line 83 pathspec.split('/') raises AttributeError: 'NoneType' object has no attribute 'split'. This exception propagates out of _emit_termination_metadata, is not caught by the RequestException handler above, kills the monitor process, and the termination metadata is never recorded.",
+      "finding_id": "mf-adca15796ba2f45e11fa"
+    },
+    {
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 74,
+      "summary": "os.kill(os.getppid(), SIGTERM) in the forked monitor process targets the sidecar worker instead of the main metaflow task, failing to notify the task of spot termination",
+      "failure_scenario": "Process hierarchy: metaflow task (PID P) -> sidecar_worker.py via subprocess.Popen (PID A) -> _monitor_loop via multiprocessing.Process fork (PID B). In PID B, os.getppid() returns PID A (the sidecar worker). The SIGTERM kills the sidecar worker subprocess, not the main metaflow task. The main task continues executing user code, unaware of the impending spot termination, until AWS forcibly terminates the instance after the 2-minute grace period.",
+      "finding_id": "mf-99f5ba3ef86abe674faa"
+    },
+    {
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 91,
+      "summary": "Hardcoded /metaflow/ path prefix for the flow script may be wrong in non-standard deployments, breaking the metadata-recording subprocess",
+      "failure_scenario": "In a Docker image or deployment where the flow script is at a path other than /metaflow/ (e.g., /app/myflow.py or /opt/flow/myflow.py), the command at line 91 becomes ['python', '/metaflow/myflow.py', 'spot-metadata', 'record', ...]. subprocess.run fails because /metaflow/myflow.py does not exist, and the spot termination metadata is silently lost -- only a stderr print remains, with no retry or fallback.",
+      "finding_id": "mf-532e8b66d1fc5239fd98"
+    },
+    {
+      "file": "metaflow/plugins/kubernetes/spot_monitor_sidecar.py",
+      "line": 84,
+      "summary": "retry_count from MF_ATTEMPT can be None, producing invalid metadata tag 'attempt_id:None'",
+      "failure_scenario": "When MF_ATTEMPT is not set in the pod environment (e.g., first attempt before retry logic initializes, or in a deployment that doesn't set this variable), os.getenv('MF_ATTEMPT') returns None. The format string at line 103 produces 'attempt_id:None', creating a metadata tag with a null attempt identifier that pollutes the metadata store with invalid entries.",
+      "finding_id": "mf-eb18d03fbbe47e829551"
+    }
+  ]
+}

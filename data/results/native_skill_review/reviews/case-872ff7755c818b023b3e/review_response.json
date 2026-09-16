@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "vLLM server fails to start (e.g., OOM or invalid engine config): asyncio.wait returns with openai_server_task done, task.result() re-raises, and the outer except (line 88) calls test_client_task.cancel(). The CancelledError is delivered while the coroutine awaits the models.list() iteration inside the try, so the bare `except:` on line 70 catches it (bare except catches BaseException, including CancelledError) and the new line 71 `await asyncio.sleep(0.1)` runs; on Python 3.10 (the project's minimum supported version) the cancellation is then consumed and the `while True` loop retries the connection every 100 ms indefinitely. Result: a zombie task holding the AsyncOpenAI client that never terminates, endlessly hitting the dead port after stop_openai_server or the error path. The PR changed exactly this handler line but kept the swallow; the fix should have been `except Exception:` (or re-raising CancelledError) so cancellation propagates.",
+      "file": "src/art/local/vllm.py",
+      "line": 71,
+      "summary": "The rewritten exception handler still uses a bare `except:` that swallows asyncio.CancelledError, so test_client_task cannot be reliably cancelled and keeps retrying client.models.list() forever against the dead server."
+    },
+    {
+      "failure_scenario": "The server comes up but /v1/models persistently fails (e.g., HTTP 401 because server_args['api_key'] is set and the probe client's key mismatches, or a 500 from a broken model load): client.models.list() raises on every iteration, the bare except sleeps 0.1 s and retries forever, and after the 10 s asyncio.wait timeout the function raises TimeoutError('Unable to reach OpenAI-compatible server in time.') even though the server is reachable. The actual HTTP error is never logged or propagated, making the startup failure undiagnosable.",
+      "file": "src/art/local/vllm.py",
+      "line": 71,
+      "summary": "The probe loop swallows every exception with no logging and no retry limit, so a persistent server-side error causes an endless 10 Hz retry and a misleading TimeoutError after 10 s instead of surfacing the real error."
+    }
+  ],
+  "level": null
+}

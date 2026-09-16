@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 104,
+      "summary": "Mixing f-string interpolation with %-formatting on the same string causes a TypeError crash when any user-controlled field (description, expected_output, role, goal, tools repr) contains '%' followed by a valid conversion character (e.g., '95% success', '80% done', '50% reduction').",
+      "failure_scenario": "Task description is 'Model achieves 95% success rate'. The f-string evaluates first, embedding the literal text '95% success' into the string that now ends with '%s%s'. The %-formatting pass then interprets '95% success' as containing the format specifier '% s' (space-flag + %s), consuming one of the two tuple arguments. The two trailing '%s' specifiers now have only one remaining argument, raising 'TypeError: not enough arguments for format string' and crashing the planning pipeline.",
+      "finding_id": "mf-d8caefb409f9efcfcffe"
+    },
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 106,
+      "summary": "Only the first knowledge source's content is included in the task summary; all subsequent knowledge sources are silently dropped.",
+      "failure_scenario": "Agent has three knowledge sources: [company_policy, product_docs, competitor_analysis]. _get_agent_knowledge returns a list of all three content strings, but _create_tasks_summary accesses only knowledge_list[0] (company_policy). The LLM never sees product_docs or competitor_analysis, and the generated plan is missing critical context.",
+      "finding_id": "mf-9568c7498dcdf7969dc3"
+    },
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 87,
+      "summary": "_get_agent_knowledge assumes all knowledge source .content attributes are strings, but BaseFileKnowledgeSource subclasses (PDF, CSV, Excel, JSON, text file) store content as Dict[Path, str], and CrewDoclingSource stores it as List[DoclingDocument], producing garbled text in the LLM prompt.",
+      "failure_scenario": "Agent uses a PDF knowledge source (extends BaseFileKnowledgeSource). source.content is {PosixPath('knowledge/report.pdf'): 'the actual extracted text...'}. The list comprehension returns this dict as a list element, and _create_tasks_summary embeds its Python repr into the prompt pseudo-JSON. The LLM receives '\"agent_knowledge\": \"[\\\"{PosixPath('knowledge/report.pdf'): 'the actual extracted text...'}\\\"]\"' — garbled output that fails to convey the knowledge.",
+      "finding_id": "mf-072b311361d10f9a9d10"
+    },
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 106,
+      "summary": "Knowledge content is embedded into a pseudo-JSON string without escaping double quotes, backslashes, or newlines, breaking the structured prompt format.",
+      "failure_scenario": "Knowledge content contains 'The CEO said \"ship it now\"'. The f-string injects this raw into '\"agent_knowledge\": \"[\\\\\"The CEO said \"ship it now\"\\\\\"]\"'. The unescaped double quotes in the content break the pseudo-JSON structure, causing the LLM to misparse the knowledge field and potentially hallucinate or ignore the knowledge.",
+      "finding_id": "mf-4564130417ca6bb5a1ed"
+    },
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 86,
+      "summary": "The try/except AttributeError wraps the entire list comprehension; if any single knowledge source lacks a .content attribute, all knowledge sources are dropped and only a warning is logged.",
+      "failure_scenario": "Agent has 5 knowledge sources. Source #3 is a custom BaseKnowledgeSource subclass that stores knowledge in a differently-named attribute (not .content). The list comprehension raises AttributeError on source #3, the except block logs a warning and returns [], and the valid knowledge from sources 1, 2, 4, and 5 is also silently dropped.",
+      "finding_id": "mf-635403fd439a1c9c7144"
+    },
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 1,
+      "summary": "Unused import 'json' adds no value and is dead code.",
+      "failure_scenario": "The import clutters the namespace and misleads readers into thinking JSON serialization is used. Maintenance cost: every reader must verify it is unused.",
+      "finding_id": "mf-ba25313abd1ae7ec632c"
+    },
+    {
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 106,
+      "summary": "The condition 'str(knowledge_list) != \"None\"' is dead code — str([]) is \"[]\", never \"None\", and the preceding 'knowledge_list and' already guards against empty lists.",
+      "failure_scenario": "The dead condition suggests the author was uncertain whether _get_agent_knowledge could return None (it always returns []). Maintenance cost: confusing code that future maintainers must decode.",
+      "finding_id": "mf-1a65b8d48a7a0017e1c5"
+    },
+    {
+      "file": "tests/utilities/test_knowledge_planning.py",
+      "line": 16,
+      "summary": "The pytest fixture 'mock_knowledge_source' is defined but never used by any test function.",
+      "failure_scenario": "Dead test fixture adds confusion and maintenance burden. A reader expects it to be consumed by a parametrized test or setup logic, but it is orphaned.",
+      "finding_id": "mf-c38fd549b9074a2c3ec6"
+    },
+    {
+      "file": "tests/utilities/test_planning_handler.py",
+      "line": 2,
+      "summary": "Imports 'MagicMock', 'Optional' (line 1), and 'BaseModel' (line 5) are never referenced in the test file.",
+      "failure_scenario": "Unused imports add noise and can mask missing coverage (they suggest functionality that is not actually tested).",
+      "finding_id": "mf-fa4d319cea380e178815"
+    }
+  ]
+}

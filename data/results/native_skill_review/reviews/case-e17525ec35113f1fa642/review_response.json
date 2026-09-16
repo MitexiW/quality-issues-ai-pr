@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Crew(planning=True) with Task(description='Validate that 100% of records are processed') evaluates the f-string first, then %-formatting parses '100% of the work' as a '% o' (octal) spec that consumes the tools-string argument and raises TypeError (%o format: a number is required, not str); a trailing '%' raises ValueError (incomplete format); '%s' in the data raises TypeError (not enough arguments for format string). The exception propagates through _handle_crew_planning (crew.py:617, no try/except) and aborts kickoff() before any task runs.",
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 104,
+      "summary": "Mixing an f-string with %-formatting makes the % operator re-interpret '%' characters from interpolated task data, so any '%' in a task description, expected output, agent role/goal, or tool description raises an exception in _create_tasks_summary."
+    },
+    {
+      "failure_scenario": "Agent(knowledge_sources=[StringKnowledgeSource(content='Critical doc A'), StringKnowledgeSource(content='Critical doc B')]) with planning enabled -> _create_tasks_summary embeds only 'Critical doc A'; the planner LLM never sees 'Critical doc B' and produces a plan missing the constraints it contains. _get_agent_knowledge's own docstring promises a list of all sources, but the caller uses only element 0.",
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 106,
+      "summary": "Only the first knowledge source is embedded in the plan summary (knowledge_list[0]), so every other knowledge source attached to the agent is silently dropped from the planning prompt."
+    },
+    {
+      "failure_scenario": "Agent(knowledge_sources=[PDFKnowledgeSource(file_paths=['spec.pdf'])]) -> knowledge_list[0] is {PosixPath('knowledge/spec.pdf'): '<entire PDF text>'}; the planner prompt receives a Python dict repr with embedded quotes instead of usable knowledge text, and the full file contents are dumped unescaped into the prompt (also bloat for large files).",
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 87,
+      "summary": "_get_agent_knowledge returns source.content verbatim, but content is only a str for StringKnowledgeSource; file-based sources (PDF/CSV/JSON/text/excel) store content as Dict[Path, str] and CrewDoclingSource as List[DoclingDocument], so the summary interpolates raw object reprs instead of knowledge text."
+    },
+    {
+      "failure_scenario": "A knowledge source whose content evaluates to None yields knowledge_list == [None]; str([None]) == \"[None]\" passes the guard and the summary embeds \"agent_knowledge\": \"[\\\"None\\\"]\" — the check excludes nothing it was evidently meant to exclude, so the intended protection against null/non-string content never fires.",
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 106,
+      "summary": "The guard 'str(knowledge_list) != \"None\"' is dead code: str() of a list is never the literal string \"None\" (it is \"[...]\" or \"[None]\"), so None or non-string content is still embedded."
+    },
+    {
+      "failure_scenario": "StringKnowledgeSource(content='He said \"hello\"') -> the summary line becomes \"agent_knowledge\": \"[\\\"He said \"hello\"\\\"]\", producing malformed quoting the planning LLM can misparse; a trailing backslash in content escapes the closing quote and glues the next task's text into the value. Multi-line content (as in the new test fixture) also splits the value across lines.",
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 106,
+      "summary": "Knowledge content is embedded into a quoted pseudo-JSON value without escaping, so double quotes, backslashes, or newlines in the content break the quoting and structure of the planner prompt."
+    },
+    {
+      "failure_scenario": "Dead import introduced by the change: the file uses no json module call, so linters (e.g. ruff F401 in CI) flag it and it suggests a planned-but-missing serialization step for the summary generation.",
+      "file": "src/crewai/utilities/planning_handler.py",
+      "line": 1,
+      "summary": "The added 'import json' is never used anywhere in planning_handler.py."
+    },
+    {
+      "failure_scenario": "Grep shows Optional, MagicMock, and BaseModel appear only on the import lines (1, 2, 5); they are dead imports that static checkers in CI fail on and that mislead readers about what the tests exercise.",
+      "file": "tests/utilities/test_planning_handler.py",
+      "line": 1,
+      "summary": "The diff adds 'from typing import Optional', 'MagicMock', and 'from pydantic import BaseModel' to the test module, none of which are used anywhere in the file."
+    },
+    {
+      "failure_scenario": "Dead test fixture introduced by the change; its content is discarded and never exercised, so the multi-line/unescaped-newline path through the agent_knowledge formatting (a real weakness of the new summary code) goes untested while appearing covered.",
+      "file": "tests/utilities/test_knowledge_planning.py",
+      "line": 16,
+      "summary": "The mock_knowledge_source fixture (lines 16-30) is never requested by any test in the module — the only test builds its own StringKnowledgeSource inline."
+    }
+  ],
+  "level": null
+}

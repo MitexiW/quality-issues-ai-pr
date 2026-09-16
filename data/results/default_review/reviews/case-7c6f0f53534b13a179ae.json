@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/utilities/prompts.py",
+      "line": 57,
+      "summary": "When only one of system_template or prompt_template is provided, the user's custom template is silently discarded and defaults are used with no warning",
+      "failure_scenario": "User creates Agent with system_template='You are a helpful AI' but forgets prompt_template (leaving it None). _build_prompt's condition 'not system_template or not prompt_template' evaluates True, falls back to default I18N formatting. The user's custom system prompt is never used, and no warning indicates this.",
+      "finding_id": "mf-714bd37ffe785124c98a"
+    },
+    {
+      "file": "docs/concepts/agents.mdx",
+      "line": 258,
+      "summary": "Available-variable list incorrectly drops {input}, which is still replaced downstream by CrewAgentExecutor (line 370: prompt.replace('{input}', inputs['input']))",
+      "failure_scenario": "User reads the updated docs, sees only {role}/{goal}/{backstory} listed, removes {input} from their custom prompt_template thinking it is unavailable. The template no longer receives the actual task input at runtime, silently producing prompts with literal '{input}' text instead of the real task description.",
+      "finding_id": "mf-b750025d2fac450689b2"
+    },
+    {
+      "file": "tests/agent_test.py",
+      "line": 92,
+      "summary": "Copy-paste error in test docstring: test_agent_with_only_prompt_template says 'only system_template' but the test exercises prompt_template only",
+      "failure_scenario": "Developer debugging a test failure sees the misleading docstring, wastes time looking at the wrong template configuration. The test body is correct (it tests prompt_template= alone), but the docstring is wrong.",
+      "finding_id": "mf-9e0e62df63edd9cfd88a"
+    },
+    {
+      "file": "tests/agent_test.py",
+      "line": 76,
+      "summary": "Three new tests only verify Agent construction succeeds; none call create_agent_executor() or execute_task(), so the _build_prompt fix (core of this PR) is not exercised",
+      "failure_scenario": "A regression in _build_prompt's template handling (e.g., a misplaced f-string interpolation or wrong variable scope) would pass all three new tests because they stop at Agent() creation and never trigger _build_prompt execution.",
+      "finding_id": "mf-59ce0afe97961d3a4068"
+    }
+  ]
+}

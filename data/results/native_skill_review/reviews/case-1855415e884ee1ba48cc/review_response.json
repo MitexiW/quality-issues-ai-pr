@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "details.token.balanceParsed is normalized through safeNumberString (kit-bg/src/vaults/impls/evm/sdkEvm/utils.ts), which returns BigNumber.toString(); bignumber.js 9.1.2 emits exponential form for exponents <= -7, so a balance like 0.0000001 becomes \"1e-7\". Tapping Max calls onChangeAmountValue(\"1e-7\") and the regex ^$|^0(\\.\\d{0,N})?$|^[1-9]\\d*(\\.[0-9]{0,N})?$|^[1-9]\\d*\\.$|^0\\.$ fails, so the amount is never set and no error is shown — before this change, new BigNumber(\"1e-7\") parsed fine and the input was filled (countDecimalPlaces returns 0 for it, so the old overflow check also passed it). The identical gate was added to ApproveBaseStake (index.tsx:137), UniversalClaim (index.tsx:94) and UniversalWithdraw (index.tsx:162); pasting \"1,000\" or \"01.5\" is likewise silently dropped now.",
+      "file": "packages/kit/src/views/Staking/components/UniversalStake/index.tsx",
+      "line": 141,
+      "summary": "The new validateAmountInput regex gate silently rejects numeric strings the previous BigNumber-based handler accepted (exponent notation such as \"1e-7\", comma-separated or leading-zero values), so the Max button becomes a silent no-op for small balances."
+    },
+    {
+      "failure_scenario": "The same change translates \"earn.approve_deposit\"/\"earn.approve_permit\"/\"global.try_again\" into each language (e.g. zh_CN: \"授权并认购\") but adds \"Limit.expire_day\": \"Day\", \"Limit.order_status_open\": \"Open\", \"prime.app_data\": \"App data\", \"prime.last_update\": \"Last update\" as English in all 18 non-English JSONs (verified with grep across all 19 files). A Chinese or Japanese user running the app in their locale will see \"Day/Days/Hour/.../Unfilled\" and \"App data\"/\"Last update\" in English as soon as code renders the ETranslations.Limit_* / prime_* enum members that this diff also wires into the enum — inconsistent with the fully translated remainder of each file.",
+      "file": "packages/shared/src/locale/json/zh_CN.json",
+      "line": 2,
+      "summary": "The diff adds 24 new locale keys (all 22 \"Limit.*\" keys, \"prime.app_data\", \"prime.last_update\") with untranslated English values into every non-English locale file, so non-English users will see English text for these strings."
+    },
+    {
+      "failure_scenario": "aprValue = \"0.0045\": Number(aprValue) > 0 passes the guard, but formatApy (Staking/components/utils.tsx) computes new BigNumber(\"0.0045\").decimalPlaces(2, ROUND_DOWN).toFixed(2) = \"0.00\", so the staking entry on the token detail page shows \"Up to 0.00% in annual rewards\" instead of the previous \"Up to 0.0045% in annual rewards\", misleading users about staking returns for low-APR tokens.",
+      "file": "packages/kit/src/views/Staking/components/TokenDetailStakingEntry/index.tsx",
+      "line": 65,
+      "summary": "formatApy floors the APR to 2 decimals with ROUND_DOWN, so any token with a positive APR below 0.01% now renders as \"Up to 0.00% in annual rewards\", reading as zero rewards."
+    },
+    {
+      "failure_scenario": "User approves \"1.0\" (ref[\"1.0\"] = true, allowance updates, isApprove becomes false, progress shows \"1. Approve ✓ 2. Deposit\"); the user then edits the amount to \"1\" (same value) — showStakeProgressRef.current[\"1\"] is undefined and allowance covers it, so the progress indicator silently vanishes mid-flow. Conversely, showStakeProgressRef.current[amountValue] = true is set before navigationToTxConfirm, so a cancelled approval permanently marks the key. Also, when the page opens with sufficient allowance (isApprove false from the start, e.g. a previously approved spender), isShowStakeProgress is false forever and the StakeProgress that previously always rendered at the deposit step is now hidden for the whole flow.",
+      "file": "packages/kit/src/views/Staking/components/ApproveBaseStake/index.tsx",
+      "line": 352,
+      "summary": "Stake progress visibility is keyed on the exact amount input string in a never-cleared ref, so the completed-approve state is lost when the user reformats the same numeric amount, and the progress indicator no longer renders at all in the deposit-only flow."
+    },
+    {
+      "failure_scenario": "ProviderInfo({ ..., babylonStakingCap, poolFee }) no longer uses poolFee anywhere after the GridItem removal, while ProviderSection still executes `if (details.provider.poolFee) { providerProps.poolFee = { value: details.provider.poolFee }; }` (lines 201-203) and IProviderInfoProps still declares poolFee. .eslintrc.js sets '@typescript-eslint/no-unused-vars' to 'error' outside dev mode, and poolFee sits after the last used argument (babylonStakingCap), so production lint fails on the unused destructured parameter; the prop plumbing is dead code for future maintainers.",
+      "file": "packages/kit/src/views/Staking/components/ProtocolDetails/ProviderSection.tsx",
+      "line": 51,
+      "summary": "Removing the poolFee GridItem left poolFee destructured but unused in ProviderInfo while ProviderSection still builds and passes it, leaving dead plumbing and an unused-variable lint error."
+    },
+    {
+      "failure_scenario": "After `if (!validateAmountInput(value, decimals)) return;` at line 141, any value reaching line 151 has at most `decimals` fractional digits (regex \\d{0,decimal}), so `countDecimalPlaces(value) > decimals` can never be true — the `setAmountValue((oldValue) => oldValue)` branch is dead, and when decimals is undefined the `decimals &&` short-circuit also skips it. The same dead branch remains in ApproveBaseStake (line ~146-152), UniversalClaim (line ~104-110) and UniversalWithdraw (line ~172-178); the codebase would be simpler with the redundant check removed, and each file still imports countDecimalPlaces solely for it.",
+      "file": "packages/kit/src/views/Staking/components/UniversalStake/index.tsx",
+      "line": 151,
+      "summary": "The pre-existing countDecimalPlaces overflow check is now unreachable dead code in all four staking amount handlers because the added regex gate already caps fractional digits at `decimals`, and the Swap-view-local util import is kept alive only by that dead branch."
+    }
+  ],
+  "level": null
+}

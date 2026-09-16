@@ -1,0 +1,74 @@
+{
+  "findings": [
+    {
+      "file": "src/main.c",
+      "line": 1927,
+      "summary": "Pktmon component metadata (name, description, IP/MAC addresses) is silently dropped because metadata events are processed before the interface is created by AddInterface, which only runs on packet events",
+      "failure_scenario": "In a typical pktmon ETL capture, component metadata events (IDs 20, 65, 66, 70) are emitted at session start before any packet events (IDs 160, 170). When Pass1 processes these metadata events, ParsePktmonComponent/ParsePktmonComponentIPv4Address/etc. look up the interface via InterfaceHashTable, but the interface does not exist yet (AddInterface is only reached from packet events at line 1995). The metadata is silently discarded; the output pcapng has no component names, descriptions, IP addresses, or MAC addresses for pktmon interfaces.",
+      "finding_id": "mf-c8c6eee1e55829978e4e"
+    },
+    {
+      "file": "src/main.c",
+      "line": 518,
+      "summary": "Buffer overread in PcapNgWriteSystemdJournal: WriteSize is padded to 4-byte alignment but Message was allocated without padding room, causing up to 3 bytes of heap data to be read and written to output",
+      "failure_scenario": "PcapNgWriteSystemdJournal allocates Message with malloc(RequiredSize) at line 496, then writes RequiredSize bytes via WideCharToMultiByte. At line 518, WriteSize is rounded up: WriteSize = (WriteSize + 3) & ~3. If RequiredSize is 5, WriteSize becomes 8, but Message is only 5 bytes. BufferBytes(File, Message, 8) reads 3 bytes past the allocated buffer, leaking heap data into the output pcapng file.",
+      "finding_id": "mf-81a4e08b756517392d49"
+    },
+    {
+      "file": "src/main.c",
+      "line": 1828,
+      "summary": "Memory leak in ParseProviderEvent: the malloc'd return value of GetFormattedProperty is never freed, leaking on every successfully formatted event property",
+      "failure_scenario": "ParseProviderEvent calls GetFormattedProperty at line 1828, which malloc's a wchar_t buffer and returns it. The returned value is used as a format argument then discarded without free(). For an ETL file with thousands of non-packet provider events, each having multiple properties, this accumulates significant leaked memory during Pass2 processing.",
+      "finding_id": "mf-d78013c367023a14ce7a"
+    },
+    {
+      "file": "src/main.c",
+      "line": 1723,
+      "summary": "Memory leak in GetFormattedProperty: output buffer not freed when returning early on pMapInfo allocation failure (line 1723) or TdhFormatProperty failure (line 1756)",
+      "failure_scenario": "GetFormattedProperty malloc's output (1024 wchar_t) at line 1694. If pMapInfo allocation fails at line 1720-1723, the function returns NULL without freeing output. Similarly, if TdhFormatProperty fails at line 1741-1756, output is leaked. Called from ParseProviderEvent in the hot path, this leaks 2KB per failed formatting.",
+      "finding_id": "mf-3ec856c2040c70756116"
+    },
+    {
+      "file": "src/main.c",
+      "line": 1797,
+      "summary": "Memory leak in ParseProviderEvent: tei (trace event info) buffer not freed when Message allocation fails",
+      "failure_scenario": "At line 1777, tei = malloc(teisize) succeeds. At line 1794, Message = malloc(MessageLen * sizeof(wchar_t)) fails and returns NULL. The function returns at line 1797 without freeing tei. Same pattern at line 1853 where failed body allocation returns without freeing Message or tei.",
+      "finding_id": "mf-182c6c5a6c3803f26b01"
+    },
+    {
+      "file": "src/main.c",
+      "line": 1825,
+      "summary": "Memory leak in ParseProviderEvent: Message not freed when TdhGetProperty fails in the for loop at line 1821",
+      "failure_scenario": "Inside the property-formatting for loop (line 1804), if TdhGetProperty fails at line 1820, the code frees prop and tei but returns at line 1825 without freeing Message (allocated at line 1794 and potentially replaced by NewMessage from earlier loop iterations).",
+      "finding_id": "mf-fec289baf92c6edbf03e"
+    },
+    {
+      "file": "src/main.c",
+      "line": 588,
+      "summary": "Falsy-zero check: if (ProcessId) at line 588 skips writing the EPB_PROCESS option when ProcessId is 0, but PID 0 (System Idle Process) is valid on Windows and can appear in ETW events",
+      "failure_scenario": "An ETW event with ProcessId=0 (System Idle Process or kernel event) reaches PcapNgWriteEnhancedPacket. The check if (ProcessId) evaluates to false, so the EPB_PROCESS option is not written. The process/thread identity is silently omitted from the pcapng output for that packet.",
+      "finding_id": "mf-78d928a2fa18c8371a48"
+    },
+    {
+      "file": "src/main.c",
+      "line": 308,
+      "summary": "PcapNgWriteInterfaceDesc TotalLength excludes sizeof(EndOption) when MAC/IPv4/IPv6 options are present but IfName and IfDesc are both NULL/zero-length, yet EndOption is always written unconditionally at line 411",
+      "failure_scenario": "A caller passes non-NULL MACAddress/IPv4Address/IPv6Address but NULL for both IfName and IfDesc (IfNameLength and IfDescLength both 0). TotalLength omits sizeof(EndOption) because the condition on line 308 checks only IfName and IfDesc. But EndOption is unconditionally written at line 411. The TotalLength in the block header is 4 bytes too small, corrupting the pcapng output. (Not triggered by the current WriteInterfaces caller, which always passes a non-NULL IfName buffer.)",
+      "finding_id": "mf-2b6f567591cd114e3fba"
+    },
+    {
+      "file": "src/main.c",
+      "line": 972,
+      "summary": "GetInterface misses IsPktmon exclusion in the else branch, allowing ndiscap interface lookups to potentially return a pktmon interface if component IDs collide with network interface indices",
+      "failure_scenario": "An ndiscap packet with LowerIfIndex=42 triggers GetInterface(42). A pktmon interface in the hash bucket has LowerIfIndex=42 (component ID coincidentally equals the network interface index). The else branch at line 972 checks !IsVMNic && !IsRas but not !IsPktmon. The pktmon interface is incorrectly returned for an ndiscap packet.",
+      "finding_id": "mf-53e9d44ab98afde82439"
+    },
+    {
+      "file": "src/main.c",
+      "line": 1678,
+      "summary": "ReplaceEventMessageToken uses wcsstr which only finds the first occurrence; event message templates that reference the same parameter token multiple times are only partially formatted",
+      "failure_scenario": "An ETW provider event message template contains '%1' in two places, e.g. 'Bytes sent: %1, Bytes received: %1'. In ParseProviderEvent, ReplaceEventMessageToken finds and replaces only the first '%1'. The second '%1' remains as literal text in the output systemd journal entry, producing a malformed message.",
+      "finding_id": "mf-5d833ccb1fb5bed72089"
+    }
+  ]
+}

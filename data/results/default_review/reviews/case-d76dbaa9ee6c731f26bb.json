@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "wolfcrypt/src/port/Renesas/renesas_tsip_aes.c",
+      "line": 661,
+      "summary": "wc_tsip_AesCtr uses uninitialized 'ret' when aes->ctx.keySize is neither 16 nor 32, causing silent success without encryption/decryption",
+      "failure_scenario": "A caller uses AES-192 (keySize=24) with wc_tsip_AesCtr. After tsip_hw_lock() returns 0 (TSIP_SUCCESS), neither the keySize==16 nor keySize==32 branch executes, leaving ret==0. The 'if (ret == TSIP_SUCCESS)' check passes, the IV counter is advanced, tsip_hw_unlock() is called, and the function returns 0 (success). No encryption/decryption was performed -- the output buffer contains unencrypted data. Contrast with wc_tsip_AesCbcEncrypt at line 574 which correctly returns -1 for unrecognized keySize.",
+      "finding_id": "mf-543ff6484a2d14f63d72"
+    },
+    {
+      "file": "wolfcrypt/test/test.c",
+      "line": 59627,
+      "summary": "Missing 'out' and 'outLen' declarations in non-SMALL_STACK path when HAVE_ECC_DHE is defined but HAVE_ECC_SIGN is not, causing compilation failure",
+      "failure_scenario": "Building with -DHAVE_ECC -DHAVE_ECC_DHE -DNO_ECC_SIGN (all valid independent flags per settings.h lines 2995-3015). In the non-SMALL_STACK path, 'byte out[256]' and 'word32 outLen' are only declared inside '#if defined(HAVE_ECC_SIGN) && defined(HAVE_ECC_VERIFY)' at line 59542, but 'out' and 'outLen' are used at line 59627 inside '#ifdef HAVE_ECC_DHE' for wc_ecc_shared_secret(key, pub, out, &outLen). Compiler errors on undefined identifiers.",
+      "finding_id": "mf-43c7163cc72254ee2b7f"
+    },
+    {
+      "file": "wolfssl/wolfcrypt/settings.h",
+      "line": 3625,
+      "summary": "WOLFSSL_NO_GETPID safeguard removed from WOLFSSL_LINUXKM section, risking getpid() call in kernel context",
+      "failure_scenario": "Building wolfSSL as a Linux Kernel Module (WOLFSSL_LINUXKM defined) where HAVE_GETPID happens to be defined (e.g., from a config.h). The removed '#define WOLFSSL_NO_GETPID' previously forced WOLFSSL_NO_GETPID on, preventing random.c lines 1671-1672 and 2045-2047 from calling getpid() -- which is unavailable in kernel space. Without this guard, the kernel module calls getpid(), causing a linker error (unresolved symbol) or kernel panic at runtime.",
+      "finding_id": "mf-5f39035f346390477442"
+    },
+    {
+      "file": "IDE/Renesas/e2studio/RX72N/EnvisionKit/wolfssl_demo/wolfssl_tsip_unit_test.c",
+      "line": 481,
+      "summary": "Copy-paste error: 'dec->ctx.keySize = enc->keylen' should be 'dec->keylen' in tsip_aes256_ctr_test",
+      "failure_scenario": "In the 256-bit CTR test, the decryption key's keySize is set from 'enc->keylen' instead of 'dec->keylen'. The 128-bit version (line 323) correctly uses 'dec->keylen'. Currently both keys are 256-bit so the value is identical, but if the test or the SetKeyDirect call for 'dec' were ever changed to use a different key size, the decryption object would carry the wrong keySize value, causing the hardware CTR call to fail or use the wrong algorithm.",
+      "finding_id": "mf-f244cea2d4587d0d3fe6"
+    },
+    {
+      "file": "wolfcrypt/test/test.c",
+      "line": 59477,
+      "summary": "Pre-existing: XMALLOC(sizeof(byte)) allocates 1 byte for 'out' pointer used as 256-byte buffer in SMALL_STACK path",
+      "failure_scenario": "In the SMALL_STACK with malloc path, 'out' is allocated as 1 byte via 'XMALLOC(sizeof(byte), ...)'. If the crypto callback fails to intercept (returns NOT_COMPILED_IN), wc_ecc_sign_hash or wc_ecc_shared_secret writes up to 256 bytes of ECC data into this 1-byte buffer, causing a heap buffer overflow. Pre-existing in base commit but re-exposed by the extensive restructuring of this function in the diff.",
+      "finding_id": "mf-aa8cbc424c4d15ed78c2"
+    }
+  ]
+}

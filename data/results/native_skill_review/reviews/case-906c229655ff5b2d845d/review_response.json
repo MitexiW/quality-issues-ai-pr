@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "In XAI_TOOLS mode, if Grok returns {\"name\": \"Jason\", \"age\": 25} on the first attempt (ignoring the uppercase instruction), _validate_model_from_json raises InstructorValidationError (instructor/processing/function_calls.py:96-102) because instructor/providers/xai/client.py:74/113 already dropped max_retries from call_kwargs; the same happens in XAI_JSON mode where chat.parse raises on validation failure. The test errors out on the first attempt despite max_retries=2, so these 8 parametrized validator tests are flaky and falsely document retry support that the xai provider does not implement.",
+      "file": "tests/llm/test_xai/test_raw_response.py",
+      "line": 105,
+      "summary": "The new validator tests pass max_retries=2, but the xai create path pops and discards max_retries and validates exactly once, so a single non-uppercase response fails the test instead of retrying."
+    },
+    {
+      "failure_scenario": "The xai create path bypasses handle_response_model/process_response, whose central convention (instructor/processing/response.py:256/357) already sets model._raw_response and which instructor/cache/__init__.py:223-233 also special-cases; the duplicated assignments will drift when raw-response semantics change. The same bypass leaves max_retries and validation_context silently dropped for xai (client.py:74-77, 113-116), so create()/create_with_completion() calls that pass max_retries or validation_context get no retries and no validation context, unlike every other provider — the new tests encode this gap rather than fixing it.",
+      "file": "instructor/providers/xai/client.py",
+      "line": 86,
+      "summary": "Raw-response support is bolted on as four leaf-level special cases (lines 86, 101, 125, 140) instead of routing the xai path through the central process_response pipeline, which already attaches _raw_response for every other provider."
+    },
+    {
+      "failure_scenario": "If the provider attached the wrong object (e.g., the XAI_TOOLS branch attached the parsed model instead of the raw Message, or attached None-but-non-None placeholder logic changed), the assertion still passes because raw_response IS user._raw_response by construction; consequently create_with_completion in XAI_TOOLS mode has no effective raw-response verification even though the two code paths (client.py:86 vs 101) attach different sources.",
+      "file": "tests/llm/test_xai/test_raw_response.py",
+      "line": 190,
+      "summary": "assert user._raw_response == raw_response is tautological: create_with_completion returns (model, model._raw_response) (instructor/core/client.py:521 and 687), so the test compares an object to itself and can never fail."
+    },
+    {
+      "failure_scenario": "CLAUDE.md states 'Formatting: Follow Black's formatting conventions (enforced by Ruff)'; ruff format rewraps line 200 and strips the trailing whitespace, so the pre-commit ruff-format hook (.pre-commit-config.yaml) fails on any commit touching this file and CI formatting churn is guaranteed when the file is next formatted.",
+      "file": "tests/llm/test_xai/test_raw_response.py",
+      "line": 200,
+      "summary": "The new test file violates the repo's enforced formatting: whitespace-only blank lines (lines 37, 51, 69, 84, 101, 117, 135, 151, 167, 182, 215) and a 106-character line at line 200."
+    },
+    {
+      "failure_scenario": "Ruff's isort rule (I001) would reorder these imports; the file as added breaks the repo's stated import convention, producing lint churn the next time the file is edited or lint is run.",
+      "file": "tests/llm/test_xai/test_raw_response.py",
+      "line": 5,
+      "summary": "Import order violates CLAUDE.md's stated rule 'Imports: Standard lib → third-party → local imports': import pytest (third-party) precedes import os (stdlib) at line 1-2, and from itertools import product (stdlib) follows third-party imports at line 5."
+    }
+  ],
+  "level": null
+}

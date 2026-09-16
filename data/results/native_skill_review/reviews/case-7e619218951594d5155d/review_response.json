@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "CrewAgentExecutor.invoke() appends the system prompt as messages[0] (role='system'), then _get_llm_response() calls self.llm.call(self.messages). With model='o1-preview', the new code converts messages[0] to role='assistant'; OpenAI's chat API requires assistant messages to be preceded by a user message, so the very first LLM call of every agent run returns a 400 error and the task fails. Likewise _get_llm_feedback_response() sends a single system message, which becomes a lone assistant message -> 400 on each of MAX_LLM_RETRY attempts -> feedback is silently dropped. Converting to 'user' (or the developer role) would produce valid sequences.",
+      "file": "src/crewai/llm.py",
+      "line": 226,
+      "summary": "The o1 fallback rewrites system messages to the 'assistant' role, producing message sequences the OpenAI API rejects for o1 models, so agent runs with an o1 model fail with HTTP 400."
+    },
+    {
+      "failure_scenario": "Agent(role=..., goal=..., backstory=...) without max_iter previously ran at most 20 iterations in CrewAgentExecutor._has_reached_max_iterations(); after this change the same code inherits BaseAgent.max_iter=25, so tasks that used to hit the cap and return a best-effort answer at iteration 20 now run up to 25% more LLM/tool calls before stopping — a silent cost/latency/behavior regression with no deprecation or changelog for the default change.",
+      "file": "src/crewai/agent.py",
+      "line": 110,
+      "summary": "Removing the Agent.max_iter field (default 20) silently raises the effective default to BaseAgent's 25, changing the iteration cap for every existing Agent constructed without max_iter."
+    },
+    {
+      "failure_scenario": "A user builds messages = [{'role': 'system', 'content': instructions}, ...] and calls llm_o1.call(messages) then llm_gpt4.call(messages) (e.g., comparing models or reusing a conversation transcript); the system entry has been permanently changed to 'assistant', so the second call runs without its system prompt and the caller's data is corrupted. The same applies to CrewAgentExecutor._summarize_messages / Converter.to_pydantic lists if callers retain references. The fix is to build a copied message list instead of mutating in place.",
+      "file": "src/crewai/llm.py",
+      "line": 229,
+      "summary": "The o1 message conversion mutates the caller's message dicts in place, permanently rewriting roles in message lists the caller still owns and may reuse with other models."
+    },
+    {
+      "failure_scenario": "A user copies the Vertex AI example verbatim (\"project_id\"=\"YOUR_PROJECT_ID\", \"region\"=\"YOUR_REGION\", \"api_key\"=\"YOUR_API_KEY\", \"model_name\"=\"textembedding-gecko\") into their script and it fails with SyntaxError: invalid syntax before any crew setup runs.",
+      "file": "docs/concepts/memory.mdx",
+      "line": 277,
+      "summary": "The Vertex AI embedder example uses '=' instead of ':' between dict keys and values, so the code snippet is invalid Python and raises SyntaxError if copied."
+    },
+    {
+      "failure_scenario": "Following the Azure example, configure_embedder() does model_name = config.get('model') -> None and builds OpenAIEmbeddingFunction(model_name=None), silently falling back to chroma's default model (text-embedding-ada-002) instead of the documented text-embedding-3-small — vectors are embedded with the wrong model and memory retrieval degrades without any error. The Vertex AI example additionally passes 'project_id'/'region', which _configure_vertexai never forwards to GoogleVertexEmbeddingFunction. The first (OpenAI) example at line 189-190 correctly uses 'model', showing the other two are inconsistent with the code contract.",
+      "file": "docs/concepts/memory.mdx",
+      "line": 256,
+      "summary": "The rewritten Azure and Vertex AI embedder examples put the model under the 'model_name' config key, but EmbeddingConfigurator.configure_embedder reads only config.get('model'), so the requested model is silently ignored."
+    }
+  ],
+  "level": null
+}

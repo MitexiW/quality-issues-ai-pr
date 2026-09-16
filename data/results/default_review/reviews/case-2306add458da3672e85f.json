@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "modules/mobkoiBidAdapter.js",
+      "line": 261,
+      "summary": "JS falsy-zero: replaceMacros(val || '') converts AUCTION_PRICE=0 to empty string, corrupting macro-replaced URLs",
+      "failure_scenario": "Server returns a bid response with price=0 (a zero-dollar fill). In replaceAllMacrosInPlace, the macros object has AUCTION_PRICE: 0. When replaceMacros substitutes ${AUCTION_PRICE} in nurl/lurl/adm, the expression 'val || \"\"' evaluates 0 as falsy, replacing the macro with empty string instead of \"0\". The resulting win notification URL becomes e.g. \"https://adserver.example.com/win?price=\" (trailing equals, no value) instead of \"https://adserver.example.com/win?price=0\", silently dropping the price parameter. This also applies to any other macro whose value evaluates to zero.",
+      "finding_id": "mf-b35ca1c207e300686ac4"
+    }
+  ]
+}

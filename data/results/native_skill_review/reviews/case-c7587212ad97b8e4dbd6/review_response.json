@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Server responds 200 with {\"nestedNext\":{\"nextToken\":\"abc\"}} (nestedItems omitted) for request-query-nested-response-body or request-header-nested-response-body. The new RequestQueryNestedResponseBodyResponse/RequestHeaderNestedResponseBodyResponse.fromJson (both added in this PR) construct the model with a null nestedItems because no required-property check is performed, then requestQueryNestedResponseBodySinglePage/requestHeaderNestedResponseBodySinglePage (lines 665, 695, 798, 828) evaluate getNestedItems().getPets() and throw NPE inside the PagedIterable. The adjacent access to the optional nestedNext IS guarded (nestedNext != null && ...), and the pre-existing non-nested equivalents only dereference a top-level getPets(), so this unguarded chained dereference is new behavior introduced by this change.",
+      "file": "packages/http-client-java/generator/http-client-generator-clientcore-test/src/main/java/payload/pageable/implementation/ServerDrivenPaginationContinuationTokensImpl.java",
+      "line": 665,
+      "summary": "The new nested continuation-token page mappers dereference res.getValue().getNestedItems() without a null check, so a response body missing nestedItems throws NullPointerException instead of yielding a page."
+    },
+    {
+      "failure_scenario": "Server responds 200 with {\"nestedNext\":{\"next\":\"http://localhost:3000/...\"}} (nestedItems omitted) for the nested-link operation. The new NestedLinkResponse.fromJson (added in this PR) constructs the model with a null nestedItems because no required-property check is performed, then nestedLinkSinglePage/nestedLinkNextSinglePage (lines 198, 223, 334, 360) evaluate getNestedItems().getPets() and throw NPE inside the PagedIterable. The adjacent access to nestedNext IS guarded (nestedNext != null && ...), and the pre-existing link equivalents dereference only a top-level getPets(), so this unguarded chained dereference is new behavior introduced by this change.",
+      "file": "packages/http-client-java/generator/http-client-generator-clientcore-test/src/main/java/payload/pageable/implementation/ServerDrivenPaginationsImpl.java",
+      "line": 198,
+      "summary": "The new nestedLink page mappers dereference res.getValue().getNestedItems() without a null check, so a response body missing nestedItems throws NullPointerException instead of yielding a page."
+    }
+  ],
+  "level": null
+}

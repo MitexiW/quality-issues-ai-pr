@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "source/Gui/GeneEditorWidget.cpp",
+      "line": 94,
+      "summary": "_numBranches=1 is incorrectly treated as separation (0) in the UI, causing display corruption and silent data mutation.",
+      "failure_scenario": "Open the gene editor on a gene with _numBranches=1 (one branch). Line 93 copies the value (1), line 94-96 decrements it to 0, then line 97 checks the decremented value `numBranches > 0` which is now false, so numBranchesOptional becomes std::nullopt. The ComboOptional shows 'no selection' instead of '1 branch'. If the user makes no change to this field, line 107 executes `gene._numBranches = 0`, silently converting the gene from 1 branch to separation.",
+      "finding_id": "mf-c124511734fce6a6c79b"
+    },
+    {
+      "file": "source/PersisterInterface/SerializerService.cpp",
+      "line": 436,
+      "summary": "Type change from std::optional<int> to int for _numBranches breaks loading old serialized data containing non-separation branch values, causing std::bad_variant_access crash.",
+      "failure_scenario": "A user has a saved game/file created with the old code where a gene had _numBranches = optional<int>(2). The Cereal VariantData at key Id_Gene_NumBranches was serialized as std::optional<int>. When loading with the new code, Cereal deserializes it as std::optional<int> (still in the VariantData type list), but the loadSave function at line 100 calls `std::get<int>(variantData)`, which throws std::bad_variant_access because the variant actually holds std::optional<int>, not int. Application crashes on load.",
+      "finding_id": "mf-c97014de681e66f6b6a7"
+    }
+  ]
+}

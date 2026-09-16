@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`crewai create crew cl_ass` (or 'de_f', 'y_ield') → create_folder_structure computes folder 'cl_ass' and class 'ClAss' (both valid Python identifiers, neither a keyword), but original_name_clean removes the underscore and becomes 'class', so keyword.iskeyword() raises ValueError \"Project name 'cl_ass' would generate class name 'ClAss' which is a reserved Python keyword\" — a factually wrong message and a hard regression: before this change the same input created a working project.",
+      "file": "src/crewai/cli/create_crew.py",
+      "line": 56,
+      "summary": "The keyword check on the underscore/hyphen-stripped name rejects valid project names like 'cl_ass' whose generated folder and class names are not keywords."
+    },
+    {
+      "failure_scenario": "`crewai create crew my-crew/` → create_folder_structure sanitizes the folder/class names, but create_crew still calls copy_template(src, dst, name='my-crew/', class_name, folder_name), so the generated README.md contains 'The my-crew/ Crew is composed...' and pyproject.toml gets `description = \"my-crew/ using crewAI\"` (templates use {{name}} at README.md:38,44 and pyproject.toml:4), and the CLI prints 'Crew my-crew/ created successfully!'. The PR's own test only asserts the folder_name argument has no slash and never checks the name argument, so this leaks through.",
+      "file": "src/crewai/cli/create_crew.py",
+      "line": 234,
+      "summary": "create_crew passes the raw, un-stripped name (e.g. 'my-crew/') to copy_template, so trailing slashes still leak into generated project files and the success message."
+    },
+    {
+      "failure_scenario": "`crewai create crew ' crew'` (leading space from copy-paste) → re.match(r'^[^a-zA-Z0-9_-]+', ' crew') matches the leading space and raises ValueError \"Project name ' crew' contains no valid characters for a Python module name\", even though the sanitizer would produce the valid identifiers '_crew'/'Crew'; before this change the same input created a working project. The same false rejection hits '@crew' (would sanitize to 'crew') and any non-ASCII-leading name like 'école', while interior special characters are silently stripped ('hello@world' → 'helloworld' is accepted), making the check inconsistent with the function's own sanitization logic.",
+      "file": "src/crewai/cli/create_crew.py",
+      "line": 29,
+      "summary": "The leading-invalid-character check rejects names that would sanitize to valid module names and reports a false 'contains no valid characters' error."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Running the example makes Step._run_single call IOHandler.render_context() with safe=True on the action's `with` params (keep/step/step.py:325-327). chevron cannot find `utcnow` in ContextManager.get_full_context() (only steps/actions/foreach/event/alert/incident/consts/vars/aliases/secrets/inputs, keep/contextmanager/contextmanager.py:160-174), so the stderr warning makes IOHandler._render raise RenderException('Could not find key utcnow in the context.'). The send-html-email action therefore always fails and the example cannot be executed as documented; the documented form for the timestamp function is `{{ keep.utcnow() }}` (docs/workflows/syntax/functions.mdx:501-512, examples/workflows/raw_sql_query_datetime.yml:25).",
+      "file": "examples/workflows/send_smtp_html_email.yml",
+      "line": 39,
+      "summary": "The new example workflow uses `{{ utcnow }}`, which is not a workflow context variable, so the action fails at template-render time."
+    },
+    {
+      "failure_scenario": "A workflow action with `body: \"\"` or `body: \"{{ steps.get-issues.results }}\"` where the referenced value renders to an empty string (IOHandler returns the default \"\" for a falsy render) reaches send_email with body='' and html=None: `if html:` and `elif body:` are both false, so `raise ValueError(\"Either 'body' or 'html' must be provided\")` fires and the action fails, whereas before this change an (empty-bodied) email was sent and the workflow succeeded. The message is also misleading because a body was in fact provided (`body is not None` would be the presence check).",
+      "file": "keep/providers/smtp_provider/smtp_provider.py",
+      "line": 161,
+      "summary": "The new body/html check tests truthiness rather than presence, so an explicitly provided empty body (or a body template that renders to empty) now raises ValueError instead of sending the message."
+    },
+    {
+      "failure_scenario": "test_send_plain_text_email only asserts the envelope recipient (`sendmail` arg 1) and the plain-text part, not `msg['To']`; test_send_email_to_multiple_recipients only exercises the list branch. If the fix in keep/providers/smtp_provider/smtp_provider.py:152 is reverted to `if to_email is str:`, a single string recipient takes `', '.join('recipient@example.com')` and every message goes out with a corrupted `To: r,e,c,i,p,i,e,n,t,@,...` header while all nine new tests still pass. Adding `assert 'To: recipient@example.com' in email_content` to the string-recipient test would catch the regression.",
+      "file": "tests/test_smtp_provider.py",
+      "line": 74,
+      "summary": "No test asserts the `To:` header for a single string recipient, so the `is to_email is str` bug this PR fixes is not protected by the new test suite."
+    }
+  ],
+  "level": null
+}

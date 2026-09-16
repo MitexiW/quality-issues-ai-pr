@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/tabpfn/model/memory.py",
+      "line": 258,
+      "summary": "Unit mismatch: get_total_memory_windows() returns GB (ullTotalPhys/1e9) but convert_bytes_to_unit at line 305 assumes the value is in bytes and divides by 1e9 again, making free_memory ~0 and forcing peak-memory-saving on every Windows run — a regression from the old code which used a correctly-converted 8GB default.",
+      "failure_scenario": "Windows user with 32GB RAM runs TabPFNClassifier().fit(X, y) with default memory_saving_mode='auto'. get_total_memory_windows() returns ~32.0 (GB). convert_bytes_to_unit(32.0, 'gb') = 32.0/1e9 ≈ 0. estimate_memory_remainder_after_batch returns ~0 − (mem_per_batch × 1.2) < 0 always, so save_peak_mem is always True, causing unnecessary chunked computation overhead on every inference.",
+      "finding_id": "mf-c1193b86269a8e0d563c"
+    },
+    {
+      "file": "src/tabpfn/model/memory.py",
+      "line": 252,
+      "summary": "Same unit mismatch on the os.sysconf path (pre-existing): os.sysconf(...)/1e9 gives GB but convert_bytes_to_unit divides by 1e9 again. The PR touches this function and fails to fix it, re-exposing the bug. The fallback path at line 266 and the CUDA path at line 286 are correct (both pass bytes to convert_bytes_to_unit).",
+      "failure_scenario": "Linux/macOS user with 32GB RAM, memory_saving_mode='auto' (default). os.sysconf('SC_PAGE_SIZE') × os.sysconf('SC_PHYS_PAGES') / 1e9 ≈ 34.36 GB. convert_bytes_to_unit(34.36, 'gb') = 34.36/1e9 ≈ 3.4e-8 GB ≈ 0. Peak memory saving always enabled, wasting compute on unnecessary chunking.",
+      "finding_id": "mf-8fdee0fca6548a711579"
+    },
+    {
+      "file": "src/tabpfn/utils.py",
+      "line": 824,
+      "summary": "GlobalMemoryStatusEx return value (BOOL) is not checked; if the Win32 API call fails, mem_status.ullTotalPhys contains uninitialized garbage, and the function returns arbitrary data as total memory.",
+      "failure_scenario": "A rare failure in GlobalMemoryStatusEx (e.g. invalid struct size if ctypes ABI changes, or security restriction) causes it to return FALSE/0. mem_status.ullTotalPhys is never initialized by the kernel, so the function returns whatever bytes happened to be on the stack — potentially zero (causing extreme peak-memory-saving) or a huge value (causing OOM if the caller trusts it).",
+      "finding_id": "mf-f16ec6131e180bf76fe2"
+    },
+    {
+      "file": "tests/test_utils.py",
+      "line": 16,
+      "summary": "Float equality assertion (utils_result == psutil_result) is fragile; minor discrepancies between the Windows API and psutil total-memory values produce flaky test failures.",
+      "failure_scenario": "On a Windows machine where BIOS/hardware reserves a few KB differently than psutil's enumeration, GlobalMemoryStatusEx reports ullTotalPhys = 34359738368 while psutil reports 34358722560. After /1e9 the floats are 34.359738368 vs 34.358722560 — the == assertion fails even though get_total_memory_windows() works correctly. Use pytest.approx(..., rel=1e-9) instead.",
+      "finding_id": "mf-fc5c0b7d31a3c48172b0"
+    },
+    {
+      "file": "tests/test_utils.py",
+      "line": 9,
+      "summary": "Both test functions have empty bodies on non-Windows (gated by naked 'if os.name == \"nt\"'), silently passing without exercising any logic and giving false test-coverage confidence in cross-platform CI.",
+      "failure_scenario": "Linux CI runs report test_internal_windows_total_memory as passed (green checkmark) despite zero assertions executed. A Windows-only regression in get_total_memory_windows goes undetected on the Linux CI runner. Use @pytest.mark.skipif(os.name != 'nt', reason='Windows only') so the skip is explicitly reported.",
+      "finding_id": "mf-f713b1816935ad7e2926"
+    }
+  ]
+}

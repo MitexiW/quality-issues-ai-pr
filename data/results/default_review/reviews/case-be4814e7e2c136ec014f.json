@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "modules/intentIqAnalyticsAdapter.js",
+      "line": 319,
+      "summary": "Report payload appended to URL without encodeURIComponent, corrupting base64 data containing '+' characters that servers decode as spaces",
+      "failure_scenario": "When a bidWon event fires, the constructFullUrl function builds a URL with &payload=[\"<base64-encoded-report>\"] where the base64 string contains '+' characters (common). Servers URL-decode '+' as space, corrupting the base64 payload. The old code correctly used encodeURIComponent(JSON.stringify(report)). Any report whose base64-encoded payload includes '+' will be garbled on the server side.",
+      "finding_id": "mf-5a95ebef3151533efd1a"
+    },
+    {
+      "file": "libraries/intentIqConstants/intentIqConstants.js",
+      "line": 12,
+      "summary": "VERSION constant downgraded from 0.29 to 0.28, which is sent as &jsver= in all IntentIQ API requests, likely a merge regression",
+      "failure_scenario": "Both the analytics adapter and ID system send &jsver=0.28 (down from 0.29) to IntentIQ servers. If the server uses this version to gate feature availability or compatibility checks, features that were enabled at version 0.29 may be incorrectly disabled. The surrounding changes removed PREBID, HOURS_24, and META_DATA_CONSTANT constants and replaced them with inline values — the VERSION constant appears to have been accidentally reset rather than incremented.",
+      "finding_id": "mf-76b05e8f3cb26d92235f"
+    },
+    {
+      "file": "modules/intentIqIdSystem.js",
+      "line": 270,
+      "summary": "Removal of siloEnabled feature causes first-party data loss for users who stored identity data under partner-specific storage keys",
+      "failure_scenario": "A publisher who previously configured intentIqId with siloEnabled: true had first-party data stored under the key '_iiq_fdata_p_<partner>'. The new code reads exclusively from '_iiq_fdata' (the bare FIRST_PARTY_KEY). On upgrade, the old siloed data is invisible — a new pcid is generated and the user's existing server-side identity mapping is lost, resulting in reduced match rates and lost revenue until the server re-maps the new pcid.",
+      "finding_id": "mf-887ed8fd660dc33a68ab"
+    },
+    {
+      "file": "modules/intentIqIdSystem.js",
+      "line": 271,
+      "summary": "isGroupB captured as const before server response can change firstPartyData.group; when timeout fires callback first, subsequent server-side group changes are silently dropped",
+      "failure_scenario": "The getId method captures isGroupB at line 271 as a const from the initially loaded firstPartyData. If the 500ms timeout fires firePartnerCallback before the server responds, callbackFired becomes true. When the server response later sets firstPartyData.group to WITHOUT_IIQ (e.g., terminationCause 41), defineEmptyDataAndFireCallback attempts to re-notify via firePartnerCallback but the guard callbackFired === true prevents it. The old code had a separate groupChanged callback channel that could fire independently; its removal means the host page never learns the final A/B group assignment.",
+      "finding_id": "mf-2a433dd97a431ddbd703"
+    },
+    {
+      "file": "modules/intentIqIdSystem.js",
+      "line": 361,
+      "summary": "Removal of fallback shouldCallServer check (no saved partner data triggers server call) can leave users stuck with empty eids until cttl expires",
+      "failure_scenario": "A returning user has valid firstPartyData with non-zero cttl and matching CMP strings, but partnerData storage was evicted (e.g., partial localStorage cleanup). The old code detected !savedData && !firstPartyData.isOptedOut and forced shouldCallServer = true to re-fetch identity. The new code skips this check — shouldCallServer stays false, the no-server-call path fires the callback with empty eids, and the user gets no identity resolution until cttl expires. The 24-hour HOURS_24 safety net is also removed.",
+      "finding_id": "mf-1d7317540d2145d19b35"
+    }
+  ]
+}

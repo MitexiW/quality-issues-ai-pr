@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "autogpt_platform/backend/backend/data/block_cost_config.py",
+      "line": 268,
+      "summary": "Cost filter uses `.api_name` (e.g. 'black-forest-labs/flux-kontext-pro') but runtime input_data['model'] holds the enum's string value ('Flux Kontext Pro'); the `_is_cost_filter_match` function does exact string comparison, so the filter never matches and the block always costs 0 credits.",
+      "failure_scenario": "User selects 'Flux Kontext Pro' in the UI, runtime input_data['model'] = 'Flux Kontext Pro', cost filter expects 'black-forest-labs/flux-kontext-pro' -- strings differ, match fails, cost falls through to zero. Same bug on line 279 for the MAX variant.",
+      "finding_id": "mf-f3441526862df288a2ec"
+    },
+    {
+      "file": "docs/content/platform/blocks/flux_kontext.md",
+      "line": 25,
+      "summary": "Documentation outputs table lists the output field as `image_url`, but the block's Output schema defines `output_image` and `run()` yields `'output_image'`; users wiring blocks per the docs will reference a nonexistent output.",
+      "failure_scenario": "User reads the docs, sees output name 'image_url', wires it to another block's input -- the connection references 'image_url' which is never yielded. The block appears to produce no output.",
+      "finding_id": "mf-bbecd28bb0ab339ce42e"
+    },
+    {
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 155,
+      "summary": "`input_image` (Optional, default None) is unconditionally included in the Replicate API `input_params` dict; when no image is provided the API receives `'input_image': null`. The `seed` parameter (also Optional) correctly uses conditional inclusion.",
+      "failure_scenario": "User runs the block without providing an input image (valid per schema with `default=None`). The API call includes `'input_image': null`. If the Replicate Flux Kontext API rejects null for this string-typed parameter, the call fails with a 400 error instead of succeeding with a text-only generation.",
+      "finding_id": "mf-65d679f6791681c8e6d3"
+    },
+    {
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 29,
+      "summary": "TEST_CREDENTIALS_INPUT assigns `'title': TEST_CREDENTIALS.type` (value 'api_key') instead of `TEST_CREDENTIALS.title` (value 'Mock Replicate API key'), making the test credential title inaccurate.",
+      "failure_scenario": "Tests run with title='api_key' instead of title='Mock Replicate API key'. Unlikely to cause test failures today, but any future logic that distinguishes credentials by title in test assertions would break silently.",
+      "finding_id": "mf-d203a5cd8555d2dfca68"
+    }
+  ]
+}

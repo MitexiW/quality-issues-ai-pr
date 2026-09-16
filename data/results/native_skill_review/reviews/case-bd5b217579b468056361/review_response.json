@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run the command on source-slack: the manifest's templated JsonFileSchemaLoader is stripped by _remove_reference and the 4 manifest streams are inlined, so the substring check passes and shutil.rmtree deletes the whole schemas dir — including threads.json, which the Python-defined Threads stream (source.py get_threads_stream / streams.py Threads) still loads at runtime, breaking its schema discovery. Same for source-zendesk-support, where schemas/tickets.json is a stub `{\"$ref\": \"tickets.json\"}` delegating to schemas/shared/tickets.json (the real 4.5KB schema) — the shared file is deleted. All steps return SUCCESS, so RestoreInlineState._cleanup runs instead of the restore and the deletion is permanent in the working tree.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 222,
+      "summary": "RemoveUnusedJsonSchamas deletes the entire schemas directory whenever the rewritten manifest no longer contains the substring \"JsonFileSchemaLoader\", ignoring schema files that are still consumed outside the manifest."
+    },
+    {
+      "failure_scenario": "Run the command on source-sentry (streams list is `- $ref: \"#/definitions/events\"` etc.): _remove_reference deletes definitions.schema_loader (templated JsonFileSchemaLoader) and the `$ref` schema_loaders in base_stream_full_refresh/base_stream_incremental, then every stream entry is a dict whose only key is \"$ref\", _get_stream_name returns None, and all streams are skipped. The rewritten manifest has no schema_loader anywhere; combined with the cleanup step this deletes all of schemas/*.json (events.json, issues.json, project_detail.json, projects.json, releases.json) with no inline replacement. source-freshdesk and source-zendesk-support use the same dict-form entries and hit the same total schema loss.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 183,
+      "summary": "The stream loop only resolves string-form stream entries; dict-form `$ref` entries like `- $ref: \"#/definitions/events\"` fall through to _get_stream_name, get no name, and are silently skipped, so no inline schema is written for them while _remove_reference has already stripped their schema_loader config from the manifest."
+    },
+    {
+      "failure_scenario": "Run the command on source-mixpanel: the engage stream's schema_loader is `type: CustomSchemaLoader, class_name: source_mixpanel.components.EngageJsonFileSchemaLoader`, whose get_json_schema() dynamically fetches additional properties from the Mixpanel API and merges them into the schema (see components.py lines 304-340). The loop replaces it with `{type: InlineSchemaLoader, schema: <static engage.json>}`, so the engage stream silently loses its dynamically discovered schema properties. For any stream whose name has no matching top-level json file, the replacement is left as `schema_loader: {}` — an empty loader written into the manifest where a working loader used to be.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 193,
+      "summary": "Every stream whose schema_loader is not an InlineSchemaLoader has it unconditionally overwritten, so CustomSchemaLoader (and any future non-inline loader) is destroyed and replaced by a static inline schema or an empty `schema_loader: {}`."
+    },
+    {
+      "failure_scenario": "Run the command over many connectors (no --name filter): any selected connector with a .json file in its schemas dir that is not valid JSON (or empty) raises JSONDecodeError inside InlineSchemas._run; run_steps propagates it, run_connector_steps restores that one connector and re-raises, and run_connectors_pipelines' task group has no per-connector exception handling, so the whole command crashes and no reports are produced for any connector.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 391,
+      "summary": "json.load on every top-level json file in the schemas dir raises on malformed content, and run_connector_steps re-raises after restore, so a single invalid schema file aborts the entire multi-connector batch with an unhandled traceback."
+    },
+    {
+      "failure_scenario": "A connector whose two streams share one schema file (e.g. two streams whose JsonFileSchemaLoader file_path resolves to the same foo.json): the first conversion inlines foo.json and unlinks it, the second consumer logs \"Stream foo not found in JSON schemas\" and keeps its JsonFileSchemaLoader; the stream loop then replaces that loader with `schema_loader: {}` (line 196) because it is not InlineSchemaLoader, and the cleanup step deletes the rest of the schemas dir — the second stream ends up with no schema and the file is gone.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 309,
+      "summary": "_update_inline_schema unlinks the json file and pops it from the shared dict after the first consumer, so a second stream or loader referencing the same schema file is left dangling and then overwritten with an empty schema_loader."
+    },
+    {
+      "failure_scenario": "When a templated JsonFileSchemaLoader reference is removed, the intended log line (evidenced by the f-string matching the logger.info style of the surrounding lines) is silently discarded, so migration logs contain no trace of which references were removed — a maintainability defect in the new tool's diagnostics.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 283,
+      "summary": "Dead code: `(f\"    Removing reference: {loader.ref}\")` is a bare parenthesized string expression with the logger.info call missing, so the removal message is never emitted."
+    },
+    {
+      "failure_scenario": "run_connector_steps catches an exception or a FAILURE result and calls restore_original_state.run() instead of _cleanup(), so the temp directory made in __init__ (tempfile.mkdtemp + copytree of all schemas) is never removed; every failed migration run leaves the backup tree on disk.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 109,
+      "summary": "The mkdtemp backup directory created in RestoreInlineState.__init__ is only deleted by _cleanup, which is skipped on the failure/exception path, leaking one temp directory (with a full copy of the schemas) per failed run."
+    },
+    {
+      "failure_scenario": "Running the command on a connector with any unconsumed schema file (e.g. source-slack's threads.json) prints \"!! JSON schema not found: threads\" even though the file exists on disk, misdirecting anyone investigating why a schema was not inlined (the real reason is the stream-loop skip or a name mismatch, not a missing file).",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 204,
+      "summary": "After writing the manifest, the step logs \"!! JSON schema not found: {name}\" for every remaining entry in json_streams, but those files do exist — they were simply not consumed by any stream."
+    },
+    {
+      "failure_scenario": "For any manifest-only connector (manifest.yaml at the code root, e.g. source-cin7), python_source_dir_path resolves to code_directory/source_<name>, which does not exist, so schemas_dir.is_dir() is always False and the step returns SKIPPED with \"The connector does not have a schemas directory\" — the declared support for MANIFEST_ONLY candidates can never trigger, contradicting the step's documented candidate conditions.",
+      "file": "airbyte-ci/connectors/pipelines/pipelines/airbyte_ci/connectors/migrate_to_inline_schemas/pipeline.py",
+      "line": 76,
+      "summary": "CheckIsInlineCandidate lists ConnectorLanguage.MANIFEST_ONLY as a candidate, but the schemas-dir check uses python_source_dir_path / \"schemas\", a path that does not exist for manifest-only connectors, so the MANIFEST_ONLY branch is dead and manifest-only connectors are always skipped."
+    }
+  ],
+  "level": null
+}

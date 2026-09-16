@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "src/components/LayerEditor.tsx",
+      "line": 119,
+      "summary": "getChildContext provides reactIconBase via legacy context API, but react-icons v5.5.0 Md* icons (MdMoreVert) use modern React.createContext(IconContext) exclusively and do not read from childContextTypes; the color '#8e8e8e' customization for the more-menu button icon is lost, and the icon reverts to inherited currentColor (white#f0f0f0 on black header background#191b20)",
+      "failure_scenario": "Render the LayerEditor component. The MdMoreVert icon in the header more-menu button renders with fill=currentColor (inherits #f0f0f0 white from html element) instead of the intended #8e8e8e gray, because react-icons v5.5.0 ignores the reactIconBase legacy context and CSS rules for .more-menu__button__svg set only width/height (24px) without setting fill/color.",
+      "finding_id": "mf-86d1493c792523b86f6a"
+    },
+    {
+      "file": "src/components/ModalAdd.tsx",
+      "line": 146,
+      "summary": "Error dismiss link uses href='#' without event.preventDefault(), causing the browser to navigate to # and scroll to page top when the user clicks 'x' to dismiss the duplicate-ID error",
+      "failure_scenario": "User triggers a duplicate layer ID error, sees the error message with an 'x' dismiss button. Clicking the 'x' (<a href='#' onClick={() => this.setState({ error: null })}>) clears the error state but also navigates the browser to href='#', scrolling the page to the top. The arrow function does not receive the event parameter, so no preventDefault() is possible.",
+      "finding_id": "mf-1a39fd8178921a6cb9bf"
+    }
+  ]
+}

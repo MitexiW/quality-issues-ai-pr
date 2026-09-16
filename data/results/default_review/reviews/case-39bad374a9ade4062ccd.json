@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "libs/langgraph/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 124,
+      "summary": "Async messages_modifier callable returns unawaited coroutine -- callable() check does not distinguish async from sync, and the inner wrapper calls it without await, passing a coroutine object to the model instead of LanguageModelInput.",
+      "failure_scenario": "User passes an async function as messages_modifier (e.g., async def my_modifier(messages): return 'Hello'). At runtime, callable(messages_modifier) is True at line 124. The inner prompt function at line 126-127 calls messages_modifier() without await, returning a coroutine object. This coroutine flows through RunnableCallable and the | pipeline into the model's invoke(), where a chat model receives a coroutine instead of a string or message sequence, causing a TypeError or silent incorrect behavior.",
+      "finding_id": "mf-1eb9251b666eea41b00e"
+    },
+    {
+      "file": "libs/langgraph/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 126,
+      "summary": "Inner prompt function's return type annotation Sequence[BaseMessage] is inconsistent with the widened MessagesModifier type -- the actual return flows through messages_modifier which now returns LanguageModelInput (includes str and PromptValue, neither of which is Sequence[BaseMessage]).",
+      "failure_scenario": "A type checker like mypy or pyright would flag the return statement as returning LanguageModelInput incompatible with the declared Sequence[BaseMessage] return type. This would fail CI in projects that enforce static type checking on this file, despite no runtime crash.",
+      "finding_id": "mf-2aa04019a4e20dd97893"
+    }
+  ]
+}

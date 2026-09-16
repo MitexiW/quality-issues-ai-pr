@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "packages/core/src/fetch.ts",
+      "line": 40,
+      "summary": "parseRetryAfter rejects valid RFC 7231 delay-seconds with leading zeros (e.g. '05' returns null instead of 5) because the strict string check `trimmed === seconds.toString()` requires exact match with parseInt's decimal output",
+      "failure_scenario": "Server returns `Retry-After: 05` (5 seconds, valid per RFC 7231 `delay-seconds = 1*DIGIT` grammar). `parseInt('05',10)` correctly yields 5, but `'05' === '5'` is false. The function falls through, `/^-?\\d+$/.test('05')` is true so date-parsing is skipped, and null is returned. The retry-after header is ignored, falling back to exponential backoff instead of respecting the server's coordinated 5-second delay. The same defect affects any leading-zero delay like `'08'`, `'005'`.",
+      "finding_id": "mf-3ea19a4773bde7973d00"
+    },
+    {
+      "file": "genaisrc/test-gen.genai.mjs",
+      "line": 26,
+      "summary": "Template changed to instruct AI to generate vitest-style tests but the `run_test` tool at line 91 still executes with `node --test` (Node built-in runner), which may not discover tests registered via vitest's `test()` function",
+      "failure_scenario": "The genai template tells the AI to `import { test, beforeEach, describe } from 'vitest'` (line 27) and the tool description says 'run test code with vitest' (line 73). But `run_test` executes `node --import tsx --test filename` (line 91). If the installed vitest version does not provide full `node --test` compatibility, vitest's `test()` function will register tests in vitest's internal queue rather than with Node's built-in test runner. `node --test` would find zero tests, exit with code 1 (or 0 depending on Node version), and the AI would either waste cycles fixing a non-code issue or accept silently-passed tests that never actually ran.",
+      "finding_id": "mf-f58074bc3c0827d4f0ff"
+    }
+  ]
+}

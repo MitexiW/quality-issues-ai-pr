@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A mem0 response whose result entry contains a non-string value — e.g. `previous_memory: null` on a non-update result (mem0's SDK v1.1 wrapper only stringifies truthy `previous_memory` values, leaving null intact) or a v1.0-shaped payload with nested `metadata` dicts from a self-hosted mem0 server — is yielded as `results`. `Block.execute` (backend/data/block.py:481-486, used in production by executor/manager.py:187) then runs jsonschema validation of `dict[str, str]` (`additionalProperties: {\"type\": \"string\"}`) and raises `ValueError: Block produced an invalid output data`, aborting the whole node run. The previous code only surfaced the two string fields `result[\"event\"]` and `result[\"memory\"]` and was immune to this.",
+      "file": "autogpt_platform/backend/backend/blocks/mem0.py",
+      "line": 159,
+      "summary": "The new `results` output yields the raw, un-normalized mem0 API payload under a strict `list[dict[str, str]]` schema, so any non-string value in the response makes the block's output validation hard-fail the node execution."
+    },
+    {
+      "failure_scenario": "With `last_minutes` set, posts older than the window are silently dropped via `continue`; with `last_post` set, iteration breaks at the marker so all older posts are never fetched; and `post_limit` caps the listing. A graph whose agent wires the `posts` output (described in the output schema as the complete list) into a downstream block, e.g. to summarize or count all posts, silently receives only the filtered subset — e.g. only 2 of 100 posts — with no error and no indication in the output that items were omitted.",
+      "file": "autogpt_platform/backend/backend/blocks/reddit.py",
+      "line": 193,
+      "summary": "The new `posts` output is documented as \"List of all Reddit posts\" but actually emits only the filtered, truncated subset of the listing, misleading downstream consumers of the schema description."
+    },
+    {
+      "failure_scenario": "Any cross-cutting fix to this output contract — e.g. normalizing items before yielding (the mem0 dict-passthrough issue above), deciding empty-list semantics, adding error handling for the declared `error` output — must be replicated in 11 separate run methods; the divergence is already visible (reddit aggregates post-filter, mem0 yields raw dicts, rss emits per polling cycle), so a future fix applied to the GitHub blocks only would leave the other blocks with subtly different aggregate semantics.",
+      "file": "autogpt_platform/backend/backend/blocks/github/issues.py",
+      "line": 570,
+      "summary": "The identical 'materialize list, yield aggregate, then yield per-item' output pattern is copy-pasted across 8 GitHub list blocks (issues.py, pull_requests.py x2, repo.py x5) and re-implemented with variations in reddit.py, rss.py, and mem0.py, with no shared helper."
+    }
+  ],
+  "level": null
+}

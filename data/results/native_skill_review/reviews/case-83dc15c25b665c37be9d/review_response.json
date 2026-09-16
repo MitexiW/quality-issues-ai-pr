@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "On Windows or Linux, the change advertises Ctrl+Shift+Z as 'Redo' in the keyboard shortcuts dialog (KBShortcutsDialog.cpp:257,291) and implements it on the 3D canvas (GLCanvas3D.cpp:3637-3644 posts EVT_GLCANVAS_REDO), but the wxEVT_CHAR handler ObjectList::key_event (GUI_ObjectList.cpp:1711) matches `wxGetKeyState('Z') && wxGetKeyState(WXK_CONTROL)` without excluding Shift and calls undo(). A user with the objects list focused pressing the documented Redo shortcut undoes their last change instead of redoing it; the same gesture redoes when the canvas has focus, so the action depends on focus.",
+      "file": "src/slic3r/GUI/GUI_ObjectList.cpp",
+      "line": 224,
+      "summary": "The newly advertised Ctrl+Shift+Z 'Redo' shortcut performs Undo instead of Redo on Windows/Linux when the object list has focus, because the new REDO accelerator is macOS-only while the non-macOS key handler triggers undo() for any Ctrl+Z state including Shift."
+    },
+    {
+      "failure_scenario": "TimelapsePosPicker.cpp still calls scale_, unscale_, diff_ex, union_ex, intersection_ex, opening_ex, offset, to_expolygons, to_polygons, intersection_pl and next_idx_modulo, all declared only in the removed ClipperUtils.hpp; no header in its remaining chain (TimelapsePosPicker.hpp -> ExPolygon.hpp/Print.hpp -> Polygon.hpp/ExtrusionEntity.hpp -> ...) includes ClipperUtils.hpp. Same for PrintApply.cpp (uses scale_ at line 301 after dropping the include) and PrePrintChecker.cpp (uses std::set at line 182 after dropping <set>). Only the FORCEINCLUDE pchheader.hpp keeps the default build compiling; building with CMake option SLIC3R_PCH=OFF (a supported configuration, CMakeLists.txt:31) yields undefined-symbol compile errors in these files.",
+      "file": "src/libslic3r/GCode/TimelapsePosPicker.cpp",
+      "line": 1,
+      "summary": "Removing #include \"ClipperUtils.hpp\" leaves this TU (and PrintApply.cpp) dependent on the forced precompiled header, breaking the supported SLIC3R_PCH=OFF build configuration."
+    },
+    {
+      "failure_scenario": "The diff changes the header line to `PO-Revision-Date: 2025-06-02 20:20+0300` (older than the previous 2025-06-23) and rewrites the msgstr for 'The selected printer (%s) is incompatible with the print file configuration (%s)...' (line ~7080) and 'The selected printer (%s) is incompatible with the chosen printer profile in the slicer (%s).' (line ~8231) back to earlier phrasings. Translation tooling and translators use PO-Revision-Date to track freshness, so the file now reports a regressed revision and the newer Turkish translations for those two user-facing error messages are silently lost.",
+      "file": "bbl/i18n/tr/BambuStudio_tr.po",
+      "line": 6,
+      "summary": "The change rewinds PO-Revision-Date from 2025-06-23 to 2025-06-02 and replaces two Turkish msgstr entries with older wording, reverting newer translation work and producing stale metadata."
+    },
+    {
+      "failure_scenario": "In each of the nine modified profile JSONs (Bambu Lab A1, A1 mini, P1P, P1S, X1, X1 Carbon, X1E, fdm_bbl_3dp_001_common, fdm_bbl_3dp_002_common) the diff changes the comment text `M622.1 S1 ; for prev firmware, default turned on` to `; for prev firware, default turned on` inside the time_lapse_gcode and/or machine_end_gcode template (e.g. line 76 of the A1 profile, the only change in that file). Since these template comments are copied into the G-code of every print and shown in the G-code preview, users see the misspelled word on every print of these machines.",
+      "file": "resources/profiles/BBL/machine/Bambu Lab A1 0.4 nozzle.json",
+      "line": 76,
+      "summary": "The change misspells 'firmware' as 'firware' in the time_lapse_gcode and machine_end_gcode comment of nine BBL machine profiles, and the typo is emitted verbatim into every exported G-code file."
+    }
+  ],
+  "level": null
+}

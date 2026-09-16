@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run a sync with a valid config (client_id, secret_key, start_date). For the first record of any stream derived from `base_incremental_service_stream` (accounting_transactions, bank_transfers, bills, invoices, payments, journal_entries, purchase_orders, refunds, commerce_* — 17 streams total), the filter evaluates `record[parameters.cursor_field] >= stream_interval['start_date']`. `stream_interval['start_date']` resolves to a jinja2 Undefined (KeyError → getattr fallback on the dict, or TypeError on None), and jinja2 maps `Undefined.__ge__` to `_fail_with_undefined_error`, so the template raises UndefinedError that propagates out of RecordFilter/SimpleRetriever — the sync of every incremental stream fails (or, in a CDK path that swallows the error, every record is silently dropped), leaving the connector with only full-refresh data. Evidence: all 22 other `stream_interval` uses across 7 connectors in this repo (e.g. source-xero manifest.yaml) use `['start_time']`/`['end_time']`, and docs/connector-development/connector-builder-ui/incremental-sync.md documents `stream_interval.start_time`/`end_time` as the only keys. The fix is `stream_interval['start_time']`.",
+      "file": "airbyte-integrations/connectors/source-railz/manifest.yaml",
+      "line": 1029,
+      "summary": "The record filter references the nonexistent `stream_interval['start_date']` key — the CDK builds `stream_interval` with `start_time`/`end_time` keys (or None for slices without a cursor), so evaluating the condition raises jinja2 UndefinedError and breaks every incremental stream."
+    },
+    {
+      "failure_scenario": "The new connection_specification is emitted with `schema: http://json-schema.org/draft-07/schema#` — an unknown keyword that JSON Schema validators and the platform ignore. Any tooling or validation that relies on `$schema` (as all 20+ inline schemas in the same manifest and all other connectors do, e.g. line 108 `$schema: http://json-schema.org/draft-07/schema#`) will not recognize the spec's schema version, and the file becomes internally inconsistent about how it declares schemas. No runtime crash, but the connector spec loses its schema-version declaration and diverges from the universal repo convention; the fix is renaming the key to `$schema`.",
+      "file": "airbyte-integrations/connectors/source-railz/manifest.yaml",
+      "line": 4263,
+      "summary": "The added spec section declares the JSON Schema dialect with a non-standard unprefixed `schema:` key instead of the `$schema:` key used by every other schema declaration in this file and every other connector manifest in the repo, so the draft-07 declaration is ignored by JSON Schema tooling."
+    }
+  ],
+  "level": null
+}

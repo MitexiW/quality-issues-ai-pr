@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A PR docs run succeeds -> `should_continue` is 'true' -> `main` deploys the preview and posts the comment -> `Delete Build Artifact` requires `delete-artifact.js` and calls `github.rest.actions.listWorkflowRunArtifacts({ owner, repo: repoName, ... })` -> `ReferenceError: repoName is not defined` is caught and rethrown -> the step fails, so the preview-docs run is red on every successful PR preview (in the baseline `main` was always skipped because `fail-early` declared no `status` output, so this step never ran) and the docs-build artifact is left behind.",
+      "file": ".github/workflows/preview-docs.yml",
+      "line": 91,
+      "summary": "Making the `main` job runnable now executes the `Delete Build Artifact` step, whose script `.github/workflows/delete-artifact.js` uses an undefined variable `repoName` (line 24, `repo: repoName`), so every successful preview run fails at the last step and the artifact is never deleted."
+    },
+    {
+      "failure_scenario": "A commit touching docs/ is pushed to master -> the docs workflow succeeds -> `workflow_run.pull_requests` is `[]` -> `should_continue`='true' -> `main` downloads the artifact and runs `netlify deploy --alias='pr-' --message='PR Preview # - ...'` (a junk draft deploy), then `preview-comment.js` receives `PULL_NUMBER=''` and throws 'Missing required parameters: ... pull-number ...' -> the main job and the whole preview-docs run go red on every docs push to master/release branches; the baseline never ran `main`, so this failure mode is newly introduced and could have been avoided by gating on PR existence.",
+      "file": ".github/workflows/preview-docs.yml",
+      "line": 16,
+      "summary": "`should_continue` gates only on `conclusion == 'success'`, so `main` now also runs for docs workflow runs triggered by `push` to `master`/`branch-*` (docs.yml triggers on push as well), where `workflow_run.pull_requests` is empty; the deploy then runs with an empty `PR_NUMBER` (`--alias='pr-'`) and the comment script throws on the missing `PULL_NUMBER`, failing the run."
+    },
+    {
+      "failure_scenario": "The docs workflow run fails -> 'Handle docs workflow failure' posts the 'failed to build or deploy' comment and exits 0 -> `fail-early` (and therefore the whole preview-docs run) reports success even though the docs build failed; previously `exit 1` failed the job, so filtering runs by failed status or relying on the run status to spot broken docs builds no longer works.",
+      "file": ".github/workflows/preview-docs.yml",
+      "line": 23,
+      "summary": "Removing the `exit 1` from the docs-failure handler makes the `fail-early` job succeed after posting the failure comment, so a docs-build failure no longer marks the preview-docs workflow run as failed."
+    },
+    {
+      "failure_scenario": "A long-lived PR accumulates 100+ comments and the documentation-preview comment falls outside the first page -> `comments.find((comment) => comment.body.includes(MARKER))` returns undefined -> the script calls `createComment` instead of `updateComment`, adding yet another comment containing MARKER each time the workflow runs, so duplicates accumulate (the deleted Python version had the same flaw with the API's 30-comment default page, and the rewrite re-introduces it at 100).",
+      "file": ".github/workflows/preview-comment.js",
+      "line": 22,
+      "summary": "`listComments` fetches only the first 100 comments (`per_page: 100`) with no pagination loop, so on a PR with more than 100 comments the marker comment is missed and a duplicate preview comment is created on every run."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "sqlmesh/lsp/description.py",
+      "line": 28,
+      "summary": "f-string stringifies None as literal 'None' text when model.description is None but columns exist, producing broken markdown descriptions",
+      "failure_scenario": "A model defined with columns but no explicit description (e.g., latest_order.sql with SELECT id, customer_id, start_ts, end_ts, event_date but no MODEL description field) gets markdown starting with 'None' -- callers in completions.py:63 and reference.py:256 both feed this into LSP documentation, showing 'None' as the model description in autocomplete popups and hover tooltips.",
+      "finding_id": "mf-5418f62a8e47ef4ed808"
+    },
+    {
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 64,
+      "summary": "Bare `except Exception` silently swallows all exceptions from generate_markdown_description, hiding programming errors as well as transient failures",
+      "failure_scenario": "A coding error in generate_markdown_description (e.g., wrong attribute access after a refactor) raises AttributeError; it is silently caught and replaced with getattr(model, 'description', None), masking the bug indefinitely while producing degraded (or None) descriptions for all models.",
+      "finding_id": "mf-264574f2284c7d223bf1"
+    },
+    {
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 58,
+      "summary": "New get_models iterates context.context.models (all models) instead of context.map (only file-backed models), causing models without file paths to appear in completions",
+      "failure_scenario": "A purely programmatic or in-memory model with _path=None (excluded from context.map by LSPContext.__init__) now appears as an autocomplete candidate; selecting it inserts a model name that has no source file to navigate to and may not be user-facing.",
+      "finding_id": "mf-4d26b8364d53ae6cf2a6"
+    }
+  ]
+}

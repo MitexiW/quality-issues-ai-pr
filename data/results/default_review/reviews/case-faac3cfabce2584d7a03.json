@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "web/src/components/TruncatedLabels.tsx",
+      "line": 28,
+      "summary": "Sort comparator violates Array.sort() contract: never returns 0 when both elements are PRODUCTION_LABEL or both are LATEST_PROMPT_LABEL",
+      "failure_scenario": "If prompt.labels contains duplicate 'production' or 'latest' entries (e.g., from a server bug or migration), the sort comparator returns -1 instead of 0 for equal elements, breaking the compare(a,b) === -compare(b,a) symmetry that JavaScript's sort engine relies on. Combined with key={label} on React elements, this also produces duplicate-key React warnings and unstable DOM ordering.",
+      "finding_id": "mf-9767e8bdfa0cd2d28cff"
+    },
+    {
+      "file": "web/src/components/TruncatedLabels.tsx",
+      "line": 52,
+      "summary": "Badge rendering logic duplicated identically between visible labels (lines 52-71) and hover-card content (lines 87-108)",
+      "failure_scenario": "Any future change to badge styling (e.g., adding a tooltip, changing colors, adjusting padding) must be made in two places. The two code blocks are identical — a missed update in one location produces visual inconsistency between the inline badges and the hover-card badges.",
+      "finding_id": "mf-3c3eaf1c890b4f92ba77"
+    }
+  ]
+}

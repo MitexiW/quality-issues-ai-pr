@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "reflex/testing.py",
+      "line": 659,
+      "summary": "After _reset_backend_state_manager replaces self.app_instance._state_manager with a new object, self.state_manager still references the old (now closed) Redis connection — subsequent get_state calls fail using a dead connection.",
+      "failure_scenario": "For a Redis-based app, call get_state() once: the finally block calls _reset_backend_state_manager() which closes self.app_instance._state_manager (same object as self.state_manager) and creates a new one at self.app_instance._state_manager. But self.state_manager is not updated to the new object. The stale self.state_manager is then also closed by the .close() call. Any second get_state() call uses a closed Redis connection and raises an error.",
+      "finding_id": "mf-a2e8924c8bcaf90a52c4"
+    },
+    {
+      "file": "reflex/testing.py",
+      "line": 375,
+      "summary": "_wait_for_servers contains a tight while loop with no time.sleep(), burning 100% CPU for up to 30 seconds while polling child process network connections.",
+      "failure_scenario": "When waiting for frontend/backend servers to open their ports, the loop iterates as fast as possible (no sleep) scanning all child process network connections. This saturates one CPU core for the entire 30-second timeout, causing test slowness, noisy CPU metrics, and potential starvation of the subprocess being waited on.",
+      "finding_id": "mf-e56def5baa41838fd3ed"
+    },
+    {
+      "file": "reflex/testing.py",
+      "line": 349,
+      "summary": "The subprocess env gets PYTEST_CURRENT_TEST='' which makes is_testing_env() return True, contradicting the explicit pop of PYTEST_CURRENT_TEST in _initialize_app(line 279) and changing subprocess behavior in app.py:462 and state.py:389.",
+      "failure_scenario": "_initialize_app pops PYTEST_CURRENT_TEST to prevent the compiled app from skipping state validation. Then _start_subprocess creates the subprocess with PYTEST_CURRENT_TEST='' explicitly set in the env. The subprocess sees is_testing_env() == True, skipping the 'BaseState subclasses' check in app.py:462 and skipping state initialization checks in state.py:389. Bugs in test app state definitions may go undetected compared to the old in-process approach where these checks ran.",
+      "finding_id": "mf-7f4d338ddd2877d44d6d"
+    },
+    {
+      "file": "tests/integration/conftest.py",
+      "line": 18,
+      "summary": "The raise_console_error autouse pytest fixture that caught unexpected console.error calls was removed entirely, leaving no mechanism to detect framework errors in the test process.",
+      "failure_scenario": "A framework bug causes console.error() to be called during a test (e.g., a malformed websocket message generates an unexpected error log). The old autouse fixture would fail the test, catching the regression. Without it, the test passes silently, and the error goes unnoticed until a production issue surfaces. The new _stop_reflex error-log check only catches subprocess errors, not in-process ones.",
+      "finding_id": "mf-0430bb6216e9b10af7f2"
+    },
+    {
+      "file": "tests/integration/test_lifespan.py",
+      "line": 178,
+      "summary": "Assertions verifying lifespan task cancellation on backend shutdown were removed, so regressions in shutdown cleanup are no longer caught.",
+      "failure_scenario": "The old test killed the backend, verified lifecycle_task_global was reset to 0 and lifecycle_context_global to 4 (proving cancellation ran). The new test stops without these assertions. If a refactor introduces a bug where lifespan task cancellation silently breaks, the test will not catch it.",
+      "finding_id": "mf-7138a9d88a5ac00e9708"
+    },
+    {
+      "file": "reflex/testing.py",
+      "line": 462,
+      "summary": "If _start_subprocess raises an exception after opening _reflex_process_log_fn but before the context manager __exit__ runs, the file handle leaks since __exit__ is never invoked on __enter__ failure.",
+      "failure_scenario": "_start_subprocess opens reflex_process_log_path for writing (line 313), then starts the subprocess (line 341). If subprocess.Popen raises (e.g., executable not found), the exception propagates from _start_subprocess back through start() to the 'with' block's __enter__. __exit__ is not called, so _stop_reflex never runs, and the opened file handle is leaked without being closed.",
+      "finding_id": "mf-1b886dde4ef37e01bd11"
+    },
+    {
+      "file": "tests/integration/test_deploy_url.py",
+      "line": 76,
+      "summary": "test_deploy_url no longer navigates the browser to the deploy URL or verifies the page loads correctly; the driver fixture is requested but never used.",
+      "failure_scenario": "The old test navigated the browser to the deploy URL and asserted the driver's current_url matched. The new test only checks that the frontend_url appears in sitemap.xml. If the SPA routing or static file serving is broken so that the deploy URL does not render in a browser, this test will not catch the regression.",
+      "finding_id": "mf-812bafc2a9addcf2e08d"
+    }
+  ]
+}

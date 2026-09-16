@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "src/tools/read.ts",
+      "line": 43,
+      "summary": "Unsafe property access `response.data.usage.tokens` in console.info crashes the process when Jina Reader API returns an error response where `usage` is missing — the throw in the 'end' callback is not caught by `req.on('error', reject)` and bypasses the safe `response.data?.usage?.tokens || 0` computation on the next line.",
+      "failure_scenario": "Jina Reader API returns an error response (e.g. HTTP 4xx) with body `{code: 400, status: 40000, data: null}`. `JSON.parse` succeeds casting to `ReadResponse`, then `console.info` accesses `response.data.usage.tokens` → `TypeError: Cannot read properties of null (reading 'usage')` thrown inside the 'end' event callback. The promise never resolves or rejects; the process crashes or the agent hangs indefinitely.",
+      "finding_id": "mf-b2c38038d079e5196eb0"
+    },
+    {
+      "file": "src/tools/search.ts",
+      "line": 40,
+      "summary": "Unsafe property access `item.usage.tokens` in console.info's map callback crashes the process when any Jina Search result item lacks a `usage` field — the safe optional chaining `item.usage?.tokens || 0` used in the `totalTokens` reduction on line 35 is inconsistently missing from the formatting line.",
+      "failure_scenario": "Jina Search API returns results where one item has no `usage` field (e.g. a sponsored or malformed result entry). The compute on line 35 safely returns 0 via `item.usage?.tokens || 0`, but the `console.info` on line 40 maps over `response.data` and accesses `item.usage.tokens` without optional chaining → `TypeError: Cannot read properties of undefined (reading 'tokens')` thrown in the 'end' callback. Same outcome as above: no resolve, no reject, process crash or hang.",
+      "finding_id": "mf-f748396ff5cc4f389f70"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 368,
+      "summary": "Pre-existing bug in touched function: `action.references.length` throws when the LLM returns an 'answer' action without the `references` array, because the schema marks references as conditionally required (only for the answer action) but the `required` array at line 162 only enforces `[\"action\", \"reasoning\"]`.",
+      "failure_scenario": "The LLM emits `{\"action\":\"answer\",\"answer\":\"The CEO is 42.\",\"reasoning\":\"...\"}` without the `references` key. `action.references` is `undefined`, so `action.references.length` throws `TypeError: Cannot read properties of undefined (reading 'length')` at line 368. This crashes the agent before it can log the answer or exit gracefully.",
+      "finding_id": "mf-b193b84c4dfcb32ce635"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 558,
+      "summary": "`tokenTracker.printSummary()` is never called when the while loop exits via token-budget exhaustion — it is only called at the two explicit answer exit points (lines 363, 385), missing the summary for the natural loop-termination path.",
+      "failure_scenario": "The agent runs many search/reflect/visit cycles until `totalTokens >= tokenBudget` (1,000,000), then the while loop exits at line 558 without printing the token usage summary. The caller `getResponse(question)` at line 577 receives `undefined` and the program ends silently. All the token tracking data collected through `tokenTracker.trackUsage()` is lost.",
+      "finding_id": "mf-40a26d33c3737278ed4a"
+    },
+    {
+      "file": "src/tools/dedup.ts",
+      "line": 86,
+      "summary": "Copy-paste duplication: the pattern of `console.debug` + `console.info` + `tokenTracker.trackUsage(<tool>, tokens)` is repeated verbatim across 6 tool files (dedup.ts, error-analyzer.ts, evaluator.ts, query-rewriter.ts, read.ts, search.ts) with only the tool name and format shape varying — every bugfix or tweak to this pattern must be applied 6 times.",
+      "failure_scenario": "The unsafe access bugs in read.ts and search.ts (findings above) exist because the formatting logic was hand-cloned rather than centralized. A shared helper (e.g. `trackAndLog(tool, usage, data, formatter)`) would have eliminated the inconsistency and made the unsafe-access impossible. Every future change to logging format or tracking behavior now risks divergence across the 6 modules.",
+      "finding_id": "mf-05ec75ad5345b6fc7887"
+    },
+    {
+      "file": "src/utils/token-tracker.ts",
+      "line": 35,
+      "summary": "`reset()` method is dead code — it is defined on the TokenTracker class but never called anywhere in the codebase, including after `printSummary()` at the two exit points.",
+      "failure_scenario": "If `getResponse()` is ever called multiple times (e.g. in a batch runner or test harness), token counts will accumulate across runs because `reset()` is never invoked. The summary at the second run's exit will include stale data from the first run.",
+      "finding_id": "mf-2c73adb157d0b95f15e9"
+    }
+  ]
+}

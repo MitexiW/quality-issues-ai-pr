@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user with wallet.total_balance = 0 (e.g. exhausted free tier) calls the endpoint with a valid API key. Previously the removed guard threw InsufficientBalanceError (402-style rejection) before any work; now assertUser() passes, the rate-limit gate passes, and the deep-research query runs to completion, with reportUsage decrementing total_balance into the negative (jina-ai/src/dto/jina-embeddings-auth.ts:272,289 only decrements; a repo-wide grep for total_balance finds no remaining > 0 gate). The middleware is mounted on the root app (jina-ai/src/server.ts:9), so this is the production billing gate — unpaid queries consume paid LLM/search resources.",
+      "file": "jina-ai/src/patch-express.ts",
+      "line": 37,
+      "summary": "The billing middleware no longer rejects users with zero or negative wallet balance, and no other code re-establishes this check."
+    },
+    {
+      "failure_scenario": "When the model's JSON fails schema validation, ObjectGeneratorSafe.handleGenerateObjectError (src/utils/safe-generator.ts:84-88) returns the raw JSON.parse output without zod validation. If that object is an answer whose references array contains an entry without a url (e.g. {\"exactQuote\":\"...\"} or url: null), buildMdFromAnswer throws TypeError (reading 'startsWith' of undefined), the app.ts catch swallows it, and a request that previously succeeded (old code rendered the reference with an \"(undefined)\" link) now returns a 500 error response or an error chunk in streaming mode.",
+      "file": "src/app.ts",
+      "line": 29,
+      "summary": "The new references guard calls ref.url.startsWith('http') without checking that url exists, so a reference entry missing url crashes the request."
+    },
+    {
+      "failure_scenario": "In beast mode, if the model returns JSON with a non-answer action (e.g. {\"action\":\"reflect\",\"questionsToAnswer\":[...]}), it fails the answer-only schema and the safe-generator's manual-parse fallback returns that unvalidated object as finalStep. The old code sent result.think in that case (`result.action === 'answer' ? buildMdFromAnswer(result) : result.think`), but the new code calls buildMdFromAnswer(finalStep as AnswerAction): answer.references is undefined so it returns answer.answer, also undefined, and the client receives `</think>\\n\\nundefined` as the final streamed answer. The non-stream branch at line 547 still keeps the action check, confirming the guard was dropped only here.",
+      "file": "src/app.ts",
+      "line": 501,
+      "summary": "The streaming path lost the result.action === 'answer' guard and unconditionally calls buildMdFromAnswer, so a non-answer final step yields the literal string \"undefined\" as the answer."
+    },
+    {
+      "failure_scenario": "The agent prompt (src/agent.ts getPrompt, <action-answer> section) instructs the model to \"use markdown footnote syntax like [^1], [^2] to refer to the references\". If the model returns references whose urls are not http-prefixed (hallucinated strings, scheme-less domains, or the manual-parse fallback output), the new guard returns answer.answer verbatim: the footnote-replacement logic (line 42) never runs, so the client receives an answer full of undefined footnote markers with no reference definitions. The old code rendered the references block whenever references.length > 0, so markers always had definitions.",
+      "file": "src/app.ts",
+      "line": 30,
+      "summary": "When the new all-or-nothing filter drops the references section, the raw answer still contains dangling [^n] footnote markers and unreplaced (REF_n) placeholders."
+    },
+    {
+      "failure_scenario": "When the loop breaks with isFinal = true, storeContext runs at line 677 and again at line 711 with the same prompt, schema, memory arrays, and totalStep (nothing changes between them except console.log), so prompt-<step>.txt, context.json, queries.json, questions.json, and knowledge.json are each written twice with identical content on every successful request. The old code called storeContext once on this path; the duplicate write was only introduced by the refactor that moved the call out of the else branch without removing the existing one.",
+      "file": "src/agent.ts",
+      "line": 711,
+      "summary": "On the successful answer path, storeContext is now called twice with identical arguments, duplicating all context file writes."
+    }
+  ],
+  "level": null
+}

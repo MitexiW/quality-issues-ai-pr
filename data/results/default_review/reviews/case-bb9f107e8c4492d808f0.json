@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "marimo/_ast/compiler.py",
+      "line": 271,
+      "summary": "toplevel_cell_factory pops the outermost decorator (index 0) instead of the innermost one being applied; when @app.function is stacked with other decorators the wrong decorator is stripped, leaving @app.function in the cell code",
+      "failure_scenario": "User writes '@pytest.mark.xfail(...)' above '@app.function' on the same function. toplevel_cell_factory calls inspect.getsourcelines, sees both decorators, pops the xfail decorator (index 0), and constructs cell_code still containing '@app.function'. If the marimo runtime ever executes this cell (e.g., because another cell depends on this function), '@app.function' resolves against the cell's execution scope where 'app' is not available, raising NameError.",
+      "finding_id": "mf-cc8ee5de592c4135f4c2"
+    },
+    {
+      "file": "marimo/_ast/app.py",
+      "line": 107,
+      "summary": "The new asdict() method filters out _toplevel_fn (and all _-prefixed keys), but generate_app_constructor relies on asdict() to emit the App constructor; _toplevel_fn=True is silently dropped on save, and on the next load+save cycle @app.function decorators revert to @app.cell wrappers",
+      "failure_scenario": "Create notebook with marimo.App(_toplevel_fn=True) and @app.function cells. First save produces file with @app.function decorators but marimo.App() without _toplevel_fn=True. Re-load the saved file in marimo, then re-save. generate_filecontents sees _toplevel_fn=False (default after load), so it outputs @app.cell wrappers, permanently losing the @app.function form.",
+      "finding_id": "mf-864adfa7259d1861b1c7"
+    }
+  ]
+}

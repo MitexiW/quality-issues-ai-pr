@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User follows the README and runs `LLM_PROVIDER=openai OPENAI_API_KEY=sk-... docker-compose up` without a Gemini key. The container receives OPENAI_API_KEY but no LLM_PROVIDER, so config.ts (line 60-66) defaults to 'gemini' and the startup check at line 135 throws \"GEMINI_API_KEY not found\" — the app crashes at boot despite a valid OpenAI key. If a Gemini key happens to be present, the app silently uses Gemini instead of the requested OpenAI provider, and the user cannot activate openai mode without hand-editing the compose file or Dockerfile.",
+      "file": "docker-compose.yml",
+      "line": 10,
+      "summary": "docker-compose.yml (and Dockerfile:18) forward OPENAI_API_KEY but not LLM_PROVIDER, so the new OpenAI provider feature cannot be activated through the documented Docker deployment path."
+    },
+    {
+      "failure_scenario": "In the standard environment (GEMINI_API_KEY set, LLM_PROVIDER unset), the 'with openai provider' suite silently calls Gemini and passes — an OpenAI-specific breakage (missing OPENAI_API_KEY, invalid model name, or a strict-mode structured-outputs failure in `createOpenAI`) ships green because the new openai code path in config.ts getModel is never executed. Conversely, in an OpenAI-only environment where LLM_PROVIDER is not exported, config.ts throws \"GEMINI_API_KEY not found\" at line 135 while the test file is loading, so all four test files crash at import before a single test (including the openai ones) can run.",
+      "file": "src/tools/__tests__/dedup.test.ts",
+      "line": 9,
+      "summary": "The new per-provider test parameterization is a no-op: the tool modules now freeze the LLM model at import time (`const model = getModel('dedup')` in src/tools/dedup.ts:8), while the test file's top-level `import { dedupQueries }` binds that module before `beforeEach` sets `process.env.LLM_PROVIDER`, and `jest.resetModules()` has no effect on the already-bound import — so both the 'gemini' and 'openai' describe blocks exercise the same provider; the identical pattern exists in error-analyzer.test.ts:9, evaluator.test.ts:10, and query-rewriter.test.ts:9."
+    }
+  ],
+  "level": null
+}

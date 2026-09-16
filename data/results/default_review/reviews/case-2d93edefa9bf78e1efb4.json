@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/ComposeActivity.java",
+      "line": 278,
+      "summary": "Submit button is no longer disabled during async submission, allowing users to double-tap and create duplicate posts or comments.",
+      "failure_scenario": "User fills in a comment form, taps Submit. The button shows a loading spinner but stays enabled. User accidentally taps Submit again before the network response arrives. Two identical comments or posts are submitted to Hacker News.",
+      "finding_id": "mf-baa7ab4723e2bf317723"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/FileDownloader.java",
+      "line": 68,
+      "summary": "Call to response.body().source() without a null check on response.body() will throw NullPointerException when the HTTP response has no body.",
+      "failure_scenario": "A file download request receives a response with no body (e.g., 204 No Content, or the server returns an error redirect). response.body() returns null, and .source() throws NullPointerException, crashing the app instead of calling onFailure gracefully.",
+      "finding_id": "mf-f171342f0e8e0c95fc20"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/FileDownloader.java",
+      "line": 65,
+      "summary": "Response object is never closed after the try/catch block because the 'finally { response.close(); }' block was removed, causing a resource leak on every download.",
+      "failure_scenario": "Each successful or failed file download leaks an OkHttp Response object (and its underlying socket/connection). Over repeated downloads, this accumulates unreleased native resources and socket connections, eventually degrading network performance or exhausting the connection pool.",
+      "finding_id": "mf-65c060400023c6b17038"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/FileDownloader.java",
+      "line": 67,
+      "summary": "BufferedSink is not closed when sink.writeAll() throws an IOException, because sink.close() is not inside a finally block.",
+      "failure_scenario": "A network error or disk-full condition causes sink.writeAll() to throw IOException after the sink is opened. The catch block fires onFailure, but sink is never closed, leaking the file handle and buffered data. On Android, repeated leaks can exhaust the per-process file descriptor limit, preventing any further file I/O.",
+      "finding_id": "mf-fdc96b066a9023e408ef"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/CommentsFragment.java",
+      "line": 1714,
+      "summary": "The 'break' in updateUserTags exits the loop after updating only the first matching comment; multiple comments by the same user remain displaying a stale tag until scrolled off-screen and back.",
+      "failure_scenario": "User 'alice' has comments at adapter positions 3, 7, and 12. The viewer tags 'alice'. updateUserTags refreshes position 3 (the first match) then breaks, leaving positions 7 and 12 still showing the old display name without the new tag. The stale comments only update when the user scrolls them out of view and back, or when the entire list is reloaded.",
+      "finding_id": "mf-97aea8ef0b2f12177151"
+    }
+  ]
+}

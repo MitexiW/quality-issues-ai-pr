@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "apps/web/middleware.ts",
+      "line": 26,
+      "summary": "New `if (path)` block always returns early, making all custom-domain verification, CORS, and redirect logic unreachable.",
+      "failure_scenario": "Any request to a custom domain (e.g. acme.cap.so) sets the `x-current-path` header and returns `NextResponse.next()` — the function never reaches the `mainDomains` check or the custom-domain CORS/verification/redirect paths. Custom domain users lose API CORS headers, domain-verification cookie caching, and incorrect-path redirects.",
+      "finding_id": "mf-4c24ce406a59f5c63483"
+    },
+    {
+      "file": "apps/web/app/dashboard/caps/components/CapCard.tsx",
+      "line": 238,
+      "summary": "CapCard URL generation drops the `domainVerified` guard; clicking a cap link for a space with an unverified custom domain navigates to the unverified domain.",
+      "failure_scenario": "A workspace has `customDomain = 'acme.com'` but `domainVerified = false`. The old SharedCapCard checked both before using the custom domain; the new CapCard uses `activeSpace?.space.customDomain` alone. The generated URL points to `https://acme.com/s/...`, which the middleware will redirect back to cap.so — a broken link loop.",
+      "finding_id": "mf-5a3f0ccfd8d19accd5ed"
+    },
+    {
+      "file": "apps/web/app/s/[videoId]/_components/AuthOverlay.tsx",
+      "line": 94,
+      "summary": "\"Or\" divider text has identical foreground and background colors (`text-gray-1` on `bg-gray-1`), rendering it invisible in any theme.",
+      "failure_scenario": "An unauthenticated user viewing a shared cap sees the AuthOverlay dialog. The \"Or\" separator between the Google sign-in button and the email form is invisible because the span has `bg-gray-1 text-gray-1` — both resolve to the same CSS variable, producing zero contrast.",
+      "finding_id": "mf-428d5e6c3aaefd72d1d2"
+    },
+    {
+      "file": "apps/web/app/dashboard/_components/DynamicSharedLayout.tsx",
+      "line": 57,
+      "summary": "useEffect cleanup unconditionally resets `document.body.className = 'light'` on theme change, causing a visible flash before the new theme class is applied.",
+      "failure_scenario": "User clicks the dark/light toggle. `setThemeHandler` sets body to 'dark' and updates state. React re-renders, runs the cleanup from the previous effect (body = 'light'), then runs the new effect body (body = 'dark'). The brief 'light' assignment between them produces a visible flash of the wrong theme.",
+      "finding_id": "mf-36d55aaacaf0656d5aef"
+    },
+    {
+      "file": "apps/web/app/dashboard/caps/components/EmptyCapState.tsx",
+      "line": 21,
+      "summary": "Heading text uses `text-gray-1` which in dark mode resolves to near-black, creating near-zero contrast against the dashboard's `bg-gray-1` container.",
+      "failure_scenario": "A new user with an empty dashboard sees the 'Hey! Record your first Cap' heading. In dark mode `gray-1` ≈ hsl(0,0%,8.5%), the heading text is effectively invisible on the identically-colored `bg-gray-1` content area.",
+      "finding_id": "mf-08b78a0f6e4f5d3b4f31"
+    },
+    {
+      "file": "apps/web/app/blog/[slug]/page.tsx",
+      "line": 94,
+      "summary": "`publishedAt` is read via `(post.metadata as any).publishedAt` with a fallback to `new Date().toISOString()`, silently showing the current time for any post whose metadata is missing the publish date.",
+      "failure_scenario": "A blog post has malformed frontmatter missing `publishedAt`. The destructured `publishedTime` is `undefined` but unused in the JSX; the inline `(post.metadata as any).publishedAt` also resolves to `undefined`, so the `||` fallback kicks in and every page view displays 'right now' as if the post was just published — misleading to readers.",
+      "finding_id": "mf-1fb47fb2d0f69fa237c8"
+    },
+    {
+      "file": "apps/web/app/dashboard/_components/actions.ts",
+      "line": 1,
+      "summary": "Server action `setTheme` is defined but never imported or called anywhere; the client-side `js-cookie` path in DynamicSharedLayout is the sole writer of the theme cookie, leaving this file as dead code.",
+      "failure_scenario": "No runtime failure, but the file adds confusion: two cookie-setting paths exist (server action vs. client js-cookie) and a future developer might wire this in, creating a race between server-side and client-side cookie writes.",
+      "finding_id": "mf-6e556d25334de4b2045c"
+    },
+    {
+      "file": "apps/web/app/login/form.tsx",
+      "line": 30,
+      "summary": "Login page reads theme from `localStorage` while the rest of the app reads it from a cookie, creating two conflicting sources of truth for the theme toggle.",
+      "failure_scenario": "User sets dark mode in the dashboard (writes cookie via js-cookie). User signs out and lands on `/login`. The cookie has theme='dark' and layout.tsx sets body class to 'dark'. But localStorage lacks a 'theme' key, so the login form defaults to 'light' and does NOT add `.dark` to `document.documentElement` — but body already has `.dark`. Radix dark selectors still match via body, so it mostly works, but the inconsistency means the HTML element never gets the `.dark` class that other CSS selectors might rely on.",
+      "finding_id": "mf-aee3f592b0a688fac756"
+    }
+  ]
+}

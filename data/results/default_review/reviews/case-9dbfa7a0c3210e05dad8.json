@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "python/langsmith/evaluation/_runner.py",
+      "line": 2008,
+      "summary": "Stale docstring on _get_target_args: says 'Whether the target function accepts attachments' but returns list[str] of arg names, not a bool",
+      "failure_scenario": "A reader sees the docstring and expects a boolean return, leading to confusion about the function's contract. The docstring was copy-pasted from the old _include_attachments function.",
+      "finding_id": "mf-d38c8de5f4114eaf1577"
+    },
+    {
+      "file": "python/langsmith/evaluation/_arunner.py",
+      "line": 1237,
+      "summary": "include_attachments parameter in _aforward is defined and passed by callers but never used in the function body (no attachment reader reset like sync _forward has)",
+      "failure_scenario": "Dead parameter -- the async path relies on _reuse_attachments caching to create fresh readers per use, but the parameter is accepted and ignored. If the caching mechanism is ever bypassed (e.g., reuse_attachments=False with num_repetitions>1), attachment readers would be exhausted on second use because _aforward never seeks back to 0, unlike the sync _forward which does. Currently masked because the reuse_attachments logic is correctly set for multi-use async scenarios, but the parameter is vestigial.",
+      "finding_id": "mf-8e61f70b0593041c28ec"
+    },
+    {
+      "file": "python/langsmith/evaluation/_runner.py",
+      "line": 2021,
+      "summary": "len(positional_params) == 0 raises ValueError for functions using *args (VAR_POSITIONAL param) -- valid Python signatures like def target(*args) are rejected",
+      "failure_scenario": "User passes def target(*args): ... as target. The function accepts arbitrary positional args but _get_target_args treats VAR_POSITIONAL params as non-existent, raising 'Target function must accept at least one positional argument (inputs)' even though *args does accept positional arguments. Pre-existing in old _include_attachments.",
+      "finding_id": "mf-b32b46e60bc479d2b482"
+    },
+    {
+      "file": "python/langsmith/evaluation/_runner.py",
+      "line": 1058,
+      "summary": "sync _evaluate never computes or passes reuse_attachments (defaults to False), while async _aevaluate properly computes reuse_attachments=num_repetitions*num_include_attachments>1",
+      "failure_scenario": "sync evaluate() with num_repetitions>1 and 2+ attachment consumers (target + evaluator): attachment readers are shared between repetitions without caching. The sync _forward's reader.seek(0) mitigates this in sequential mode but with max_concurrency>0, thread pool futures for successive repetitions of the same example could race on the same reader object. Pre-existing asymmetry.",
+      "finding_id": "mf-3e966efd8c79a04d09e8"
+    },
+    {
+      "file": "python/langsmith/evaluation/_runner.py",
+      "line": 1978,
+      "summary": "signature change removes type parameter from evaluators in _include_attachments and _evaluators_include_attachments: Optional[Sequence] replaces Optional[Sequence[Union[EVALUATOR_T, AEVALUATOR_T]]]",
+      "failure_scenario": "Type checkers lose visibility into evaluator element types, reducing the ability to catch incorrect evaluator arguments at static-analysis time. No runtime impact.",
+      "finding_id": "mf-23eb2ac409d281d1eb49"
+    },
+    {
+      "file": "python/tests/unit_tests/evaluation/test_runner.py",
+      "line": 1016,
+      "summary": "test_passing_kwargs_is_working now passes an async evaluator (_async_valid_mixed_positional_and_keyword_with_reference_outputs) to sync evaluate() without pre-normalization, relying on DynamicRunEvaluator.evaluate_run to use run_until_complete",
+      "failure_scenario": "If pytest-asyncio or any other framework has an active event loop when this sync test runs, DynamicRunEvaluator.evaluate_run will raise RuntimeError: 'Cannot call evaluate_run on an async run evaluator from within a running event loop'. The old test pre-normalized the evaluator outside evaluate(), but the behavior should be the same since normalization now happens inside evaluate(). Risk is low but the test now exercises a different code path.",
+      "finding_id": "mf-b9a7e7345a944f47f790"
+    }
+  ]
+}

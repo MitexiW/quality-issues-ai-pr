@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_static_workbench.py",
+      "line": 185,
+      "summary": "StaticStreamWorkbench.call_tool_stream does not resolve override names back to original tool names, unlike call_tool which correctly uses _override_name_to_original",
+      "failure_scenario": "User creates StaticStreamWorkbench(tools=[tool_named_double], tool_overrides={'double': ToolOverride(name='multiply_by_two')}). AssistantAgent checks isinstance(wb, StaticStreamWorkbench) and routes to call_tool_stream('multiply_by_two', ...). Line 185 does tool.name == name against the original tools list (which only has 'double'), so the tool is not found and an error result is returned instead of executing the tool.",
+      "finding_id": "mf-e8db48f2af5ead4d6a88"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/mcp/_workbench.py",
+      "line": 238,
+      "summary": "McpWorkbench.list_tools does not detect when an override renames a tool to a name that conflicts with another tool from the MCP server, producing duplicate names and silently unreachable tools",
+      "failure_scenario": "MCP server provides tools 'fetch' and 'search'. User passes tool_overrides={'fetch': ToolOverride(name='search')}. list_tools returns two ToolSchemas both named 'search'. call_tool('search', ...) resolves via _override_name_to_original to 'fetch', so the real 'search' tool is unreachable by its name. StaticWorkbench catches this at construction via existing_tool_names check, but McpWorkbench has no equivalent validation.",
+      "finding_id": "mf-fbe7f4d6aa8f1263b106"
+    }
+  ]
+}

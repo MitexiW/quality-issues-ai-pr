@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 134,
+      "summary": "setup_telemetry now unconditionally collects the machine hostname (host.name) and the list of imported libraries into the OTel Resource exported to https://otlp.agentops.ai, bypassing the SDK's public env_data_opt_out privacy flag.",
+      "failure_scenario": "A user calls agentops.init(env_data_opt_out=True), which the public API documents as 'opt out of collecting environment data' (agentops/__init__.py:72, agentops/config.py:94) and which agentops/helpers/system.py:134 get_host_env(opt_out) honors for exactly this kind of host data; the flag flows into TracingCore.initialize's kwargs but nothing in the new path reads it, so the hostname and library list are still attached to every exported span sent to AgentOps servers.",
+      "finding_id": "case-60517847296ec932aa51-f0001"
+    },
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 81,
+      "summary": "psutil.cpu_percent(interval=0.1) blocks the caller for 100 ms inside setup_telemetry, adding a guaranteed 100 ms stall to every agentops.init() call (and to any re-initialize after shutdown()), while holding the TracingCore._lock.",
+      "failure_scenario": "Every SDK initialization path (agentops.init() -> Client.init() -> TracingCore.initialize_from_config() -> setup_telemetry(), agentops/client/client.py:56) now takes an extra 100 ms of pure sleep, and the call also mutates psutil's process-global CPU-percent baseline, so the user's first subsequent psutil.cpu_percent() without an interval returns the delta since SDK init instead of since process start. A non-blocking interval=None read or a background sample would avoid both effects.",
+      "finding_id": "case-60517847296ec932aa51-f0002"
+    },
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 68,
+      "summary": "The platform.* calls at the top of get_system_stats are not wrapped in try/except, unlike the CPU and memory blocks right below them, so any exception from platform.machine()/node()/processor() (e.g. os.uname() or hostname lookup failing in restricted containers/sandboxes) aborts the whole telemetry setup instead of degrading gracefully.",
+      "failure_scenario": "In a seccomp-restricted container where os.uname() raises OSError, get_system_stats() raises out of setup_telemetry, TracingCore.initialize() fails, and agentops.init() throws with no fail_safe recovery, even though the adjacent CPU/memory collection was explicitly designed to tolerate per-block failures and continue.",
+      "finding_id": "case-60517847296ec932aa51-f0003"
+    },
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 40,
+      "summary": "The hardcoded builtin_modules set contains only ~15 names, so common standard-library modules (json, logging, argparse, pathlib, functools, itertools, threading, subprocess, random, uuid, typing, socket, inspect, traceback, asyncio, and agentops itself) are misreported as user-imported libraries in the telemetry.",
+      "failure_scenario": "A user's script containing only `import json` plus agentops produces an imported_libraries resource attribute containing 'json', 'psutil', 'opentelemetry' etc., polluting the exported data with stdlib noise; on Python 3.10+ the canonical sys.stdlib_module_names set should be used instead of a 15-entry hand-picked list.",
+      "finding_id": "case-60517847296ec932aa51-f0004"
+    },
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 46,
+      "summary": "get_imported_libraries only inspects sys.modules['__main__']'s namespace, so when the SDK is initialized from an imported app module (uvicorn/FastAPI worker, Jupyter kernel, pytest runner) the actual application's libraries are never captured, and routine patterns like `import torch` plus `from torch import nn` produce duplicate entries.",
+      "failure_scenario": "A FastAPI app module does `import pandas` and calls agentops.init(); __main__ is the uvicorn launcher, so the exported imported_libraries attribute lists 'uvicorn'/'click' but not 'pandas' or 'fastapi' — the feature silently reports the wrong program's dependencies (and would list 'torch' twice for any submodule import).",
+      "finding_id": "case-60517847296ec932aa51-f0005"
+    },
+    {
+      "file": "agentops/semconv/resource.py",
+      "line": 33,
+      "summary": "The new resource attribute keys are not OpenTelemetry semantic conventions (standard keys are host.arch/host.name/host.id/os.type/os.name/os.version; there is no host.machine, host.node, host.processor, host.system, host.version, host.os_release, cpu.count, cpu.percent, memory.total or imported_libraries), so standard OTel backends and dashboards will not recognize them, and HOST_NAME and HOST_NODE are both set to the same platform.node() hostname value.",
+      "failure_scenario": "Spans exported to any standard OTel consumer (Jaeger, Grafana, Datadog OTLP ingest) show these resource attributes only as opaque custom keys — host.system='Linux' is never mapped to os.type, host.os_release is never mapped to os.version — and host.node redundantly duplicates host.name with the hostname rather than any node identifier, so the collected data is either ignored or misgrouped by standard tooling.",
+      "finding_id": "case-60517847296ec932aa51-f0006"
+    },
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 61,
+      "summary": "get_system_stats re-implements host/CPU/RAM collection that agentops/helpers/system.py already provides (get_os_details, get_cpu_details, get_ram_details, wired together under get_host_env's opt_out flag), creating a second, diverging collector for the same data.",
+      "failure_scenario": "Host information is now gathered in two independent code paths that will drift (helpers/system.py formats values as human-readable strings and supports opt-out; the new core.py path emits raw numbers unconditionally), so fixes to one path — e.g. adding an opt-out hook for hostname or memory data in the helpers — will silently fail to protect the telemetry path, which is the one actually exported on every span.",
+      "finding_id": "case-60517847296ec932aa51-f0007"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "affinity/src/main/java/net/openhft/affinity/lockchecker/FileLockBasedLockChecker.java",
+      "line": 118,
+      "summary": "Dual-lock failure leaks the first CPU's FileChannel, FileLock, and lock file because releaseLock(id) is called before locks[id] was assigned",
+      "failure_scenario": "Two processes share an HT box. Process A locks CPU 4 independently. Process B calls acquireCore(), trying to lock core 0 (CPUs 0 and 4). tryAcquireLockOnFile(0) succeeds, producing a valid lockReference. tryAcquireLockOnFile(4) then fails (returns null) because Process A holds the lock on CPU 4. At line 118, releaseLock(0) is called, but locks[0] is null (never assigned at lines 113-115 since that code only runs when BOTH locks succeed). releaseLock(0) checks locks[0] != null at line 184, finds null, returns false without closing the live FileChannel + FileLock in lockReference or deleting the lock file. The lockReference variable falls out of scope on line 121 with the channel+lock still open. CPU 0's lock file remains on disk with an exclusive OS file lock held until JVM exit or GC-triggered Cleaner close, which is indefinite. All subsequent attempts to acquire CPU 0 (by any process) fail permanently.",
+      "finding_id": "mf-8e4fadb48b7f06b03070"
+    }
+  ]
+}

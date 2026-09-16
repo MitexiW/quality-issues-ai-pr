@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "With LocalAPI(in_process=False): register model A, then register model B. Creating B's ModelService runs subprocess.run(['pkill', '-9', 'model-service']) (src/art/local/api.py:91), killing A's serving child process, while self._services still caches A's proxy to the dead process. A's openai_client() then points at a dead server and every chat.completions.create fails with a connection error. The old get_or_create_model had no side effects and only started the server on the first openai_client() call, so merely declaring/registering models could never break each other.",
+      "file": "src/art/model.py",
+      "line": 54,
+      "summary": "register_for_training eagerly starts the OpenAI inference server (vLLM boot, model load into GPU, and, for non-in-process APIs, 'pkill -9 model-service'), so registering a second model kills the first model's serving process while its cached service proxy stays alive, breaking the first model's client."
+    },
+    {
+      "failure_scenario": "A caller upgraded from the previous release writes TrainableModel(name='x', project='y', base_model='Qwen/Qwen2.5-7B-Instruct', _config={'init_args': {'max_seq_length': 8192}}). Pydantic v2 drops the undeclared _config kwarg, _internal_config stays None, and get_model_config applies defaults (max_seq_length=32768, gpu_memory_utilization=0.79, num_scheduler_steps=16), so training silently runs with the wrong configuration (e.g. OOM on a T4) instead of surfacing the migration error.",
+      "file": "src/art/model.py",
+      "line": 36,
+      "summary": "The constructor parameter was renamed from _config to _internal_config, and because Model is now a pydantic model whose default extra='ignore' silently discards unknown keyword arguments, code migrating from the previous API that still passes _config={...} loses its training config with no error."
+    },
+    {
+      "failure_scenario": "m = art.Model(name='prompted', project='x', base_url='http://localhost:8000/v1', api_key='k'); m.openai_client() raises ValueError: 'Model is not registered with the API. You must call model.register_for_training() first.' Following the instruction fails with AttributeError because Model has no register_for_training method and LocalAPI.register_for_training only creates a directory (it never sets _api/_openai_client), so the prompted-model path described by the base_url/api_key fields (src/art/model.py:20-24) is unimplemented.",
+      "file": "src/art/model.py",
+      "line": 67,
+      "summary": "A plain Model instance (the exported base class whose base_url/api_key fields the comment advertises for prompted models) can never obtain a client: openai_client() raises a ValueError telling the user to call model.register_for_training(), but that method only exists on TrainableModel, and nothing in the codebase ever reads Model.base_url or Model.api_key."
+    }
+  ],
+  "level": null
+}

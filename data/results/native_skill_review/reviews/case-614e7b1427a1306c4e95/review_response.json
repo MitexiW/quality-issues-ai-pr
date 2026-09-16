@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Publisher sets pbjs.setConfig({ bidmatic: { chunkSize: 0 } }) with at least one bid request: chunk() computes Math.ceil(n/0) = Infinity and loops i < Infinity forever, pushing array.slice(0,0) empty chunks each iteration until the tab freezes/OOMs. With chunkSize: -1 or a non-numeric value, Math.ceil(n/x) is negative/NaN so the loop never runs, chunk() returns [], buildRequests returns [], and the core treats it as 'no requests' — the adapter silently never calls the bidder, with no error surfaced.",
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 50,
+      "summary": "Unvalidated chunkSize adapter config can make chunk() loop forever (size 0) or silently send no requests at all (NaN/negative), freezing the page or dropping every bid."
+    },
+    {
+      "failure_scenario": "Viewport 800px, page scrolled 4000px, element below the fold at rect.top=1200 with height 200: elementMiddle=1300, boundary = 4000+800=4800, so the element is misclassified as 'above the viewport' and DistanceToView: 1300 (positive) is sent instead of a below-fold distance. In-view elements also return positive values although the code comment defines above-viewport as negative. The server's floor/viewability decisioning receives systematically incorrect values on every page with scrollY > 0.",
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 265,
+      "summary": "getViewableDistance mixes viewport-relative elementRect.top with document-relative window.scrollY + viewportHeight, so DistanceToView values sent to the server are wrong on any scrolled page."
+    },
+    {
+      "failure_scenario": "On a TCF-enabled page, the server responds with cookieURLs: ['https://sync.bidmatic.com/sync'] without consent parameters: getUserSyncsFn registers the URL unchanged and the pixel/iframe fires without the consent strings the removed code always appended (old tests asserted gdpr=1&gdpr_consent=..., usp=..., gpp=... in sync URLs and were deleted with it). Nothing in the new code re-establishes this invariant client-side — consent is only sent on the auction POST body, so syncs lose legal basis and partner match rates unless the server bakes consent into the returned URLs.",
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 99,
+      "summary": "The deleted createUserSyncs appended gdpr/gdpr_consent/usp/gpp/gpp_sid to every user-sync URL; the new getResponseSyncs registers server-returned cookieURLs verbatim, so consent strings are no longer guaranteed on sync calls."
+    },
+    {
+      "failure_scenario": "The old buildRequests posted to https://adapter.bidmatic.io with withCredentials: true; the new request objects carry no options, so the cross-origin XHR to the same host is sent without third-party cookies. If the endpoint (or the sync flow that shares the host) relies on cookies for user matching or session state, that state is silently lost — no code in the diff re-establishes the credential-sending behavior.",
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 53,
+      "summary": "Deleted options: { withCredentials: true } from the bidder request; the new POST to the same host sends no cookies, breaking any cookie-based identification the endpoint relied on."
+    }
+  ],
+  "level": null
+}

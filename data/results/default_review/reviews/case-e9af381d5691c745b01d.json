@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/agents/repl.py",
+      "line": 44,
+      "summary": "Duplicate text output in streaming mode (the default): raw delta events print incremental text, then the message_output_item RunItemStreamEvent prints the same full text again via ItemHelpers.text_message_output",
+      "failure_scenario": "Any streaming REPL session (the default since stream=True) prints every agent response twice -- once character-by-character from ResponseTextDeltaEvent deltas (line 47), and again as the full assembled message when the message_output_item event arrives (line 54). The user sees garbled duplicate output for every turn.",
+      "finding_id": "mf-cc4c0a049d76e337870a"
+    },
+    {
+      "file": "src/agents/repl.py",
+      "line": 43,
+      "summary": "No exception handling around Runner.run_streamed() or Runner.run() -- any agent exception (MaxTurnsExceeded, guardrail tripwires, ModelBehaviorError, etc.) crashes the entire REPL instead of printing an error and continuing the loop",
+      "failure_scenario": "After 10 conversation turns with the default max_turns, a MaxTurnsExceeded exception is raised -- it propagates uncaught out of the while-loop, crashes the REPL, and discards all conversation state. Same behavior for guardrail tripwires or any other AgentsException.",
+      "finding_id": "mf-94d9804459d6ecc5c5d4"
+    },
+    {
+      "file": "src/agents/repl.py",
+      "line": 36,
+      "summary": "Whitespace-only input (e.g. spaces, tabs) bypasses the empty-input guard because 'if not user_input' checks the raw string, while the exit check uses strip().lower() -- result: a whitespace-only content message is sent to the agent",
+      "failure_scenario": "User types three spaces and presses Enter. user_input = '   '. '   '.strip().lower() = '' which is not in {'exit', 'quit'}, so the exit check does not break. 'not \"   \"' is False, so the empty-input guard does not trigger. The loop proceeds to append {'role': 'user', 'content': '   '} to input_items and sends a whitespace-only message to the model.",
+      "finding_id": "mf-421f00776fdb3cbe6176"
+    }
+  ]
+}

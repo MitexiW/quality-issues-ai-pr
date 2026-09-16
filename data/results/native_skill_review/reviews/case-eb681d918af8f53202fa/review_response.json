@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable s' at lines 362, 363, and 379 of needsQuotes. Since needsQuotes is called by escape() and asText(), every YAML/JSON text write path (e.g., writing a map with a string value) is dead — the whole module cannot be built.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWireOut.java",
+      "line": 362,
+      "summary": "Incomplete rename: needsQuotes parameter was renamed 's' to 'text', but three references to 's' remain, so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable s' at lines 276, 277, 282, 283, 305, and 311 of the static method readNumberOrTextFrom (no field 's' exists and instance fields are inaccessible from a static method). Every YAML scalar read that goes through readNumberOrText (e.g., parsing '42' or a quoted string) cannot build.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 276,
+      "summary": "Incomplete rename: readNumberOrTextFrom parameter was renamed 's' to 'inputTextBuilder', but six references to 's' remain, so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable type' at lines 2313 (readSequence(type)), 2322 (type == Class.class), and 2324 (ObjectUtils.convertTo(type, o)). No 'type' field exists in YamlWire, TextValueIn, or its superclasses, so any inferred-type object read (sequences, Class values, TEXT conversion) cannot build.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 2313,
+      "summary": "Incomplete rename: objectWithInferredType0 parameter was renamed 'type' to 'defaultType', but three references to 'type' remain, so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable targetBuffer' in read(String) at line 856 (StringUtils.startsWith(targetBuffer, \"-\")). The original code used the YamlWireOut field 'sb' (still declared, line 85 of YamlWireOut.java), which the rename missed. The primary keyed-read path used by all generated marshallable readers cannot build.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 856,
+      "summary": "Incomplete rename: read(String keyName) now references 'targetBuffer', which is not declared in that method or as a field, so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable targetBuffer' in checkForMatch at lines 907-909 and 916. The original code used the YamlWireOut field 'sb'; the rename left the method with no in-scope identifier. Key-name matching for every YAML field read cannot build.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 907,
+      "summary": "Incomplete rename: checkForMatch now references 'targetBuffer', which is not declared in that method or as a field, so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable targetBuffer' in textTo0 at lines 1293, 1295, and 1306. The original code used the YamlWireOut field 'sb'; after the rename there is no in-scope name. Reading any YAML text containing anchors (&a ...) or aliases (*a) cannot build.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 1293,
+      "summary": "Incomplete rename: textTo0's ANCHOR and ALIAS cases reference 'targetBuffer', which is not declared in that method (the parameter is 'destinationBuilder'), so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable targetBuffer' in reset() at line 1123 (targetBuffer.setLength(0)). The original code cleared the YamlWireOut field 'sb'. reset() is called on every wire reuse/recycle (e.g., Wire.newYamlWireOnHeap() reuse in tests and frameworks), and the class cannot build with this reference.",
+      "file": "src/main/java/net/openhft/chronicle/wire/YamlWire.java",
+      "line": 1123,
+      "summary": "Incomplete rename: reset() now references 'targetBuffer', which is not declared in that method or as a field, so the code no longer compiles."
+    },
+    {
+      "failure_scenario": "javac fails with 'cannot find symbol: variable clazz' at lines 3066, 3076, 3086, and 3098 of TextWire's readSequence (no 'clazz' field or outer-scope variable exists in TextWire or its superclasses; the only other 'clazz' is a parameter of the unrelated demarshallable method). Reading any TextWire '[...]' sequence (String[], List, Set, or the unsupported-type error path) cannot build.",
+      "file": "src/main/java/net/openhft/chronicle/wire/TextWire.java",
+      "line": 3066,
+      "summary": "Incomplete rename: readSequence parameter was renamed 'clazz' to 'targetSequenceType', but four references to 'clazz' remain, so the code no longer compiles."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,95 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "GET /login: LoginPage (apps/web/app/login/page.tsx) server-renders <LoginForm/>, so `localStorage.getItem(\"theme\")` runs in Node 20 (the version pinned in package.json engines) where localStorage is undefined → `ReferenceError: localStorage is not defined` → the sign-in page returns a 500 instead of the form. Even in the browser the value is always null (nothing ever calls localStorage.setItem(\"theme\"); DynamicSharedLayout writes the js-cookie \"theme\" cookie instead), so the dark-mode branch can never activate.",
+      "file": "apps/web/app/login/form.tsx",
+      "line": 30,
+      "summary": "Client component reads localStorage during render, which throws during Next.js server rendering of /login."
+    },
+    {
+      "failure_scenario": "Any request, e.g. https://custom.example.com/s/abc, has pathname \"/s/abc\" (truthy), so the middleware returns `NextResponse.next()` immediately. Unverified/unknown custom domains are no longer redirected to cap.so, the `verified_domain` cache cookie is never set, and the Access-Control-* headers for /api/* on custom domains are never emitted, breaking CORS for every custom-domain API call.",
+      "file": "apps/web/middleware.ts",
+      "line": 26,
+      "summary": "New `if (path)` early return always fires (url.pathname is never empty), making every custom-domain check below it unreachable."
+    },
+    {
+      "failure_scenario": "The comment textarea is `bg-gray-1` + `text-gray-1` (both #fcfcfc in the light theme), so a signed-in user types a comment and sees nothing. The same remap hides previously dark text in EmptyCapState.tsx:21 (\"Hey! Record your first Cap\"), DocsPage.tsx:33/42, CustomDomain.tsx:323/329/357 (Type/Name/Value labels), Logo.tsx:65/74 (version label) and Transcript.tsx:251/295.",
+      "file": "apps/web/app/s/[videoId]/_components/tabs/Activity.tsx",
+      "line": 105,
+      "summary": "Old dark text colors were remapped to `gray-1`, the lightest surface token in the new Radix scale, so the text becomes invisible on light backgrounds."
+    },
+    {
+      "failure_scenario": "apps/desktop/tailwind.config.js loads @cap/ui-solid/tailwind, whose theme defines only gray-50..500/blue-50..400 — there is no gray-1 or gray-8 key, so `bg-gray-1` and `disabled:text-gray-8` emit no CSS in the desktop build: the `white`-variant Export button (apps/desktop/src/routes/recordings-overlay.tsx:370) loses its background, and disabled buttons (e.g. apps/desktop/src/routes/(window-chrome)/settings/hotkeys.tsx:169) keep their enabled text color instead of the disabled one. SwitchTab.tsx:21/38 has the same undefined tokens (currently unused export).",
+      "file": "packages/ui-solid/src/Button.tsx",
+      "line": 20,
+      "summary": "Classes renamed to gray-1/gray-8 tokens that do not exist in the Tailwind config consumed by the desktop app, so the utilities are never generated."
+    },
+    {
+      "failure_scenario": "The dashboard nav renders `<button class=\"mt-3 w-full\"><button class=\"…\">Add new space</button></button>`; the HTML parser closes the outer button before the inner one, so React logs a hydration mismatch (React 18 validateDOMNesting) and the click that should open the create-space dialog can fire on both the inner button and the outer trigger.",
+      "file": "apps/web/app/dashboard/_components/AdminNavbar/AdminNavItems.tsx",
+      "line": 158,
+      "summary": "Radix DialogTrigger (renders a <button>) now wraps a Button component ({variant=\"dark\"}) that also renders a <button>, producing invalid nested buttons."
+    },
+    {
+      "failure_scenario": "`<Logo white />` at apps/web/app/s/[videoId]/_components/ShareVideo.tsx:1432 (the watermark drawn over the video player) renders the \"Cap\" wordmark with `var(--gray-12)` (near-black in the light theme) instead of #ffffff, so the watermark is dark/wrong over video content; the class wins over `fill={white ? \"#ffffff\" : \"#12161F\"}` for every caller.",
+      "file": "packages/ui/src/components/icons/Logo.tsx",
+      "line": 56,
+      "summary": "Added `className=\"fill-gray-12\"` overrides the SVG `fill` presentation attribute, so the `white` prop no longer applies to the wordmark."
+    },
+    {
+      "failure_scenario": "Collapse the sidebar (or press Cmd/Ctrl+Shift+S) and reload the dashboard: `useState(false)` always re-expands it while line 17 keeps writing localStorage, so the persisted preference is never read and the sidebar snaps back on every load/navigation.",
+      "file": "apps/web/app/dashboard/_components/AdminNavbar/AdminDesktopNav.tsx",
+      "line": 14,
+      "summary": "Initial collapse state no longer restores the persisted `sidebarCollapsed` value that toggleCollapse still writes."
+    },
+    {
+      "failure_scenario": "On /dashboard with a theme=dark cookie, `headers().get(\"x-current-path\")` returns undefined (middleware only does `response.headers.set`, which is not visible to `headers()`) → `isPathDashboard` is falsy → `<body className=\"light\">` is server-rendered and the `theme` cookie read at lines 49-50 is dead code, so dark-mode users see a flash of the light theme until DynamicSharedLayout's client effect applies the cookie.",
+      "file": "apps/web/app/layout.tsx",
+      "line": 43,
+      "summary": "The layout reads `x-current-path` from request headers, but middleware sets it on the response, so `isPathDashboard` is always undefined."
+    },
+    {
+      "failure_scenario": "A space whose custom domain DNS is not verified: SharedCapCard now delegates to CapCard and links to `https://<unverified-domain>/s/<id>`; the previous SharedCapCard code required `activeSpace.space.domainVerified` and fell back to cap.link/NEXT_PUBLIC_WEB_URL, so shared-cap links now point at a host that does not serve the app.",
+      "file": "apps/web/app/dashboard/caps/components/CapCard.tsx",
+      "line": 238,
+      "summary": "capUrl now checks only `activeSpace.space.customDomain`; the `domainVerified` guard the shared-cap card used to apply was dropped."
+    },
+    {
+      "failure_scenario": "Dead code introduced by the change: a repo-wide search for `setTheme` finds only DynamicSharedLayout's unrelated state setter/setThemeHandler and the desktop Tauri command, so this module adds a second, untested cookie-writing path (without expiry) that nothing uses; the file also has no trailing newline.",
+      "file": "apps/web/app/dashboard/_components/actions.ts",
+      "line": 4,
+      "summary": "New \"use server\" setTheme action is never imported or called anywhere; the theme is actually written by js-cookie inside DynamicSharedLayout."
+    },
+    {
+      "failure_scenario": "For a TableCell containing `[role=checkbox]`, `selection:[&:has([role=checkbox])]:pr-0` compiles to a `::selection` descendant rule instead of the previous `[&:has([role=checkbox])]:pr-0`, so the cell keeps the default p-2 padding and the intended right-padding/translate adjustments no longer apply to checkbox selects.",
+      "file": "packages/ui/src/components/Table.tsx",
+      "line": 96,
+      "summary": "A `selection:` variant was accidentally prefixed to the checkbox-cell padding reset, turning it into a ::selection rule that never matches."
+    },
+    {
+      "failure_scenario": "React may invoke a state updater more than once (StrictMode double-invoke in dev) or discard a render, so `animateDirection`/`previousCountRef` are mutated for updates that never commit while `newSelection.length > prev.length` is computed from the double-invocation; `previousCountRef.current` (line 102) has no reader anywhere, so it is dead state.",
+      "file": "apps/web/app/dashboard/caps/Caps.tsx",
+      "line": 103,
+      "summary": "setAnimateDirection (and a previousCountRef write) is invoked inside the setSelectedCaps updater, which React requires to be pure — and previousCountRef is never read."
+    },
+    {
+      "failure_scenario": "Tailwind preflight sets border-width: 0, and the class string \"relative p-6 w-full max-w-lg rounded-xl shadow-lg bg-gray-7 border-gray-9\" contains no border-width class, so every dialog renders without the intended gray-9 outline (the old class set had no border either, so the newly added color token never takes effect).",
+      "file": "packages/ui/src/components/Dialog.tsx",
+      "line": 34,
+      "summary": "DialogContent sets `border-gray-9` but no `border`/`border-[1px]` width utility, so the border color is a no-op."
+    },
+    {
+      "failure_scenario": "With theme === \"dark\", AdminMobileNav line 65 renders faSun while DashboardInner line 67 renders faMoon for the identical state and click behaviour; one of the two toggles therefore displays the wrong glyph (state indicator vs. action target), giving contradictory affordances in the same app.",
+      "file": "apps/web/app/dashboard/_components/AdminNavbar/AdminMobileNav.tsx",
+      "line": 65,
+      "summary": "Desktop and mobile theme toggles use opposite icon semantics for the same state."
+    },
+    {
+      "failure_scenario": "All four emails render `<Tailwind>` with no custom config (React Email uses Tailwind's default theme, which has gray-50..950 but no gray-1), so `bg-gray-1` produces no CSS and the Body background silently reverts to the mail client's default — in dark-mode or non-white clients the message loses the intended white body. Same change in first-shareable-link.tsx:29, new-comment.tsx:35 and workspace-invite.tsx:31.",
+      "file": "packages/database/emails/login-link.tsx",
+      "line": 29,
+      "summary": "Email bodies switched from `bg-white` to `bg-gray-1`, a token that React Email's default Tailwind theme does not contain, so no background rule is emitted."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "BinaryWire.int128forBinding(long value, long value2) writes the first parameter at offset 0 and the second at offset 8, and BinaryWireWithMappedBytesTest confirms positional mapping: int128forBinding(4, 5) yields getValue()==4, getValue2()==5. Under Chronicle's two-long convention the word at the lower address (getValue(), offset 0) is the least-significant word and getValue2() is the most-significant. The new names assert the opposite, so a caller who follows the renamed parameter hints and passes the high word first (int128forBinding(hi, lo, ref)) silently writes the words swapped: the value composed later as (getValue2() << 64 | getValue()) is corrupted, e.g. 0x0000000000000001_0000000000000002 comes back as 0x0000000000000002_0000000000000001. The javadoc text above the declaration does not mention high/low, so these parameter names are now the only (wrong) statement of the argument order in the public API.",
+      "file": "src/main/java/net/openhft/chronicle/wire/ValueOut.java",
+      "line": 368,
+      "summary": "The rename of int128forBinding's parameters to (long highBits, long lowBits, TwoLongValue value) inverts the actual word order: the first parameter is written at the lower address and read back as TwoLongValue.getValue(), which is the low-order word, so the first parameter is the low bits and the second is the high bits."
+    },
+    {
+      "failure_scenario": "The changed line renames the parameter x to value and updates '@param value value to write', but lines 154 and 158 still document {@code x}. The rendered javadoc for int8(long value) therefore describes a parameter named x that does not exist while documenting value separately - a reader cannot tell which argument the range-check condition refers to. This violates the repo's AGENTS.md javadoc rule 'Leave stale comments that now contradict the code' and leaves the published API documentation of ValueOut.int8 internally inconsistent after the rename.",
+      "file": "src/main/java/net/openhft/chronicle/wire/ValueOut.java",
+      "line": 156,
+      "summary": "The int8 javadoc rename updated only the @param tag to 'value' but left the summary ('Writes {@code x} as a signed 8-bit value') and the @throws clause ('ArithmeticException if {@code x} does not fit in a byte') referencing the now-nonexistent parameter name x, leaving the public API docs self-contradictory."
+    }
+  ],
+  "level": null
+}

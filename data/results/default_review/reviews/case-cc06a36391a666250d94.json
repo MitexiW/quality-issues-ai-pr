@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/generators.cpp",
+      "line": 151,
+      "summary": "dlopen flag changed from RTLD_DEEPBIND to RTLD_LOCAL, removing symbol isolation for the CUDA helper shared library on Linux",
+      "failure_scenario": "If libonnxruntime-genai-cuda.so exports a symbol (e.g. malloc or an ONNX Runtime internal) that also exists in the main genai binary or another loaded library, the CUDA library's internal calls to that symbol will resolve to the global definition instead of its own. This can cause silent memory corruption, incorrect computation results, or crashes on CUDA-enabled Linux systems.",
+      "finding_id": "mf-6ffea054989cf6bd8eb1"
+    },
+    {
+      "file": "src/generators.cpp",
+      "line": 468,
+      "summary": "Removed validation that temperature > 0.0; negative temperature values now pass silently into the sampling code producing invalid softmax distributions",
+      "failure_scenario": "A user sets temperature = -0.5 with do_sample=true and top_k=5. The removed check at line 477-478 in the old code would have thrown 'temperature must be greater than 0'. The new code enters sampling at lines 483-489, where negative temperature inverts probability ordering in the softmax, producing a near-uniform or nonsensical token distribution.",
+      "finding_id": "mf-ada9839f899a44c1c1d9"
+    },
+    {
+      "file": "src/ort_genai_c.cpp",
+      "line": 499,
+      "summary": "OgaTokenizerDecodeBatch unconditionally calls GetTensorData<int32_t>() without verifying the tensor element type is int32",
+      "failure_scenario": "A caller passes an OgaTensor containing float32 data to OgaTokenizerDecodeBatch. The function at line 499 interprets the float bytes as int32_t token IDs. Each 4-byte float value like 1.0f (0x3F800000) is reinterpreted as token ID 1065353216, producing garbage decoded strings or out-of-range token lookups.",
+      "finding_id": "mf-742dfdea2e41866007d0"
+    },
+    {
+      "file": "src/smartptrs.h",
+      "line": 139,
+      "summary": "ExternalRefCounted::ExternalAddRef has a TOCTOU race between the atomic increment and the external_owner_ assignment",
+      "failure_scenario": "Thread A calls ExternalAddRef (ref_count_: 0->1, enters the 'if == 1' branch but hasn't set external_owner_ yet). Thread B concurrently calls ExternalRelease (ref_count_: 1->0, enters 'if == 0' branch, sets external_owner_ = nullptr). Thread A then sets external_owner_ = shared_from_this(), but now ref_count_ is 0 so this reference will never be released. The object is leaked (or worse, if Thread B's path already destroyed the object, this is use-after-free).",
+      "finding_id": "mf-4fdd5f1a8c68e4e08837"
+    },
+    {
+      "file": "src/models/onnxruntime_inline.h",
+      "line": 109,
+      "summary": "Ort::SizeOf returns sizeof(int64_t) instead of sizeof(uint64_t) for the uint64_t ONNX element type",
+      "failure_scenario": "While sizeof(int64_t) == sizeof(uint64_t) == 8 on all supported platforms, this is semantically wrong. If future platform or compiler changes make them differ, or if debugging tools inspect the return value, the mismatch would cause confusion. Any code that accumulates size values assuming signed/unsigned correctness could also be affected.",
+      "finding_id": "mf-9d936bbf71f3b303ab97"
+    }
+  ]
+}

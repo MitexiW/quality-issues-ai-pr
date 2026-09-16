@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Config {\"proxy\": [\"none\", \"http://proxy:8080\"]} (or DDNS_PROXY='NONE;DIRECT'): Config._get only applies is_false() to the whole value, so the list items survive; _proxy_handler() sees no '://' and logs 'Legacy proxy format', converting the entry to 'http://none'. The request then first DNS-resolves host 'none' (2 retries with 2 s/4 s sleeps because _http uses retries=2) before the real proxy/DIRECT entry is used; before this change (removed line 88 old: `[None if not p or p.upper() in (\"DIRECT\", \"NONE\") else p ...]`) that entry simply meant no explicit proxy. With the updated tests preserving 'NONE'/'none' (tests/test_config_config.py:132-133) the bogus attempt is now the expected behavior.",
+      "file": "ddns/config/config.py",
+      "line": 88,
+      "summary": "Dropping the per-item proxy normalization lets 'NONE'/'none'/'false' entries fall through to _proxy_handler, which rewrites them into a bogus proxy host instead of meaning 'no explicit proxy'."
+    },
+    {
+      "failure_scenario": "Existing integration code calling `CloudflareProvider(id, token, verify_ssl=False)` (or any SimpleProvider subclass; SimpleProvider is exported from ddns.provider) still constructs successfully, but `verify_ssl` lands in `provider.options` and `self._ssl` stays the default 'auto'. TLS verification therefore remains enabled, so a previously working self-signed/private API endpoint starts failing with CERTIFICATE_VERIFY_FAILED and the ignored option never appears in any error or log.",
+      "file": "ddns/provider/_base.py",
+      "line": 110,
+      "summary": "Renaming the public constructor keyword `verify_ssl` to `ssl` silently breaks external callers because the old keyword is swallowed by `**options` instead of raising a TypeError."
+    },
+    {
+      "failure_scenario": "request(\"GET\", url, proxies=[\"t\"]) — a legacy bare-host proxy entry, as is also produced for values like 'D', 'IR', 'REC', 'ECT' after .upper(): `'T' in 'DIRECT'` is True, so _proxy_handler returns ProxyHandler({}) and the request goes direct through no proxy at all, with no warning, instead of using the configured proxy; the intended exact-match comparison never runs. Fix is `(\"DIRECT\",)`.",
+      "file": "ddns/util/http.py",
+      "line": 54,
+      "summary": "`proxy.upper() in (\"DIRECT\")` is a substring test (parenthesized string, not tuple), so proxy entries that are substrings of 'DIRECT' are silently treated as a direct connection."
+    },
+    {
+      "failure_scenario": "A config containing \"proxy\": \"direct\" (runtime matches keywords case-insensitively via proxy.upper(), and the updated tests/test_config_config.py:132 assert lowercase 'direct' is valid), \"proxy\": \"system\", \"proxy\": \"myproxy\" (legacy host form handled by _proxy_handler), or \"proxy\": \"\" (old pattern `^[a-zA-Z0-9\\-;_\\.]*$` allowed it and the runtime maps it to no proxy) now fails JSON-Schema validation for anyone using `$schema`, so editors/CI report errors on configurations that work at runtime.",
+      "file": "schema/v4.1.json",
+      "line": 433,
+      "summary": "The new proxy pattern (also used for provider-level proxy and items) is stricter than the runtime and the previous schema: it rejects lowercase keywords, empty strings and scheme-less host names that the code still accepts."
+    },
+    {
+      "failure_scenario": "verify='auto' with proxies=['https://self-signed-proxy:8443', 'https://proxyB:8443']: the first attempt's certificate error makes https_open() set self._verify=False (lines 217-221, shared object created at line 106); when that attempt then fails for another reason (proxy refuses CONNECT), the proxy loop retries through proxyB with verification still disabled, so proxyB's certificate is never checked, whereas a per-attempt handler would have verified it.",
+      "file": "ddns/util/http.py",
+      "line": 106,
+      "summary": "A single AutoSSLHandler instance is reused for every proxy attempt, so the verify='auto' downgrade to unverified TLS persists into subsequent attempts using a different proxy."
+    },
+    {
+      "failure_scenario": "A user follows lines 531-532 and sets only HTTP_PROXY expecting the documented DDNS_PROXY equivalence (value present in Config.proxy and in config.md5()/cache identity); load_config() no longer emits a 'proxy' key because the `elif lower_key in [\"http_proxy\", \"https_proxy\"]` branch and the trailing `env_vars[\"proxy\"] = proxy_values` were removed, so the documented behaviour is simply false. The same file was edited elsewhere in this change (lines 24, 335-345, 485), so the table was left stale rather than intentionally deprecated.",
+      "file": "doc/config/env.en.md",
+      "line": 531,
+      "summary": "The 'Standard Environment Variables Support' table still claims HTTP_PROXY/HTTPS_PROXY are mapped to DDNS_PROXY, but this change deleted exactly that mapping from ddns/config/env.py."
+    },
+    {
+      "failure_scenario": "Running the suite on an offline machine or CI: request(\"GET\", \"http://postman-echo.com/status/502\", retries=1) raises URLError (name resolution/timeout) straight out of the test and the test fails, while the sibling test_ssl_certificate_error_no_retry_real_case still calls self.skipTest on the same condition; the previous version caught network errors and skipped.",
+      "file": "tests/test_util_http_retry.py",
+      "line": 381,
+      "summary": "The rewritten real-network 502 retry test dropped the network-unavailable skip, so it errors instead of skipping when the network is blocked."
+    }
+  ],
+  "level": null
+}

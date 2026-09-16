@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A parent op invokes a child op; following the new docs (tracing.mdx 'store metrics or other post-call values', this docstring), the child does `call.summary['note'] = 'llm behaved oddly'` (any non-numeric leaf, e.g. a string or a nested dict like {'score': 'high'}). When the parent finishes, sum_dict_leaves computes `result.get('note', 0) + 'llm behaved oddly'` -> TypeError. The exception aborts finish_call before send_end_call is deferred, so the parent call is never ended server-side (no output/summary/ended_at), and the op wrapper swallows the error via log_once because raise_on_captured_errors defaults to False — the data loss is invisible. The new test_call_summary_deep_merge only runs a root call (no children), so the rollup path is never exercised.",
+      "file": "weave/trace/weave_client.py",
+      "line": 1284,
+      "summary": "The newly documented promise that arbitrary call.summary values are deep-merged when the call finishes is broken for nested calls: WeaveClient.finish_call's child-summary rollup (sum_dict_leaves, ~line 770) raises TypeError on non-numeric user values, aborting the parent call's finish so its record is never ended in the trace DB."
+    },
+    {
+      "failure_scenario": "Inside a running op, `call.attributes.setdefault('prompt_cache', True)` succeeds with no TypeError despite the contract at this line, silently adding a key to the frozen dict. Worse, `call.attributes.pop('weave')` or `call.attributes.clear()` silently deletes the reserved 'weave' block (client_version, source, sys_version) that create_call populated — the reserved-key protection is also bypassed (WeaveKeyDict likewise only overrides __setitem__). The new test_call_attributes_update_and_delete_forbidden exercises only update() and __delitem__ (del call.attributes['weave'] raises only because of the frozen check), so the bypass ships untested while the docs promise total immutability.",
+      "file": "weave/trace/weave_client.py",
+      "line": 796,
+      "summary": "The immutability contract asserted in the rewritten AttributesDict docstring ('Any attempt to modify the dictionary after call start will raise TypeError') is bypassable: CPython's dict.setdefault, pop, popitem, and clear do not dispatch through the overridden __setitem__/__delitem__, so they silently mutate the frozen dict instead of raising TypeError."
+    },
+    {
+      "failure_scenario": "A user following this note (or tracing.mdx, which says attributes become immutable 'once the call starts') uses the imperative interface: `call = client.create_call(op, ...)` then sets `call.attributes['x'] = 1` before invoking the function body, expecting the docs' implied pre-start mutable window. create_call has already called attributes_dict.freeze(), so the assignment raises TypeError ('Cannot modify attributes after call start'), contradicting the docs and the PR's own Call docstring ('frozen once the call is created').",
+      "file": "weave/trace/context/call_context.py",
+      "line": 123,
+      "summary": "The PR's changed docs contradict each other on when attributes freeze: the Call/AttributesDict docstrings say attributes are frozen 'once the call is created', while this note plus the user-guide docs (tracing.mdx tip/table/bullets, index.md) say they become immutable 'once the call starts'; the code freezes inside create_call (weave_client.py ~line 1210), before the call is pushed onto the stack, so the pre-start mutation window implied by the 'starts' wording does not exist."
+    }
+  ],
+  "level": null
+}

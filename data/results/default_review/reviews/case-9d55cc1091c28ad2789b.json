@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/adapters/UserTagsAdapter.java",
+      "line": 44,
+      "summary": "getAbsoluteAdapterPosition() can return RecyclerView.NO_POSITION (-1), and users.get(-1) throws IndexOutOfBoundsException -- the click listener must guard against NO_POSITION before indexing the list.",
+      "failure_scenario": "User opens the Manage User Tags dialog, then removes a tag from a user. The callback fires adapter.setItems() + notifyDataSetChanged(). During the RecyclerView layout transition, a click event on a view that is no longer bound returns NO_POSITION; users.get(-1) crashes the app with IndexOutOfBoundsException. (The existing StoryRecyclerViewAdapter at lines 533-536 shows the correct pattern: cache getAbsoluteAdapterPosition() into a local and check pos != RecyclerView.NO_POSITION before use.)",
+      "finding_id": "mf-38a1079ab42c3cb46a19"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 317,
+      "summary": "updateUserTagsSubtitle() is only called in onResume(), but onResume() does not fire when the ManageUserTagsDialogFragment (shown as a dialog on top of SettingsFragment) is dismissed, so the preference subtitle shows a stale tag count after the user modifies tags through the dialog.",
+      "failure_scenario": "User opens Settings, sees '3 users with tags' as the subtitle. User taps 'Manage user tags', removes a tag from one user through the dialog flow, and dismisses it. Back in Settings, the subtitle still reads '3 users with tags' instead of '2'. The stale count persists until the Activity is paused and resumed (e.g., user navigates away and comes back). The existing updateTimedRangeSummary() pattern in the same file (line 185) updates the summary explicitly in the time-picker callback; updating in the ManageUserTagsDialogFragment callback or onDismiss would fix it.",
+      "finding_id": "mf-03475a566f139e77b170"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 350,
+      "summary": "String concatenation 'count + \" users with tags\"' produces grammatically incorrect text for a single user ('1 users with tags' instead of '1 user with tags').",
+      "failure_scenario": "User has exactly one tagged user; the settings preference subtitle reads '1 users with tags' rather than '1 user with tags'.",
+      "finding_id": "mf-6630e14170ac1afe4afb"
+    }
+  ]
+}

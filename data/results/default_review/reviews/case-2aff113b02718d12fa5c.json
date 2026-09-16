@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "packages/shortest/src/core/runner/index.ts",
+      "line": 184,
+      "summary": "Non-CacheError exceptions from runCachedTest (e.g. getNormalizedComponentStringByCoords failures) bypass fallback-to-AI and fail the test outright; old code fell back on all errors",
+      "failure_scenario": "During cached step replay, the browser page disconnects or navigates unexpectedly between get() and execute(), causing browserTool.getNormalizedComponentStringByCoords(x,y) at line 423 to throw (not a CacheError). The catch block at line 183-184 checks `if (!(error instanceof CacheError)) throw error` and rethrows it. The test fails immediately with the raw browser error instead of falling back to normal AI execution as the old code did via its catch-all fallback path.",
+      "finding_id": "mf-2cb60288eb8abb21193a"
+    },
+    {
+      "file": "packages/shortest/src/browser/actions/index.ts",
+      "line": 79,
+      "summary": "Added {delay:200} to page.mouse.click introduces a 200ms gap between mousedown and mouseup; some web apps treat slow clicks as long-press or drag-start instead of click",
+      "failure_scenario": "A web app with a custom interaction handler that distinguishes mousedown-mouseup timing (e.g., treating intervals >100ms as a drag gesture or long-press context menu) would fire the wrong handler when the test automation issues a click with a 200ms mousedown-to-mouseup delay. The old code used page.mouse.click() with no delay (default 0ms gap), which always triggered standard click behavior.",
+      "finding_id": "mf-4460665426b297a92642"
+    }
+  ]
+}

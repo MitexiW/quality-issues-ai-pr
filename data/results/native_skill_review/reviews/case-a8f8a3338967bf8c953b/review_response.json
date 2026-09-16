@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "random.random() selects personality 2 or 3 (PERSONALITY_2=0.3 + PERSONALITY_3=0.1 defaults, so ~40% of messages): the prompt now includes the persona description (e.g. '是一个女大学生，你会刷b站，对ACG文化感兴趣') but the old guidance '请表现你自己的见解，不要一昧迎合...请你表达自己的见解和观点' is gone, and the shared `<MainRule>` instead demands '平淡一些，尽量简短一些...不要回复的太有条理' for every personality — personas 2/3 produce the same bland, short replies persona 1 was tuned for, and the removed instructions are not re-established anywhere in the new template.",
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 133,
+      "summary": "The per-personality response-style instructions for personalities 2 and 3 are deleted and replaced by personality 1's bland-style instruction, silently removing the personality system's behavioral differentiation."
+    },
+    {
+      "failure_scenario": "llm_generator.py:79 still unpacks the second tuple element and _save_to_db persists it into the reasoning_logs.prompt_check field (llm_generator.py:115,148), which is now always \"\" for every record; simultaneously the enable_kuuki_read option (config.py:69 default True, WebUI checkbox at webui.py:1121, template/bot_config_template.toml:113) and the docs continue to present the feature as available even though no active code reads the setting or the returned value anymore — the removal is half-done, so users toggling the feature get no effect and any re-enablement of the caller-side module would receive an empty prompt.",
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 203,
+      "summary": "The read-the-air (kuuki) check prompt is removed by hardcoding the second return value to an empty string while its consumers remain, leaving an always-empty persisted field and an orphaned user-facing feature toggle."
+    },
+    {
+      "failure_scenario": "The commented blocks at lines 149-155 and 191-202 reference now-undefined variables (prompt_info, prompt_date, chat_talking_prompt, prompt_personality_check, promt_info_prompt) and duplicate code that git history already preserves; future edits to this function must read around dead scaffolding that suggests the read-the-air feature still exists, and the code rots into misleading documentation of a behavior the function no longer implements.",
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 191,
+      "summary": "About 25 lines of the removed implementation (old prompt assembly and the entire read-the-air prompt construction) are left behind as commented-out dead code inside _build_prompt."
+    }
+  ],
+  "level": null
+}

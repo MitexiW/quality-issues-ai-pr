@@ -1,0 +1,71 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Prime cloud sync restore calls CloudSyncFlowManagerAddressBook.syncToSceneEachItem -> addItemFn({skipSaveLocalSyncItem: true}); withAddressBookCloudSync then computes syncItems=[] and the `if (syncItems?.length)` guard (ServiceAddressBook.ts:319) skips fn, so the server-synced address book item is never written locally. Same pattern in ServiceCustomRpc.withCustomRpcCloudSync (line 118) / withCustomNetworkCloudSync (line 146, called from CloudSyncFlowManagerCustomRpc/CloudSyncFlowManagerCustomNetwork with skipSaveLocalSyncItem: true) and ServiceCustomToken.withCustomTokenCloudSync (line 78): restored custom RPCs, custom networks and custom tokens are silently discarded. Even without Prime, a user adding a custom token whose isSupportSync() conditions fail gets an apparent success with nothing persisted. The old code always executed fn inside withTransaction.",
+      "file": "packages/kit-bg/src/services/ServiceCustomRpc.ts",
+      "line": 118,
+      "summary": "The refactored cloud-sync wrappers only execute the actual data operation (fn) when syncItems is non-empty, so the underlying add/delete/update silently no-ops whenever sync items are not built (skipSaveLocalSyncItem: true or sync conditions not met)."
+    },
+    {
+      "failure_scenario": "Firefox has no navigator.storageBuckets in any context (the repo ships a Firefox extension: platformEnv.isExtFirefox). On Firefox (and Safari web, Chrome < 122), LocalDbIndexedBase._openDb -> indexed.open() -> getBucketIndexedDBFactory throws 'navigator.storageBuckets is not supported'; readyDb rejects; ServiceBootstrap.init now awaits localDb.readyDb, so app startup throws and the wallet is completely unusable. The IS_DB_BUCKET_SUPPORT flag in consts.ts exists but is never consulted by _openDb, and WebStorage's constructor promise likewise rejects, breaking appStorage/simpleDb.",
+      "file": "packages/shared/src/IndexedDBPromised/IndexedDBPromised.ts",
+      "line": 450,
+      "summary": "IndexedDBPromised.getBucketIndexedDBFactory throws when navigator.storageBuckets is missing, and LocalDbIndexedBase._openDb plus WebStorage use it unconditionally with no fallback to plain indexedDB, so the entire DB/storage layer fails to initialize on runtimes without Storage Buckets support."
+    },
+    {
+      "failure_scenario": "Two DApps call addConnectedSite concurrently: both read ctx.nextConnectedSiteId=5 via getContext(), both then run store.add(record id '5') on the archive bucket; the second add throws ConstraintError and aborts. Even a single call plus an app crash between the two transactions leaves record '5' present while the context counter is still 5, so every subsequent addSignedMessage/addConnectedSite throws ConstraintError forever until the record is manually removed. In the baseline, both operations ran in one transaction on one DB, which serialized concurrent calls and kept the counter atomic.",
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 4406,
+      "summary": "addSignedMessage (and addSignedTransaction at 4433, addConnectedSite at 4463) now reads the id counter outside the write transaction and splits record insert (archive bucket) from counter increment (account bucket) into two non-atomic transactions on different connections, so the nextSignatureMessageId/nextSignatureTransactionId/nextConnectedSiteId counters race and can be left behind the max record id."
+    },
+    {
+      "failure_scenario": "Legacy user with 4+ wallets: migration is interrupted (tab closed, disk full, exception — errors are swallowed with console.error in LocalDbIndexedBase._openDb) after wallets were put but before accounts/credentials/context. On next startup walletCount=4>3 makes isBucketDBMigrated true and the migration never re-runs: the user's accounts, credentials and password verifyString are permanently lost even though the legacy OneKeyV5 DB still contains them.",
+      "file": "packages/kit-bg/src/migrations/indexedToBucketsMigration/indexedToBucketsMigration.ts",
+      "line": 73,
+      "summary": "The migration retry guard treats any single signal (walletCount > 3, credentialCount > 0, accountCount > 0, or a non-default verifyString) as proof the whole migration completed, so a partially completed migration is silently skipped on every subsequent startup."
+    },
+    {
+      "failure_scenario": "A transaction created on a connection being closed (e.g., during ServiceApp.resetApp's bucket deletion while in-flight DB writes from the fire-and-forget apiLogout are running, or when another tab bumps the DB version and Chrome auto-closes the shared connection) throws the genuine 'connection is closing' DOMException; the shim's catch matches it, sets $onekeySystemDiskIsFull=true and shows a misleading 'System Disk Full' dialog. From then on every write-mode transaction throws the synthetic error, so localDb, appStorage and simpleDb become read-only until the app is reloaded. Conversely, real disk-full errors ('QuotaExceededError', 'Encountered disk full while committing transaction') never match the message, so the intended detection never fires.",
+      "file": "packages/shared/src/polyfills/indexedDBShim/indexedDBShim.ts",
+      "line": 49,
+      "summary": "Disk-full detection matches the error message 'The database connection is closing', which is a normal connection-lifecycle error unrelated to disk space, and once matched it sets $onekeySystemDiskIsFull permanently (never cleared), blocking every write transaction for the rest of the session."
+    },
+    {
+      "failure_scenario": "Users upgrading to this version get a fresh 'OneKeyAppStorage' bucket with zero records: appLocale, devSettings, WalletConnect pairings (walletConnectStorage keys), logger config and ServiceV4Migration's v4migrationAutoStartDisabled flag are all silently reset — and because that flag is lost, the v4-to-v5 migration auto-start check can trigger again. simpleDb ('simple_db_v5:') and jotai global states ('g_states_v5:') are migrated, so the omission of the main storage is asymmetric and unannounced.",
+      "file": "packages/shared/src/storage/WebStorage.ts",
+      "line": 38,
+      "summary": "migrateFromLegacyStorage early-returns for the main app storage (legacyKeyPrefix 'app_storage_v5:'), so the new bucket-backed appStorage is never populated from the legacy localforage 'OneKeyStorage' DB and all main-storage settings are lost on upgrade."
+    },
+    {
+      "failure_scenario": "App crashes (or the second transaction fails) after the wallet is removed but before removeCloudSyncPoolItems runs: the orphaned CloudSyncItem (isDeleted: true) records remain locally and are picked up by the next sync flow, re-uploading/re-applying the deletion on other devices and conflicting if the user recreates the same wallet/account id. In the baseline both writes were in the same transaction and rolled back together. (Same split in removeAccounts at line 3906.)",
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 2859,
+      "summary": "removeWallet and removeAccounts moved txRemoveCloudSyncPoolItems out of the wallet/account removal transaction into a separate second transaction, losing atomicity between deleting the record and deleting its CloudSyncItem sync records."
+    },
+    {
+      "failure_scenario": "If apiLogout takes longer than 1s (slow network, device-limit/API calls) or hangs, resetData() proceeds to close and delete all bucket IndexedDBs and storage buckets while logout is still writing to localDb/simpleDb — logout writes can recreate stale records after the wipe, or throw against deleted databases and leave logout half-done (session tokens still cached) after the app restarts.",
+      "file": "packages/kit-bg/src/services/ServiceApp.ts",
+      "line": 212,
+      "summary": "resetApp no longer awaits servicePrime.apiLogout(), replacing the synchronization with a fixed 1000ms timer wait, so the reset can race with logout's network calls and DB writes."
+    },
+    {
+      "failure_scenario": "When the browser closes the shared connection (versionchange from another tab, or close() during reset while another code path still holds the instance), open() keeps returning the stale this.nativeDB instead of re-opening, so every subsequent transaction throws 'The database connection is closing' — which the new indexedDBShim then misinterprets as disk-full, locking all writes until reload. A fresh connection (the intended alwaysOpenNew behavior) would recover immediately.",
+      "file": "packages/shared/src/IndexedDBPromised/IndexedDBPromised.ts",
+      "line": 369,
+      "summary": "IndexedDBPromised.open() silently ignores the alwaysOpenNew option (the commented-out guard shows the intended behavior), so createBucketTransaction's alwaysOpenNew: true never opens a fresh connection and all transactions share one cached connection forever."
+    },
+    {
+      "failure_scenario": "Any future (or currently-hidden) caller of withTransaction(EIndexedDBBucketNames.backupAccount, task) reaches the backupAccount switch case in _buildTransactionAndStores (IndexedDBAgent.ts:174) after createBucketTransaction([], 'readwrite'); every tx.objectStore('Context'/'Wallet'/...) then throws NotFoundError, and the fallback indexed.createObjectStore() throws InvalidStateError outside a versionchange transaction — the backup-account path is unwired to the store-name mapping even though the upgrade code does create all account stores in that bucket.",
+      "file": "packages/kit-bg/src/dbs/local/indexed/indexedDBUtils.ts",
+      "line": 56,
+      "summary": "getStoreNamesByBucketName returns an empty array for the backupAccount bucket because the map is only populated from getBucketNameByStoreName, which never maps to backupAccount — yet IndexedDBAgent._buildTransactionAndStores has a wired case for backupAccount that would open a transaction with an empty store scope."
+    },
+    {
+      "failure_scenario": "The statement pauses execution in any attached devtools and is dead code (bucketName is typed EIndexedDBBucketNames, always a string, so !isString(bucketName) is unreachable) — it survives into production bundles and should be removed rather than shipped.",
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBaseContainer.ts",
+      "line": 54,
+      "summary": "A leftover `debugger;` statement was added to the production code path of LocalDbBaseContainer.withTransaction inside a condition that is always false for the typed enum parameter."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User clicks 'Cancel Coding Agent' and the GitHub workflow posts copilot_work_finished_failure (cancelWorkflow result not 'success'): the host loop in src/github/pullRequestOverview.ts:519-521 (`while (copilotEventToStatus(...) !== CopilotPRStatus.Completed && await sleep(2000))`) never exits, the webview postMessage promise stays pending, setBusy(false) never runs, and the spinner added by this diff spins forever with both split buttons (cancel + 'View Session') disabled until the webview is reloaded. The same happens if the message promise rejects (e.g., panel disposed mid-request), since cancel() has no try/finally.",
+      "file": "webviews/components/header.tsx",
+      "line": 195,
+      "summary": "The newly added busy-state spinner has no guaranteed exit: cancel() sets isBusy true and only resets it after cancelCodingAgent() resolves, but the extension host polls the timeline every 2s with no timeout until the Copilot status reaches Completed, so a cancel whose workflow ends in CopilotFinishedError (or a rejected reply) leaves the button permanently disabled with an endless spinner."
+    },
+    {
+      "failure_scenario": "All views loading common.css are affected (editor webview, create PR view): the Checkout / Exit Review Mode / Cancel Coding Agent buttons in the PR header, the single-action review submit button, and the narrow-window create-PR split button now render their labels flush-left. A long label such as `Checkout 'a-branch-with-a-very-long-name'` is cut off at the 260px button edge with no ellipsis indicator (previously '...' appeared), and the busy-state spinner is packed top-left (UA `align-items: flex-start`) instead of centered with the label. Fix: add `justify-content: center; align-items: center;` or keep the label in a wrapping span.",
+      "file": "webviews/common/common.css",
+      "line": 362,
+      "summary": "Adding `display: flex` to `button.split-left` changes every split button's label from centered (UA `text-align: center`) to left-aligned (flex `justify-content` defaults to flex-start) and silently defeats the button's `text-overflow: ellipsis`, because the label becomes an anonymous flex item with `min-width: auto` and `overflow: visible` that the flex container just hard-clips."
+    },
+    {
+      "failure_scenario": "While the Cancel Coding Agent button is busy, each render builds three independent fragment trees, each containing a spinner span (two of which are discarded) — redundant work on a hot re-render path; if any caller's getter ever becomes non-idempotent (e.g., reads mutable state between calls), the tooltip and the visible label could also diverge. Computing the label once (e.g., `const label = defaultOptionLabel()` before the JSX) would call the getter a single time.",
+      "file": "webviews/components/contextDropdown.tsx",
+      "line": 64,
+      "summary": "The new title expression invokes defaultOptionLabel() twice (typeof check plus value) in addition to the existing children call, so the label getter now runs three times on every render, constructing three separate React element trees."
+    }
+  ],
+  "level": null
+}

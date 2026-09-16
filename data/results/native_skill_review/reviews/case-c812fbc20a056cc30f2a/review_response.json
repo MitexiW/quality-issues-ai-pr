@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "With the redteam extra installed (the `has_pyrit` guard passes), tests/unittests/test_redteam/test_red_team.py:22-23 and tests/unittests/test_redteam/test_red_team_result.py:14-15 execute `from azure.ai.evaluation.red_team._red_team_result import _RedTeamResult, RedTeamOutput, _RedTeamingScorecard, _RedTeamingParameters, _Conversation`. Those names no longer exist in the module (now ScanResult, RedTeamResult, RedTeamingScorecard, RedTeamingParameters, AttackDetails), so pytest fails at collection with `ImportError: cannot import name '_RedTeamResult' ...` and every test in both modules errors.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team_result.py",
+      "line": 253,
+      "summary": "Renaming RedTeamOutput/_RedTeamResult/_Conversation/_RedTeamingScorecard/_RedTeamingParameters was not propagated to the two red-team unit-test modules, which still import the old names."
+    },
+    {
+      "failure_scenario": "RedTeam.scan() returns RedTeamResult, whose __init__ only sets `scan_result` and `attack_details` (lines 259-260). samples/red_team_samples.py:87, 151, 199, 242, 292, 338, 471, 523 still read `results.redteaming_data`; running any sample (e.g. data_only at line 338) ends with `AttributeError: 'RedTeamResult' object has no attribute 'redteaming_data'`. Same break for any user code written against the previously public RedTeamOutput.redteaming_data attribute.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team_result.py",
+      "line": 260,
+      "summary": "The public attribute rename redteaming_data -> attack_details (and class RedTeamOutput -> RedTeamResult) was not applied to the repository's own red-team samples, which now raise AttributeError."
+    },
+    {
+      "failure_scenario": "tests/unittests/test_redteam/test_formatting_utils.py:141-201 build `{\"redteaming_scorecard\": {..., \"joint_risk_attack_summary\": [...]}}` and call `format_scorecard(redteam_result)`; the changed lookup `redteam_result[\"scorecard\"]` raises `KeyError: 'scorecard'` in test_format_scorecard_empty, test_format_scorecard_with_data and test_format_scorecard_partial_data (all run when pyrit is installed).",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_utils/formatting_utils.py",
+      "line": 112,
+      "summary": "format_scorecard now reads redteam_result[\"scorecard\"], but callers/tests that supply the old data contract key \"redteaming_scorecard\" hit a KeyError."
+    },
+    {
+      "failure_scenario": "samples/agent_evaluators/intent_resolution.ipynb still calls `AIAgentConverter.run_ids_from_conversation(conversation)` (cells at notebook lines 362 and 418) and `AIAgentConverter.convert_from_conversation(...)` (lines 365 and 395). After the rename those calls raise `AttributeError: type object 'AIAgentConverter' has no attribute 'run_ids_from_conversation'`, breaking the published sample and any user code using the previously public API (AIAgentConverter is exported via `_patch_all` in azure/ai/evaluation/__init__.py).",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/_converters/_ai_services.py",
+      "line": 670,
+      "summary": "Public AIAgentConverter helpers run_ids_from_conversation / convert_from_conversation / convert_from_file were renamed to private (underscore) names without updating the shipped notebook sample or keeping compatibility shims."
+    },
+    {
+      "failure_scenario": "Without pyrit installed (or when any module in the try block raises ImportError for another reason, e.g. a pyrit symbol removed in the newly required >=0.8.1), `import azure.ai.evaluation.red_team` succeeds after printing an install hint, but `from azure.ai.evaluation.red_team import RedTeam` then fails with the misleading `ImportError: cannot import name 'RedTeam' from 'azure.ai.evaluation.red_team'`, `from azure.ai.evaluation.red_team import *` raises `AttributeError: module ... has no attribute 'RedTeam'`, and the original traceback identifying the true cause is discarded.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/__init__.py",
+      "line": 10,
+      "summary": "The new bare `except ImportError: print(...)` hides the real import failure and leaves the package with half-initialized names that __all__ still advertises."
+    },
+    {
+      "failure_scenario": "`RedTeam.scan(..., data_only=True)` builds `scan_result` (lines 1817-1822) and passes it into RedTeamResult, so in _log_redteam_results_to_mlflow the block at line 319 (`if redteam_output.scan_result: scorecard = ...; eval_run.log_metric(...))` now runs for a run that skipped evaluation, logging misleading 0/NaN ASR metrics (the scorecard was built without evaluation_result). Previously red_team_result was None in the data_only branch, so no metrics were logged. `output.to_json()` likewise changes from \"\" to the full JSON payload for data_only callers.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1827,
+      "summary": "In data_only mode scan() now attaches a fully populated scan_result, so data-only scans newly log ASR metrics to MLFlow and to_json() no longer returns an empty string."
+    },
+    {
+      "failure_scenario": "LogFilter.filter() suppresses records containing the default repr of the result object. Since the class was renamed, records contain '<...RedTeamResult object at 0x...>' and no longer match the hard-coded string, so the noisy output the filter was added to hide reappears on the user's console during scan().",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1504,
+      "summary": "The console log filter still matches the literal 'RedTeamOutput object at', which can no longer occur now that the result class is named RedTeamResult."
+    },
+    {
+      "failure_scenario": "_to_red_team_result() (line 796) is annotated `-> RedTeamResult` but returns `ScanResult(...)`; _to_scorecard(redteam_result: RedTeamResult) and format_scorecard(redteam_result: RedTeamResult) (formatting_utils.py:112) subscript the argument, although RedTeamResult has no __getitem__. Anyone following the annotation and passing an actual RedTeamResult (e.g. `format_scorecard(output)`) gets `TypeError: 'RedTeamResult' object is not subscriptable`, and IDEs/type checkers now point at the wrong type.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1171,
+      "summary": "Type annotations were switched to the RedTeamResult wrapper while the code actually takes/returns the ScanResult dict, so annotations contradict the implementation."
+    },
+    {
+      "failure_scenario": "With data_only=False (the default), the object assigned at lines 1817-1822 is never referenced (the else branch passes `scan_result=red_team_result`), so the copy is pure overhead; it also creates a second construction site for the same data, so adding a field to ScanResult requires updating both places or the data-only result silently loses it.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1817,
+      "summary": "scan() builds a second ScanResult by copying four keys of red_team_result, but that copy is only read in the data_only branch and is computed-and-discarded on the normal path."
+    },
+    {
+      "failure_scenario": "_log_redteam_results_to_mlflow documents `:type redteam_output: ~azure.ai.evaluation.RedTeamOutput` (line 214) and scan() documents `:rtype: RedTeamOutput` (line 1472); grep shows no RedTeamOutput exists anywhere in the package (only RedTeamResult), so generated documentation cross-references a non-existent type and users copying the annotated name get an ImportError.",
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 214,
+      "summary": "Docstrings still reference the removed RedTeamOutput class, leaving dangling API cross-references."
+    }
+  ],
+  "level": null
+}

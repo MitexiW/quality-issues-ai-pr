@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "autogpt_platform/backend/backend/blocks/llm.py",
+      "line": 971,
+      "summary": "llm_call_count and llm_retry_count are never merged on the failure path when all retries are exhausted or when exceptions occur, producing inconsistent execution stats where token counts are non-zero but call counts remain 0",
+      "failure_scenario": "AIStructuredResponseGeneratorBlock.run() is called with expected_format set. The LLM produces valid JSON on every retry attempt but always fails validation (e.g., missing required keys). After exhausting all retries, RuntimeError is raised. At this point, block.execution_stats shows input_token_count > 0 and output_token_count > 0 (accumulated from each successful llm_call) but llm_call_count = 0 and llm_retry_count = 0, making cost and usage monitoring inconsistent. The old finally block unconditionally set these values on every iteration; the new code only sets them inside the return (success) branches.",
+      "finding_id": "mf-3a1e5145a172d3760fdc"
+    },
+    {
+      "file": "autogpt_platform/backend/backend/blocks/llm.py",
+      "line": 1228,
+      "summary": "AITextSummarizerBlock._combine_summaries creates a new recursive AITextSummarizerBlock whose execution_stats are never merged back into the original block, silently dropping all token usage from recursive summarization calls",
+      "failure_scenario": "A very long text is summarized. The chunk summaries are too numerous and their combined text exceeds max_tokens, triggering the recursive path at line 1228. A new AITextSummarizerBlock is created, its run_once method makes additional LLM calls to re-summarize chunks, but block.execution_stats (which tracks llm_call_count, input_token_count, and output_token_count for that recursive block) is never merged into self.execution_stats via merge_llm_stats. The original block's stats only reflect the first-level chunk summaries, not the recursive calls, leading to under-reported token usage and cost in the execution stats.",
+      "finding_id": "mf-212835e9e3b1c8453b89"
+    },
+    {
+      "file": "autogpt_platform/backend/backend/blocks/llm.py",
+      "line": 923,
+      "summary": "The merge_stats calls for llm_call_count/llm_retry_count (lines 922-931 and 933-941) are duplicated in two nearly identical code blocks instead of being placed once after the if/else branching, adding maintenance risk of future divergence",
+      "failure_scenario": "If a future change modifies one merge_stats call (e.g., changing retry_count calculation) but misses the other, the stats for structured-response vs plain-text paths would diverge. A developer adding a third code path could also forget to add the merge_stats call entirely. Both blocks set the same values and could be unified after the if/else resolves the response object.",
+      "finding_id": "mf-15d72922ec2a3877b2e0"
+    }
+  ]
+}

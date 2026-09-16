@@ -1,0 +1,89 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "With an orchestrator configured, start() calls registerBuiltInTools(); line 509 assigns the Promise returned by createClaudeFlowTools(this.logger) and line 511 runs `for (const tool of claudeFlowTools)` on it. Promises are not iterable, so a TypeError ('claudeFlowTools is not iterable') is thrown, caught at line 152, and rethrown as 'Failed to start MCP server' — no Claude Flow tools get registered and the server never starts.",
+      "file": "src/mcp/server.ts",
+      "line": 509,
+      "summary": "createClaudeFlowTools is now async but registerBuiltInTools does not await it, so iterating the returned Promise throws and the MCP server fails to start whenever an orchestrator is present."
+    },
+    {
+      "failure_scenario": "initialize() (line 101) awaits registerClaudeFlowTools(); at line 424 `const claudeFlowTools = createClaudeFlowTools(this.logger)` returns a Promise and the `for (const tool of claudeFlowTools)` loop at line 426 throws TypeError: claudeFlowTools is not iterable, rejecting initialize() — swarm MCP tool registration fails on every startup.",
+      "file": "src/swarm/mcp-integration-wrapper.ts",
+      "line": 424,
+      "summary": "Same unawaited async call: registerClaudeFlowTools iterates the Promise returned by createClaudeFlowTools, so swarm MCP integration initialization always rejects."
+    },
+    {
+      "failure_scenario": "MCPTool.handler is a function (src/utils/types.ts:354), and JSON.stringify omits function-valued properties. Every tool returned by createClaudeFlowTools has handler === undefined. In server.ts the wrapper reads `const originalHandler = tool.handler` and calls it on every invocation, throwing 'originalHandler is not a function'; in mcp-integration-wrapper.ts invoking any registered tool throws 'tool.handler is not a function'.",
+      "file": "src/mcp/claude-flow-tools.ts",
+      "line": 21,
+      "summary": "enhanceToolWithAgentTypes deep-clones tools with JSON.parse(JSON.stringify(tool)), which silently drops the handler function from every MCPTool, so all ~30 enhanced tools become uncallable even after the await bugs are fixed."
+    },
+    {
+      "failure_scenario": "In this repo only 7 of ~80 agent files (e.g. analyze-code-quality.md) nest description under `metadata:`; files like .claude/agents/core/coder.md, core/reviewer.md, core/tester.md use flat `description:`. parseAgentFile logs 'Missing required fields (name, metadata.description)' and returns null for all of them, so getAvailableAgentTypes() returns only ~7 types and spawn_agent's type enum no longer accepts 'coder', 'reviewer', 'tester', etc., breaking schema validation for the most commonly used agent types.",
+      "file": "src/agents/agent-loader.ts",
+      "line": 72,
+      "summary": "parseAgentFile requires frontmatter.metadata.description, but most agent files in this repo use a top-level `description:` field, so the majority of agent definitions are silently dropped and the dynamic enum is missing core types."
+    },
+    {
+      "failure_scenario": "For end users who installed claude-flow from npm, process.cwd() has no .claude/agents directory, loadAgents() returns without loading anything, and getAvailableAgentTypes() returns []. enhanceToolWithAgentTypes then sets `enum: []` on spawn_agent.type, list_agents.filterByType, and create_task.assignToAgentType. An empty enum means no string validates, so every call to these tools that supplies a type fails validation — a regression from the previous static enum of 11 types that always validated.",
+      "file": "src/mcp/claude-flow-tools.ts",
+      "line": 33,
+      "summary": "The dynamic enum has no fallback to the previous static list: when no .claude/agents directory is found, field.enum is set to an empty array, and an empty JSON Schema enum rejects every possible type value."
+    },
+    {
+      "failure_scenario": "validation-consistency.test.ts line 2 does `import { VALID_AGENT_TYPES } from '../constants/agent-types.js'`; since the export was removed, the import yields undefined and line 11 `VALID_AGENT_TYPES.sort()` throws TypeError: Cannot read properties of undefined (reading 'sort'), crashing the entire test suite on load (CI failure).",
+      "file": "src/constants/agent-types.ts",
+      "line": 4,
+      "summary": "The diff deletes the AGENT_TYPES, VALID_AGENT_TYPES, and AGENT_TYPE_SCHEMA exports, but src/tests/validation-consistency.test.ts still imports VALID_AGENT_TYPES, so the test suite crashes at runtime."
+    },
+    {
+      "failure_scenario": "Running `./github-safe.js issue comment 123 --body \"hello world\"` sets restArgs = ['123', '--body', 'hello world']; the branch `subcommand === 'comment' && restArgs.length >= 2` makes body = restArgs[1] = '--body' and bodyIndex = 1. The temp file then contains '--body', and newArgs becomes ['123', '--body-file', 'hello world', <tmpfile>], so the executed command is `gh issue comment 123 --body-file hello world /tmp/gh-body-....tmp` — gh fails on the unexpected positional args, and even if it ran, the comment posted would be the literal text '--body'. The same defect exists in the embedded copy at enhanced-templates.js line 1112.",
+      "file": "src/cli/simple-commands/init/templates/github-safe.js",
+      "line": 48,
+      "summary": "The comment subcommand's 'simple format' branch hijacks the --body flag form: `issue comment 123 --body \"hello\"` treats the literal string '--body' as the body and passes the real text as an extra positional argument."
+    },
+    {
+      "failure_scenario": "`./github-safe.js issue create --title \"Fix login bug\" --body \"Body text\"` produces the command string `gh issue create --title Fix login bug --body-file /tmp/gh-body-....tmp`, which gh parses as title 'Fix' plus unexpected positionals 'login' and 'bug', so the issue is created with the wrong title or the command errors. A title or label containing `$(...)` or backticks is also command-substituted by the shell (e.g. `--title \"$(rm -rf .)\"` executes it), even though the helper's help text claims to prevent exactly this. execSync with an args array and shell:false would avoid both.",
+      "file": "src/cli/simple-commands/init/templates/github-safe.js",
+      "line": 80,
+      "summary": "The helper builds a shell command by joining args with spaces and passing the string to execSync, so any argument containing spaces is split into multiple arguments and shell metacharacters in arguments are interpreted by /bin/sh — defeating the helper's stated purpose of handling special characters."
+    },
+    {
+      "failure_scenario": "`gh.issueComment(123, body, { timeout: 60000 })` builds args ['issue', 'comment', '123', '--body-file', tmp, '--timeout', '60000'] and runs `gh issue comment 123 --body-file tmp --timeout 60000`; gh fails with 'unknown flag: --timeout'. The timeout value is consumed at line 38 for executeWithTimeout but is never excluded from the options loop, so any options key that is not a valid gh flag breaks the command.",
+      "file": "src/utils/github-cli-safe.js",
+      "line": 33,
+      "summary": "safeGhCommand forwards every options entry as a gh CLI flag, including `timeout`, so a caller passing { timeout: N } (the documented way to override the 30s default) injects an unknown --timeout flag into the gh command."
+    },
+    {
+      "failure_scenario": "On Windows, currentDir starts at e.g. 'C:\\\\Users\\\\me\\\\project' and the loop climbs with dirname until it reaches 'C:\\\\'; dirname('C:\\\\') === 'C:\\\\', which never equals '/', so the loop repeats the existsSync check on the drive root forever. Any call to getAvailableAgentTypes()/isValidAgentType() on Windows hangs the process (the README and package metadata list Windows as supported).",
+      "file": "src/agents/agent-loader.ts",
+      "line": 43,
+      "summary": "getAgentsDirectory's walk-up loop `while (currentDir !== '/')` never terminates on Windows, where dirname('C:\\\\') returns 'C:\\\\' itself, so the loader hangs forever on a supported platform."
+    },
+    {
+      "failure_scenario": "With core.autocrlf=true (git's default on Windows), every .claude/agents file has '\\r\\n' endings; the regex requires '\\n' immediately after the opening '---', so frontmatterMatch is null for every file, parseAgentFile logs 'No frontmatter found' and returns null, and getAvailableAgentTypes() returns an empty list on Windows.",
+      "file": "src/agents/agent-loader.ts",
+      "line": 63,
+      "summary": "The frontmatter regex /^---\\n([\\s\\S]*?)\\n---\\n([\\s\\S]*)$/ requires LF line endings, so any agent file checked out with CRLF endings (git's core.autocrlf on Windows) fails the match and the agent is silently discarded."
+    },
+    {
+      "failure_scenario": "If fs write or copy fails inside createClaudeSlashCommands (permissions, read-only project, disk full), the error is now discarded with only an inaccurate comment ('SPARC slash commands are already created successfully'). The user completes `claude-flow init` believing slash commands were installed, but they are missing — the same silent swallowing was added in init/index.js line 302.",
+      "file": "src/cli/simple-commands/init/claude-commands/slash-commands.js",
+      "line": 53,
+      "summary": "The catch block that previously printed 'Could not create Claude Code slash commands' is now empty, so failures in createClaudeFlowCommands (or the template copy before it) are silently swallowed and the user gets no indication that slash commands were not created."
+    },
+    {
+      "failure_scenario": "For .claude/agents/base-template-generator.md, relativePath is '/base-template-generator.md' and split('/') gives ['', 'base-template-generator.md'], so category = 'base-template-generator.md' instead of 'uncategorized'; getAgentsByCategory('uncategorized') misses it and the category listing shows a bogus per-file category. On Windows, backslash-separated relative paths never contain '/', so every agent lands in 'uncategorized'.",
+      "file": "src/agents/agent-loader.ts",
+      "line": 127,
+      "summary": "Category detection uses pathParts[1] on a path split by '/', so an agent file directly in the agents directory gets a category equal to its own filename, and on Windows all categories collapse to 'uncategorized'."
+    },
+    {
+      "failure_scenario": "When the agents directory is missing or no file parses, agentCache.size stays 0 after each loadAgents() (which also never sets lastLoadTime on the missing-directory path), so every ensureLoaded() call triggers a fresh loadAgents(). createClaudeFlowTools fires one getAvailableAgentTypes() per tool via Promise.all, i.e. ~30 concurrent globs and directory walks on every tool registration or schema fetch; a single load with a 'never refresh empty result' guard would do the same work once.",
+      "file": "src/agents/agent-loader.ts",
+      "line": 156,
+      "summary": "ensureLoaded re-runs the full directory walk and glob whenever agentCache is empty, and createClaudeFlowTools calls getAvailableAgentTypes once per tool (~30 concurrent calls), causing repeated filesystem scans on every registration when no agents load."
+    }
+  ],
+  "level": null
+}

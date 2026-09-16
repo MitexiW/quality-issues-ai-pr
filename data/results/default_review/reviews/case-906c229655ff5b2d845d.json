@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "instructor/providers/xai/client.py",
+      "line": 97,
+      "summary": "resp.tool_calls[0] unguarded: crashes with TypeError/IndexError when the model returns no tool calls in XAI_TOOLS mode",
+      "failure_scenario": "An xAI model in XAI_TOOLS mode returns a response where resp.tool_calls is None or empty list (model declined to call a tool or returned text instead). Accessing resp.tool_calls[0] raises TypeError: 'NoneType' object is not subscriptable (async path line 97) or IndexError (sync path line 136). The diff now adds _raw_response assignment immediately after this unguarded access, re-exposing the pre-existing crash path.",
+      "finding_id": "mf-0e43fdd27856994e5e10"
+    },
+    {
+      "file": "instructor/providers/xai/client.py",
+      "line": 100,
+      "summary": "validation_context is silently discarded in XAI_TOOLS path: None is hardcoded in _validate_model_from_json call",
+      "failure_scenario": "A user passes validation_context with additional data for model validation (e.g., a dict of reference values for cross-field checks). The xAI create function pops validation_context from call_kwargs at line 75 (async) / line 114 (sync) and discards it. Line 100 / 139 then passes None to _validate_model_from_json(response_model, args, None, strict). A model validator that relies on validation_context will receive None instead of the user-provided data, causing misleading validation failures or silently weakened validation.",
+      "finding_id": "mf-22ad0db4dcc41575c508"
+    },
+    {
+      "file": "tests/llm/test_xai/test_raw_response.py",
+      "line": 167,
+      "summary": "create_with_completion is only tested with XAI_JSON mode, not XAI_TOOLS; the XAI_TOOLS path for create_with_completion has no test coverage",
+      "failure_scenario": "If XAI_TOOLS mode has a bug where create_with_completion returns wrong or missing _raw_response, existing tests won't catch it because test_xai_create_with_completion (line 167) and test_xai_create_with_completion_async (line 200) only use Mode.XAI_JSON. No test exercises the XAI_TOOLS path through create_with_completion.",
+      "finding_id": "mf-6b3f2598548ecc49e7e7"
+    }
+  ]
+}

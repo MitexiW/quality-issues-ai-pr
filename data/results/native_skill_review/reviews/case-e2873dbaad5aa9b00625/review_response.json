@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user without the Natural Language Dates plugin opens a Template choice's settings and types or has saved `{{VDATE:date,YYYY-MM-DD}}` in the File name format field. FileNameDisplayFormatter.format calls the base replaceDateVariableInString, promptForVariable returns a placeholder, then getNaturalLanguageDates() returns undefined and the new throw at formatter.ts:283 fires. The onChange callback (templateChoiceBuilder.ts:130) and the initial-render `void(async()=>...)` (templateChoiceBuilder.ts:96-99, captureChoiceBuilder.ts:103-107) have no try/catch, so the rejection is unhandled and the preview span never updates. Before this change the `continue` branch substituted the placeholder value without throwing.",
+      "file": "src/formatters/formatter.ts",
+      "line": 283,
+      "summary": "The new VDATE error throw reaches unguarded preview paths: the try/catch was added only to FormatDisplayFormatter, so FileNameDisplayFormatter.format (used for the Template 'File name format' and Capture 'Capture To' previews) now throws with no handler."
+    },
+    {
+      "failure_scenario": "During March, a user types `{{VDATE:eventDate,MMM D}}` in the capture format field; generateDateFormatPreview turns 'MMM' into 'Mar' and then `/M/g` rewrites it to '3ar', so the live preview shows '3ar 13 (eventDate)'. The new test at formatDisplayFormatter.test.ts:49-54 asserting `[A-Z][a-z]{2}` also fails during March and May.",
+      "file": "src/formatters/formatDisplayFormatter.ts",
+      "line": 134,
+      "summary": "generateDateFormatPreview's `.replace(/M/g, ...)` runs after the MMM replacement and corrupts month names containing the letter M: in March and May the `MMM` preview renders '3ar'/'5ay' instead of 'Mar'/'May', and `MMMM` is always corrupted ('SepM' becomes 'Sep9')."
+    },
+    {
+      "failure_scenario": "A user without the NLD plugin runs a capture choice whose format contains `{{VDATE:deadline,YYYY-MM-DD}}`. CompleteFormatter.promptForVariable opens an InputPrompt asking for 'deadline'; after the user types 'next friday' and confirms, the nld check at formatter.ts:281-285 throws and the choice aborts with the error notice, discarding the input the user just provided. The check should be performed before prompting.",
+      "file": "src/formatters/formatter.ts",
+      "line": 277,
+      "summary": "The Natural Language Dates availability check runs only after prompting the user for the VDATE variable's value, so users without the plugin answer a prompt whose result is discarded when the new error is thrown."
+    },
+    {
+      "failure_scenario": "Running vitest today (2026) with input `{{VDATE:event,YYYY, MMM D, dddd}}` produces a preview containing '2026', so `expect(result).toContain(\"2025\")` fails, breaking the suite once the calendar year rolls over.",
+      "file": "src/formatters/formatDisplayFormatter.test.ts",
+      "line": 122,
+      "summary": "The comma-format test hardcodes the current year as '2025' (`expect(result).toContain(\"2025\")`), but the preview is generated from `new Date()`, so the test fails in every year other than 2025."
+    },
+    {
+      "failure_scenario": "A user previews `{{VDATE:meeting,MMM D [meeting]}}`; after the date tokens are substituted the literal '[meeting]' still contains 'm', which the regex rewrites to '12', showing 'Sep 13 [12eeting] (meeting)' instead of 'Sep 13 [meeting] (meeting)'.",
+      "file": "src/formatters/formatDisplayFormatter.ts",
+      "line": 138,
+      "summary": "The time-token placeholder `.replace(/[HhmsS]+/g, '12')` runs over the entire format string and mangles literal text containing h/m/s, corrupting bracketed or unquoted literal text in date formats."
+    },
+    {
+      "failure_scenario": "No runtime failure; the redundant check and unreachable else-branch make the newly edited control flow harder to read and invite future edits that assume the else branch can execute.",
+      "file": "src/formatters/formatter.ts",
+      "line": 273,
+      "summary": "The `if (variableName && dateFormat)` condition (and its `else break` at line 312) is dead code: the guards at lines 262 and 269 already break when either value is falsy, so the condition is always true."
+    },
+    {
+      "failure_scenario": "A future regression reintroducing the infinite loop or removing the `break`/`trim` guard in src/formatters/formatter.ts:260-271 would pass the entire new test suite because no test ever executes that code; the 'Format display formatter error handling' test (line ~172) can never fail because it only checks a template string containing 'try' and 'catch'.",
+      "file": "src/formatters/formatter-comma-crash.test.ts",
+      "line": 5,
+      "summary": "The comma-crash tests exercise a stub class (TestFormatterCommaCrash) that re-implements the VDATE loop instead of testing the production Formatter.replaceDateVariableInString, and the 'error handling' test asserts on a hardcoded string literal, so the actual fix in formatter.ts has no regression coverage."
+    },
+    {
+      "failure_scenario": "Maintenance cost: any change to the VDATE detection logic or warning text must be made in two places; the copies have already drifted in nothing but will silently drift when one is updated (e.g. the warning message or the regex), producing inconsistent warnings between the capture and template settings.",
+      "file": "src/gui/ChoiceBuilder/captureChoiceBuilder.ts",
+      "line": 336,
+      "summary": "The `checkVdateWarning` helper (regex test plus NLD plugin lookup plus warning rendering) is copy-pasted verbatim in captureChoiceBuilder.ts:336-346 and templateChoiceBuilder.ts:113-123 instead of a shared helper."
+    }
+  ],
+  "level": null
+}

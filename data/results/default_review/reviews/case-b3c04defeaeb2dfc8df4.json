@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 144,
+      "summary": "CRITICAL: Inner scanner goroutine does not return after detecting context cancellation, continues sending to outputChan which the outer goroutine may have already closed via defer close(fr.outputChan), causing a panic (send on closed channel) or a goroutine leak (if the outer select picks ctx.Done() instead of errChan).",
+      "failure_scenario": "Input has 5 lines, context is cancelled after line 2. Inner goroutine detects cancellation on line 3, sends ctx.Err() to errChan (line 144), but falls through to line 147-149 sending line 3 to outputChan. Then scanner.Scan() returns true for line 4, inner goroutine detects cancellation again, tries errChan <- ctx.Err() on line 144 — blocks if errChan still full. If outer goroutine receives and returns, defer close(fr.outputChan) fires. Inner goroutine unblocks, sends ctx.Err() to now-empty errChan, reaches line 149 (fr.outputChan <- line) → PANIC on closed channel. If outer goroutine picks ctx.Done() instead, inner goroutine blocks forever on errChan send → goroutine leak.",
+      "finding_id": "mf-dd20cd1f14efba6d1745"
+    },
+    {
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 155,
+      "summary": "Race condition in outer select: when inner goroutine sends io.EOF to errChan (line 155) and immediately calls cancel() (line 156), both errChan and ctx.Done() become ready simultaneously. Go's select picks non-deterministically, so Run may return context.Canceled instead of io.EOF for normal EOF termination, breaking the API contract and causing TestFileReader_EmptyFile to fail intermittently.",
+      "failure_scenario": "Create FileReader with empty file. Inner goroutine: scanner.Scan() returns false immediately, scanner.Err() is nil, errChan <- io.EOF sent, cancel() called. Outer select (line 160) has both cases ready (errChan with io.EOF, ctx.Done() because cancel() just fired). If ctx.Done() wins (~50% probability), Run returns context.Canceled instead of io.EOF. TestFileReader_EmptyFile checks err != io.EOF → test fails intermittently.",
+      "finding_id": "mf-50066e83c0dafa52285c"
+    },
+    {
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 153,
+      "summary": "cancel() is not called when the scanner encounters an error (line 151-153); it is only called in the else branch (line 156). When the input reader fails (e.g., permission error on stdin), FileReader returns the error but the engine continues running because no cancellation is propagated to sibling workers.",
+      "failure_scenario": "os.Stdin encounters a read error mid-operation. Scanner.Err() returns non-nil. Inner goroutine sends the error to errChan (line 153) but never calls cancel(). Outer goroutine receives the error and returns. defer close(fr.outputChan) fires. HTTPPostSender sees closed inputChan and returns nil. But OutputProxy and SSEWorker keep running because no ctx cancellation was triggered. runWorkersAndWait blocks on wg.Wait() forever because the remaining workers never exit. Engine hangs until process is killed.",
+      "finding_id": "mf-dad7752325c1e7dab892"
+    },
+    {
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 162,
+      "summary": "io.EOF is logged as 'Error reading input' via fr.logger.Errorw on line 162. When the scanner reaches EOF normally, io.EOF is sent through errChan and logged at error level. This is misleading — EOF is normal end-of-input, not an error — and additionally causes runWorkersAndWait (line 101) to log 'Worker exited with error' for normal termination.",
+      "failure_scenario": "Engine runs normally, stdin provides input and then closes (EOF). FileReader reaches EOF, sends io.EOF through errChan. Outer select receives io.EOF, logs 'Error reading input err=EOF' at error level. Then runWorkersAndWait logs 'Worker exited with error err=EOF'. Operators investigating logs see error-level messages for what is normal shutdown behavior.",
+      "finding_id": "mf-34f945b17f6ee3dd59dc"
+    },
+    {
+      "file": "mcpengine-proxy/mcpengine.go",
+      "line": 99,
+      "summary": "Loop variable 'name' is captured by reference in the goroutine closure at line 97-102. In Go, range loop variables are reused across iterations, so by the time goroutines execute their log statements (lines 99 and 101), 'name' may contain the value from a later iteration, reporting incorrect worker names.",
+      "failure_scenario": "Workers map has keys 'file-reader', 'http-post', 'stdout'. Goroutine for 'file-reader' starts but is not immediately scheduled. Loop continues to next iteration, 'name' is now 'http-post'. First goroutine finally runs: logs 'Starting worker worker-name=http-post' for what is actually the file-reader worker, and later logs 'Worker exited with error worker-name=http-post' for the file-reader's result. Tracing and debugging is misled by wrong worker names in logs.",
+      "finding_id": "mf-3aa8cc7f6ecdb96f59e9"
+    },
+    {
+      "file": "mcpengine-proxy/testutil/reader.go",
+      "line": 27,
+      "summary": "The 'reachedEOF' boolean field (read on line 27, written on line 34) has no synchronization — no mutex, no atomic. If multiple goroutines read from the same BlockReader concurrently, there is a data race. Currently only bufio.Scanner (single-goroutine) reads from it, but the type is exported and the assumption is fragile.",
+      "failure_scenario": "Two goroutines share a BlockReader and call Read concurrently. Goroutine A reads reachedEOF (line 27) as false while goroutine B sets it to true (line 34). This is a data race. Go race detector flags it. If reachedEOF is non-atomically written while being read, the read may observe a partial/incorrect value, causing the reader to either falsely block (thinking EOF was already reached) or falsely read (thinking EOF was not yet reached when it was).",
+      "finding_id": "mf-fcfb1c991b7c65d85e88"
+    },
+    {
+      "file": "mcpengine-proxy/io_test.go",
+      "line": 137,
+      "summary": "Several test functions (TestFileReader_FileError at io_test.go:137, TestOutputProxy_WriteFails at io_test.go:197, TestHTTPPostSender_InvalidURL at http_test.go:137, TestSSEWorker_EventChannelClosure at sse_test.go:307) create a cancel context with context.WithCancel but never call cancel() and have no defer cancel(), leaking the context and its internal propagateCancel goroutine.",
+      "failure_scenario": "Test creates ctx, cancel := context.WithCancel(context.Background()), passes cancel to Run(). Run returns (due to error or channel closure), but cancel is never invoked. The propagateCancel goroutine started internally by context.WithCancel blocks forever on parent.Done() (Background, never fires) and child.Done() (child never cancelled). Each leaked goroutine holds ~4KB of stack. Accumulates over test runs. This is a regression: the old code used context.Background() (no cancel context) and had no leak.",
+      "finding_id": "mf-1fb842378cf785ab1008"
+    }
+  ]
+}

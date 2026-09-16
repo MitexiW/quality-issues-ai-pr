@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "pkg/api/http/service/pipeline.py",
+      "line": 44,
+      "summary": "sort_by parameter accepted without validation; any unrecognized value silently produces unsorted results with no ORDER BY clause",
+      "failure_scenario": "GET /api/v1/pipelines?sort_by=name → HTTP 200 with rows in arbitrary database order. The API promises sorting but silently delivers none, and the client receives no error to indicate the problem.",
+      "finding_id": "mf-e2dd7f12367d0eb0f5fd"
+    },
+    {
+      "file": "web/src/app/home/pipelines/page.tsx",
+      "line": 43,
+      "summary": "Race condition: overlapping getPipelines() calls from sort-change and dialog-callback triggers can cause stale HTTP responses to overwrite fresher data in state",
+      "failure_scenario": "User changes sort to 'Recently Edited' (triggers HTTP request A). Before response, user opens a pipeline, edits it, and saves via dialog → onFinish fires (triggers HTTP request B with same sort params). Response B arrives first → list shows correctly sorted data including the edit. Response A arrives → setPipelineList overwrites with pre-edit data → the user sees their edit 'vanish' from the list.",
+      "finding_id": "mf-60451dcd106846ca5810"
+    },
+    {
+      "file": "pkg/api/http/service/pipeline.py",
+      "line": 45,
+      "summary": "sort_order checked with exact-match 'DESC'; lowercase 'desc' falls through to else branch and sorts ascending, producing the opposite of what a reasonable client expects",
+      "failure_scenario": "GET /api/v1/pipelines?sort_by=created_at&sort_order=desc → returns pipelines in ascending (oldest-first) order instead of descending (newest-first). The client requested descending sort but received ascending because the check requires uppercase.",
+      "finding_id": "mf-fd4713590673c43f864f"
+    },
+    {
+      "file": "web/src/app/home/pipelines/page.tsx",
+      "line": 121,
+      "summary": "handleSortChange destructures value.split(',') without checking array length; a SelectItem value lacking a comma would set sortOrder to undefined, breaking the Select display",
+      "failure_scenario": "A future developer adds <SelectItem value=\"created_at\"> (no comma). User selects it → handleSortChange('created_at') → newSortOrder=undefined → setSortOrderValue(undefined) → Select value becomes 'created_at,undefined' → no SelectItem matches → Select renders blank/broken.",
+      "finding_id": "mf-4c5f8cc03a17a7b845ac"
+    },
+    {
+      "file": "web/src/app/home/pipelines/page.tsx",
+      "line": 39,
+      "summary": "useEffect calls getPipelines() without listing it in the dependency array, violating react-hooks/exhaustive-deps; no eslint-disable comment unlike the sibling PluginMarketComponent which acknowledges the same pattern",
+      "failure_scenario": "If getPipelines is refactored to close over additional state, the [] dependency array means the effect never re-runs, serving stale data on mount. Currently harmless but a latent maintenance trap.",
+      "finding_id": "mf-5076c74e3223d5bcf3f2"
+    }
+  ]
+}

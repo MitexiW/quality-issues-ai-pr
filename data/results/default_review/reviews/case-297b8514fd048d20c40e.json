@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 34,
+      "summary": "NoMethodError on nil when no matching India ZipTaxRate record exists: `.alive.last` returns nil, then `.combined_rate` crashes",
+      "failure_scenario": "Environment lacks a ZipTaxRate with country='IN', state=nil, user_id=nil (e.g. fresh deploy, missing seed). `ZipTaxRate.where(...).alive.last` returns nil. `nil.combined_rate` raises NoMethodError. Job crashes every scheduled run; retry=1 won't help because the data is absent, not transient.",
+      "finding_id": "mf-12c59df1e2dc57908e0f"
+    },
+    {
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 28,
+      "summary": "NameError in ensure block masks original exception when Tempfile.new fails; temp_file is never assigned",
+      "failure_scenario": "Disk is full or /tmp is unwritable. `Tempfile.new` raises Errno::ENOSPC. Ruby jumps to `ensure` block, but `temp_file` local variable was never assigned. `temp_file.close` raises NameError, masking the real out-of-disk error. Sidekiq error tracking sees NameError instead of ENOSPC, making diagnosis hard. (Same pattern in the existing Canada and US State report jobs.)",
+      "finding_id": "mf-b95ad39514ee73bd620f"
+    },
+    {
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 50,
+      "summary": "Uses raw price_cents and gumroad_tax_cents instead of _net_of_refunds variants; partially refunded purchases report inflated pre-refund amounts",
+      "failure_scenario": "A 1000-cent purchase is partially refunded 500 cents. `purchase.price_cents` returns 1000 (raw column, never updated by refunds). `purchase.gumroad_tax_cents` returns 180 (original tax). The report shows 1000 taxable / 180 tax when the net-of-refund values are 500 / 90. Expected tax diff column shows 0 (because raw price * rate = raw tax), hiding the discrepancy. Every other reporting job in this codebase (Canada, US State, US Summary) uses `price_cents_net_of_refunds` and `gumroad_tax_cents_net_of_refunds` from Purchase::Reportable.",
+      "finding_id": "mf-d190254c30e37a054b0b"
+    },
+    {
+      "file": "spec/sidekiq/create_india_sales_report_job_spec.rb",
+      "line": 66,
+      "summary": "Tests create and use real S3 objects in bucket 'gumroad-specs', making actual upload/download calls with no cleanup",
+      "failure_scenario": "Tests fail with network errors when S3 is unreachable (e.g. CI without AWS creds or in an isolated environment). Orphaned CSV files accumulate in the 'gumroad-specs' bucket (there is no cleanup/delete call), incurring storage costs. Concurrent test runs using the same S3 key namespace could interfere. The 'defaults to previous month' test correctly uses doubles, but the three other tests ('generates CSV', 'excludes VAT', 'handles invalid states') all use `@s3_object` from `before :context` which is a real Aws::S3::Object.",
+      "finding_id": "mf-92d243906c6c2406b0c9"
+    },
+    {
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 40,
+      "summary": "Uses `purchase_state != 'failed'` string condition instead of the existing `.successful` scope; includes non-completed purchases (in_progress, test_successful, etc.)",
+      "failure_scenario": "A purchase stuck in 'in_progress' (payment never completed) is included in the India GST report with a non-nil stripe_transaction_id. This adds phantom revenue to the tax report. The Canada and US State reports use `Purchase.successful` which excludes incomplete purchases. Also `stripe_refunded == true` in-loop filter (line 48) duplicates the existing `.not_fully_refunded` scope but does so in Ruby instead of SQL, fetching extra rows only to discard them.",
+      "finding_id": "mf-0605adbe3868c443f818"
+    }
+  ]
+}

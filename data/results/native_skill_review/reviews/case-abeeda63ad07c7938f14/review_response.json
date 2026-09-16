@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A bid request where the user-id module populated `userIdAsEids` (e.g. [{source: 'adserver.org', uids: [{id: 'sample-userid'}]}]) but left `userId` empty/absent: the outer `if (bidRequests[0].userId)` at line 355 skips the entire block, `payload.eids` is never set, and valid user-id signals (including the TDID/UID2 partner mapping) are omitted from the AppNexus request. The changed code fixes the opposite mismatch (userId set, userIdAsEids undefined) but leaves this one: the guard belongs on `userIdAsEids`, the data actually consumed.",
+      "file": "modules/appnexusBidAdapter.js",
+      "line": 355,
+      "summary": "The eids block is still keyed on `bidRequests[0].userId` even though it only consumes `bidRequests[0].userIdAsEids`, so the symmetric mismatch (userIdAsEids present, userId absent) silently drops all eids — the fix guards the consumed field instead of keying on it."
+    },
+    {
+      "failure_scenario": "The only eids test (test/spec/modules/appnexusBidAdapter_spec.js:1606 'should populate eids when supported userIds are available') sets `userId` and `userIdAsEids` together, so the crash path this change fixes has zero coverage: a future refactor that removes or weakens the guard reintroduces the `TypeError: Cannot read properties of undefined (reading 'forEach')` crash with no CI signal.",
+      "file": "modules/appnexusBidAdapter.js",
+      "line": 371,
+      "summary": "The new `if (bidRequests[0].userIdAsEids)` guard — the entire purpose of this change (preventing a TypeError when userId is set but userIdAsEids is undefined) — is added without any regression test covering that path."
+    },
+    {
+      "failure_scenario": "Non-behavioral maintainability cost: the equivalent inline form `(bidRequests[0].userIdAsEids || []).forEach(eid => {...})` provides the same undefined-guard in one line, avoiding the extra nesting and the `uids`/`eid.uids` name collision that misleads future maintainers into thinking the helper processes uids rather than eids.",
+      "file": "modules/appnexusBidAdapter.js",
+      "line": 357,
+      "summary": "The change wraps the unchanged loop body in a named closure `processEids(uids)` solely to attach a truthiness guard, adding an indirection layer with a misleading parameter name (the parameter receives the eids array, while the actual uids live at `eid.uids`)."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/cli/create_crew.py",
+      "line": 26,
+      "summary": "Unicode and non-ASCII characters are silently stripped from folder_name and class_name, corrupting valid names like 'café' into 'caf'/'Caf' with no warning.",
+      "failure_scenario": "User runs 'crewai create crew café' — folder is created as 'caf' with class name 'Caf' instead of the expected 'café'/'Café'. The regex [^a-zA-Z0-9_] strips valid Python identifier characters (accented letters, Cyrillic, CJK, etc.) from names that start with an ASCII letter. Names starting with a non-ASCII character are caught by line 29 and rejected, but names starting with ASCII and containing non-ASCII characters are silently corrupted.",
+      "finding_id": "mf-a992c5c34ea510f36733"
+    },
+    {
+      "file": "src/crewai/cli/create_crew.py",
+      "line": 234,
+      "summary": "The 'name' argument passed to copy_template is the raw CLI input (unsanitized), leaking trailing slashes and other unvalidated characters into generated README.md and pyproject.toml via the {{name}} placeholder.",
+      "failure_scenario": "User runs 'crewai create crew my-project/' — create_folder_structure correctly strips the trailing slash from folder_name (my_project) and class_name (MyProject), but create_crew passes the original 'my-project/' string as the 'name' arg to copy_template. The generated pyproject.toml gets 'description = \"my-project/ using crewAI\"' and README.md gets 'The my-project/ Crew is composed of...'. The {{folder_name}} and {{crew_name}} placeholders are correctly cleaned; only {{name}} is affected.",
+      "finding_id": "mf-f1bbbe71cbf1d4610503"
+    },
+    {
+      "file": "src/crewai/cli/create_crew.py",
+      "line": 29,
+      "summary": "Premature validation against the raw name (before character stripping) rejects names that would produce valid Python identifiers after cleaning, with a factually incorrect error message.",
+      "failure_scenario": "User runs 'crewai create crew .myproject' — the name starts with '.' which is not in [a-zA-Z0-9_-], so the check on line 29 matches and raises ValueError('Project name \".myproject\" contains no valid characters for a Python module name'). However, after the re.sub cleaning on line 26, folder_name would be 'myproject', which IS a valid Python module name. The error message is factually wrong (the name contains valid characters) and the rejection is inconsistent with the function's own cleaning logic.",
+      "finding_id": "mf-60b6b5b1aa4d1e201017"
+    }
+  ]
+}

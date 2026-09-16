@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "tests/helper_functions.py",
+      "line": 420,
+      "summary": "Function signature changed from model_uri to model_path and _download_artifact_from_uri call was removed, but all callers still pass URIs (file:// or runs:/), causing os.path.exists to fail on malformed paths",
+      "failure_scenario": "Test test_log_model_with_code_paths calls _compare_logged_code_paths(__file__, model_uri, ...) where model_uri = mlflow.get_artifact_uri('model') returns a file://... URI. The function now does os.path.join('file:///path/to/model', 'MLmodel') which produces 'file:///path/to/model/MLmodel' -- a path that does not exist on disk. The same failure occurs for 20+ other test files that pass runs:/... URIs from model_info.model_uri.",
+      "finding_id": "mf-908c060e62784652d055"
+    }
+  ]
+}

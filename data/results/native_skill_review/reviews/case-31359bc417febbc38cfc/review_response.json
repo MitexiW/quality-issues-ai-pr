@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A config.yaml containing `is_websocket_endpoint: \"false\"` (quoted string) previously produced an HTTP endpoint; now the raw string \"false\" is truthy, so `_handle_legacy_input` sets `values[\"transport\"] = {\"kind\": \"websocket\"}` and emits a spurious DeprecationWarning, pydantic coerces the field to False, and `sync_is_websocket` then sets `is_websocket_endpoint = True` because transport.kind is websocket. The deployed model becomes websocket-only and all HTTP inference requests fail.",
+      "file": "truss/base/truss_config.py",
+      "line": 259,
+      "summary": "Changing `is_websocket_endpoint is True` to a truthiness check in the before-validator makes quoted string values like \"false\" silently force the runtime into websocket mode."
+    },
+    {
+      "failure_scenario": "A config with `transport: {kind: websocket, ping_interval_seconds: -1}` passes pydantic validation (plain float field, no constraints), survives the falsy guard in truss_server.py/control/server.py (negative values are truthy), and reaches `uvicorn.Config(ws_ping_interval=-1)`. The websockets keepalive loop then sleeps a negative delay, sending pings back-to-back and closing connections once the pong timeout trips, instead of raising a configuration error.",
+      "file": "truss/base/truss_config.py",
+      "line": 214,
+      "summary": "The new WebsocketOptions ping fields accept any float with no positivity validation, and negative values are passed unvalidated to uvicorn's keepalive."
+    },
+    {
+      "failure_scenario": "With ping_interval_seconds=1, the test sleeps exactly 3s and requires `2 <= caplog.text.count(\"PING\")`. If the server container's event loop stalls under CI load (CPU contention, GC pause) so two of the three scheduled pings arrive late, only 1 ping is logged and the assertion fails spuriously, flaking the integration suite even though the ping feature works.",
+      "file": "truss/tests/test_model_inference.py",
+      "line": 2066,
+      "summary": "The new integration test asserts a hard minimum of 2 ping log lines within a fixed 3-second sleep window, which is flaky under event-loop contention."
+    }
+  ],
+  "level": null
+}

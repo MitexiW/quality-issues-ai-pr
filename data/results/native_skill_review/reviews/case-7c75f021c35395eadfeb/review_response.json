@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A model declares `orders = relationship('Order')` with no back_populates/backref (valid one-to-many). The old code returned the orders via session.refresh + getattr; the new code runs `getattr(Order, None)` → TypeError: getattr(): attribute name must be string, so every get_user_orders tool call fails instead of returning a page.",
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 140,
+      "summary": "The new list resolver executes getattr(target_sa, relation.back_populates), which raises TypeError for any uselist relationship defined without back_populates (one-directional or backref-style), breaking every call to that resolver."
+    },
+    {
+      "failure_scenario": "Client fetches page 1 (page_size=2) then page 2 of user 1's orders. An order inserted (or updated on Postgres, changing heap order) between the calls shifts rows: the row that was last on page 1 now appears first on page 2, so page 2 repeats it and another order is never returned.",
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 144,
+      "summary": "The paginated relationship query has no ORDER BY, so row order (and therefore page boundaries) is not guaranteed between calls, making pagination unstable."
+    },
+    {
+      "failure_scenario": "Category with `children = relationship('Category', back_populates='parent')`: select(Category).join(Category.parent) aliases the parent side, but where(Category.id == entity_id) filters the selected (child) entity, so get_category_children(category_id=1) returns category 1 itself rather than its children.",
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 147,
+      "summary": "For self-referential uselist relationships the where clause binds the parent's PK column to the child side of the aliased join, filtering the child's own id instead of the parent's and returning the wrong rows."
+    },
+    {
+      "failure_scenario": "Parent with composite PK (region_id, tenant_id): get_parent_children(parent_id=r1) builds WHERE parent.region_id = r1 and returns the union of children of (r1,t1) and (r1,t2). The old code loaded exactly one parent via session.get; the new query silently returns cross-parent data.",
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 139,
+      "summary": "The resolver filters only on the first primary-key column (inspect(model).primary_key[0]), so parents with composite primary keys match children of every parent sharing that first column, silently mixing parents."
+    },
+    {
+      "failure_scenario": "An MCP client calls get_user_orders with {\"kwargs\": \"user_id=1\"} (or any non-object JSON value) and no top-level user_id: kwargs['kwargs'].get(param) raises AttributeError ('str' object has no attribute 'get'), failing the tool call with an internal error rather than a graceful empty page.",
+      "file": "src/enrichmcp/sqlalchemy/auto.py",
+      "line": 126,
+      "summary": "The nested-kwargs fallback assumes kwargs[\"kwargs\"] is a dict; a non-dict value for the 'kwargs' tool argument raises AttributeError instead of returning an empty result (same pattern added to the single resolver at lines 189-190)."
+    },
+    {
+      "failure_scenario": "Regressions in the mutation path (create/update/delete decorators, PatchModel generation) will no longer fail CI; examples/mutable_crud/app.py still ships and is documented, but nothing executes it anymore.",
+      "file": "tests/test_examples.py",
+      "line": 7,
+      "summary": "The mutable_crud example was removed from the EXAMPLES smoke-test list, dropping the only automated coverage of the CRUD/mutable-field example."
+    },
+    {
+      "failure_scenario": "If any assert fails (e.g., a pagination regression), close_all_sessions() is never reached: the stdio server subprocess stays alive with its connector task unclosed, and the pytest-asyncio event loop can hang at teardown or leak the child process.",
+      "file": "tests/test_sqlalchemy_mcp_use.py",
+      "line": 82,
+      "summary": "The new MCP-client test lacks try/finally around client.close_all_sessions(), leaking the spawned server subprocess and its session when an assertion fails."
+    }
+  ],
+  "level": null
+}

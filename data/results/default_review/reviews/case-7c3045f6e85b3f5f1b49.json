@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "apps/python-sdk/firecrawl/firecrawl.py",
+      "line": 3977,
+      "summary": "AsyncFirecrawlApp.generate_llms_text (polling coroutine) omitted cache from its parameter list but references cache=cache on line 4012, causing a NameError at runtime on every invocation.",
+      "failure_scenario": "Any caller invokes await app.generate_llms_text('https://example.com') or await app.generate_llms_text('https://example.com', cache=False). In the first case, line 4012 looks up cache in the local scope, finds nothing, and raises NameError: name 'cache' is not defined. In the second case, the call itself fails immediately with TypeError because cache is not a recognized keyword argument. The method is entirely broken for all callers.",
+      "finding_id": "mf-a79abce0f18236d9ee7d"
+    },
+    {
+      "file": "apps/api/src/services/queue-worker.ts",
+      "line": 661,
+      "summary": "Typo in property name: job.data.generateId (undefined) should be job.data.generationId, causing Redis status updates to silently use wrong key 'generation:undefined' in the touched processGenerateLlmsTxtJobInternal function.",
+      "failure_scenario": "When performGenerateLlmsTxt returns {success: true}, the queue-worker calls updateGeneratedLlmsTxt(job.data.generateId, {status:'completed',...}) which becomes updateGeneratedLlmsTxt(undefined, {...}). The read of key 'generation:undefined' finds nothing, so if (!current) return fires and the status write is silently dropped. Same typo on lines 672 and 693. Mitigated because the service itself already updates Redis with the correct generationId, but the queue-worker's redundant updates are silently dead.",
+      "finding_id": "mf-1ba868eb6fd84d8f4a5f"
+    },
+    {
+      "file": "apps/python-sdk/firecrawl/firecrawl.py",
+      "line": 4000,
+      "summary": "Dead params dict (lines 4000-4006) in AsyncFirecrawlApp.generate_llms_text is missing the new cache key, creating a trap for future refactors who might start using it.",
+      "failure_scenario": "The method builds a params dict with maxUrls/showFullText/experimental_stream but not cache, then immediately shadows it with a call to async_generate_llms_text. If a future change removes the keyword-arg call and instead sends this dict to the API, the cache parameter would be silently dropped and the server would always default to cache=true regardless of what the caller passed. The dict is dead code today but incomplete.",
+      "finding_id": "mf-486f933a8c2c6e83fd1c"
+    },
+    {
+      "file": "apps/python-sdk/firecrawl/firecrawl.py",
+      "line": 1896,
+      "summary": "Unused GenerateLLMsTextParams Pydantic model instantiated in FirecrawlApp.generate_llms_text (sync) — the params variable is never read; the method passes keyword args to async_generate_llms_text instead.",
+      "failure_scenario": "No runtime failure, but the dead code adds maintenance burden. The Pydantic model (lines 1896-1901) is constructed with cache/URLs/fullText but never serialized or sent. Any inconsistency between this dead model and the keyword args passed on lines 1903-1909 creates confusion about which definition is authoritative.",
+      "finding_id": "mf-af3f9fc19aa9dda6784c"
+    },
+    {
+      "file": "apps/api/src/lib/generate-llmstxt/generate-llmstxt-supabase.ts",
+      "line": 3,
+      "summary": "normalizeUrl is imported but never used in this file; only normalizeUrlOnlyHostname is called.",
+      "failure_scenario": "No runtime failure, but the dead import clutters the module and misleads readers into thinking this function is used here. TypeScript/eslint will typically flag this as an unused import. Cost: confusion and potential build warnings.",
+      "finding_id": "mf-c9f17771bb51dd4f436b"
+    }
+  ]
+}

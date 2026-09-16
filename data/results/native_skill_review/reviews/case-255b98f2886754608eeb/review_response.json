@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Page mounts two Inboxes: instance A with no container (its Renderer injects the #novu-default-css style into document.head) and instance B with `container` set to a plain div (the React/JS types allow any `Node`). Instance B's AppearanceProvider onMount computes root=document, finds A's #novu-default-css in head, then executes div.insertBefore(newStyle, headStyle.nextSibling) — the reference node lives in head, not in the div — so the browser throws 'NotFoundError: The node before which the new node is to be inserted is not a child of this node', crashing the mount effect and breaking rendering of instance B.",
+      "file": "packages/js/src/ui/context/AppearanceContext.tsx",
+      "line": 71,
+      "summary": "When `container` is a plain Element (not a ShadowRoot), `root.getElementById(NOVU_DEFAULT_CSS_ID)` searches the whole document while `stylesContainer` is only that Element, so `insertBefore(styleEl, defaultCssStyles.nextSibling)` is called with a reference node that is not a child of `stylesContainer` and throws a NotFoundError DOMException."
+    },
+    {
+      "failure_scenario": "A consumer calls `novuUI.updateContainer(otherShadowRoot)` or re-renders the React `<Inbox>` with a different `container` prop: the signal updates, the Renderer re-renders with the new container prop, keyboard listeners re-attach to the new shadow root, but the root element holding the entire UI is still appended to the old container (and the default CSS/appearance style elements remain there). The inbox keeps displaying in the old container — or disappears entirely if that container was detached — and the new container shows an empty, unstyled region; only re-constructing the NovuUI instance fixes it.",
+      "file": "packages/js/src/ui/novuUI.tsx",
+      "line": 182,
+      "summary": "The new public `updateContainer()` only sets the container signal; it never re-parents `#rootElement` (appended once in `#mountComponentRenderer`) or re-injects the styles, so changing the container at runtime leaves the rendered inbox, its styles, and its mount-time event listeners in the old container while reactive effects (e.g. Tabs keyboard navigation) re-bind to the new one."
+    },
+    {
+      "failure_scenario": "Any consumer of the NovuUI component whose `options.options` (or the other listed deps) keeps its identity while only `options.container` changes — e.g. mutating the same options object in place, or a future wrapper that memoizes the NovuOptions — re-renders with a new container, but the effect does not re-run, the closure still holds the old `options.container`, and `updateContainer` is never called; the UI silently stays bound to the stale container. ESLint's react-hooks/exhaustive-deps flags exactly this missing dependency.",
+      "file": "packages/react/src/components/NovuUI.tsx",
+      "line": 91,
+      "summary": "The update effect calls `novuUI.updateContainer(options.container ?? parentShadowRoot)` but `options.container` is not in the effect's dependency array, so container changes are only applied by accident (in the Inbox path, via the recreated `options.options` object identity) and are silently dropped whenever the other dependencies stay reference-stable."
+    },
+    {
+      "failure_scenario": "With the inbox mounted in a shadow root, a click on any element inside the root whose click does not reach document.body — e.g. an app-level or host-element click handler calls stopPropagation(), or the click targets a nested shadow-DOM host whose retargeted `.shadowRoot` is a different ShadowRoot instance — is received only by the container-attached listener; the guard evaluates false (the target's own shadowRoot is not the container), `floating()?.contains()` is false because the popover is portaled to the novu-root inside the tree, and `onClose()` fires, closing the popover on a click the body listener's new skip condition explicitly intends to keep it open for.",
+      "file": "packages/js/src/ui/components/primitives/Popover/PopoverContent.tsx",
+      "line": 57,
+      "summary": "The new `(containerElement && (e.target as Element).shadowRoot === containerElement)` guard is dead code on the listener attached to the container itself: events dispatched inside a shadow tree are not retargeted to the host for listeners inside the tree, so `e.target.shadowRoot` is the target's own (unrelated) shadow root and the guard never matches, making the container-attached listener call `onClose()` for every click inside the shadow root — the very case the equivalent guard on the body listener (where retargeting makes the host the target) was added to ignore."
+    },
+    {
+      "failure_scenario": "An application that renders inside a shadow root explicitly passes `container={null}` to `<Inbox>` (the type is `Node | null`) to force mounting on document.body, e.g. because its host page provides the styling — the `??` treats null as 'not provided', `findParentShadowRoot` detects the app's shadow root, and the inbox is mounted inside the shadow root anyway, where the document-level CSS and the app's expectations don't apply; on the JS side `#getContainerElement(null)` returns null and mounts on body, so the same configuration behaves differently depending on which entry point is used.",
+      "file": "packages/react/src/components/NovuUI.tsx",
+      "line": 70,
+      "summary": "`optionsRef.current.container ?? parentShadowRoot` (and the same pattern in the update effect) collapses an explicit `container: null` into auto-detection of the parent shadow root, so the React API cannot express the JS API's null semantics of mounting on document.body, and the two layers of the same feature disagree on what null means."
+    },
+    {
+      "failure_scenario": "A consumer constructs `new NovuUI({ container: 'app:inbox' })` (a bare element id containing a colon — ids like this are legal HTML) or any malformed selector: `document.querySelector('app:inbox')` throws 'SyntaxError: Failed to execute querySelector' inside the constructor, which in the React wrapper escapes the useEffect and blows up the component tree; separately, `new NovuUI({ container: '#inbox-root' })` constructed before the target element is attached resolves the string immediately to null, so the inbox is silently appended to document.body instead of the intended container even after the element appears.",
+      "file": "packages/js/src/ui/novuUI.tsx",
+      "line": 77,
+      "summary": "`#getContainerElement` passes any string straight to `document.querySelector`, which throws a SyntaxError for selector-invalid strings (empty string, bare ids containing ':', '.', leading digits, etc.), and the `?? document.getElementById(container)` fallback can never match a selector-style string; additionally the string is resolved only once, in the constructor, so a selector for an element mounted later silently resolves to null and falls back to body."
+    },
+    {
+      "failure_scenario": "A notification subject or body contains a long unbroken string (URL, token, or hash) and the user opens the inbox in Firefox: `word-break: break-word` is ignored, text wrapping falls back to the previous behavior, and the unbreakable string overflows the notification card exactly as it did before the change — the fix only takes effect in Chromium/WebKit browsers, which support the deprecated alias.",
+      "file": "packages/js/src/ui/components/Notification/DefaultNotification.tsx",
+      "line": 142,
+      "summary": "The added `[word-break:break-word]` Tailwind arbitrary property emits the non-standard, deprecated CSS value `word-break: break-word`, which Firefox does not implement (the spec-defined equivalent is `overflow-wrap: break-word`), so the intended long-word overflow fix silently does nothing in Firefox."
+    }
+  ],
+  "level": null
+}

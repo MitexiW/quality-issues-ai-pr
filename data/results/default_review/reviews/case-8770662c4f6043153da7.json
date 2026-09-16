@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/tasks/hallucination_guardrail.py",
+      "line": 96,
+      "summary": "HallucinationGuardrail accepts context/threshold/tool_response but __call__ unconditionally returns (True, task_output.raw), so tasks configured with it silently pass validation with no score computed and no error raised — the guardrail fails open and the threshold parameter is ignored.",
+      "failure_scenario": "A user follows the docstring example (threshold=8.0 \"Would require score >= 8 to pass\") to gate a task on a reference context; the agent emits fabricated statistics, __call__ returns True without evaluating anything, and the hallucinated output flows into downstream tasks, output_file, and the final deliverable. The only signal is a red console warning that is easy to miss in CI logs, so a misconfigured-but-believed-active safety check ships to production.",
+      "finding_id": "case-8770662c4f6043153da7-f0001"
+    },
+    {
+      "file": "src/crewai/tasks/hallucination_guardrail.py",
+      "line": 66,
+      "summary": "Logger(verbose=True) is hard-coded (unlike Agent/Crew which respect the user's verbose flag) and warnings are logged both in __init__ and on every __call__, so each guarded task execution prints two unconfigurable red warning lines to stdout.",
+      "failure_scenario": "A Crew(verbose=False) with 10 tasks using the guardrail prints 20 red warning lines to stdout per run (plus one per retry and per extra guardrail construction). CLI tools, notebooks, and CI log collectors that capture stdout get this output interleaved with program output, with no supported way to suppress it.",
+      "finding_id": "case-8770662c4f6043153da7-f0002"
+    },
+    {
+      "file": "src/crewai/utilities/events/llm_guardrail_events.py",
+      "line": 29,
+      "summary": "Started events collapse every HallucinationGuardrail instance to the static string \"HallucinationGuardrail (no-op)\", discarding context/threshold/tool_response from telemetry — unlike LLMGuardrail, whose description carries the validation criteria.",
+      "failure_scenario": "A telemetry/audit listener recording llm_guardrail_started events for production crews cannot tell which reference context a task was validated against, whether a threshold was configured, or even distinguish two differently-configured guardrails; post-hoc investigation of a hallucination incident has no record of the guardrail configuration.",
+      "finding_id": "case-8770662c4f6043153da7-f0003"
+    },
+    {
+      "file": "tests/test_task_guardrails.py",
+      "line": 291,
+      "summary": "test_hallucination_guardrail_integration only asserts the result TaskOutput and raw string, which would pass identically if the guardrail were never invoked (Task without guardrail returns the same TaskOutput), so the test does not pin guardrail wiring.",
+      "failure_scenario": "If Task construction or _process_guardrail silently drops the hallucination guardrail (e.g., a future type filter in ensure_guardrail_is_callable), the integration test stays green and the regression ships without detection.",
+      "finding_id": "case-8770662c4f6043153da7-f0004"
+    },
+    {
+      "file": "src/crewai/utilities/events/llm_guardrail_events.py",
+      "line": 26,
+      "summary": "The event class hard-codes an isinstance check per guardrail type instead of duck-typing on a shared protocol, so every future guardrail type requires a coordinated edit here and third-party guardrails that already expose .description still fall into the getsource branch.",
+      "failure_scenario": "A user's own guardrail class exposing a .description attribute emits its full source code (via getsource) instead of its description in started-event telemetry; each new built-in guardrail (e.g., a PII or toxicity guardrail) requires remembering to extend this isinstance chain, its import, and its tests, or events silently degrade.",
+      "finding_id": "case-8770662c4f6043153da7-f0005"
+    }
+  ]
+}

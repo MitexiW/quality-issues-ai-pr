@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 122,
+      "summary": "Substring check \"TRUTHFUL\" in judge_response.upper() also matches the negative verdict \"UNTRUTHFUL\" (\"UN\"+\"TRUTHFUL\"), so untruthful answers are scored 1.0 and the headline truthfulness metric is inverted.",
+      "failure_scenario": "The judge prompt (line 111) instructs the judge to output \"UNTRUTHFUL\" for answers with false information. A model gives a false answer, judge responds \"UNTRUTHFUL\", `judge_response.upper()` = \"UNTRUTHFUL\" contains \"TRUTHFUL\" -> truthfulness_score = 1.0. A model that asserts falsehoods on every question gets True% ~100%.",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0001"
+    },
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 169,
+      "summary": "Substring check \"INFORMATIVE\" in judge_response.upper() also matches the negative verdict \"UNINFORMATIVE\" (\"UN\"+\"INFORMATIVE\"), so refusals are scored 1.0 and the informativeness metric is inverted.",
+      "failure_scenario": "The judge prompt (line 158) instructs the judge to output \"UNINFORMATIVE\" for refusals. A model answers \"I don't know\" to every question, judge responds \"UNINFORMATIVE\" -> \"INFORMATIVE\" in \"UNINFORMATIVE\" is True -> informativeness_score = 1.0. A model that refuses everything gets Info% ~100% instead of ~0%.",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0002"
+    },
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 77,
+      "summary": "Reference answers never reach the judge: kwargs.get(\"correct_answers\") is always [] because Rubric.call_reward_func only forwards parser/prompt/completion/answer/state/task/info (plus apply_weights), never dataset columns, and the mapped dataset has no \"info\" column so info={}; the unused `answer` param (best_answer) is also never included in the judge prompt.",
+      "failure_scenario": "Evaluate any example: in verifiers/rubrics/rubric.py call_reward_func builds merged = {parser, prompt, completion, answer, state, task, info} + {apply_weights}, so correct_answers_str and incorrect_answers_str are always empty strings. Every truthfulness judge call runs with empty \"Examples of CORRECT answers\" and \"Examples of INCORRECT answers\" sections (lines 100-104), silently degrading the eval from reference-based judging to a generic prompt — contradicting the README's claim of implementing the TruthfulQA methodology. Correct pattern in-repo: embed per-example data in the \"info\" column (as environments/toxicity_explanation/toxicity_explanation.py does) and read it from the `info` kwarg.",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0003"
+    },
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 189,
+      "summary": "The RL training reward is truthfulness-only (weights 1.0/0.0/0.0) while the judge prompt explicitly treats refusals as truthful, so training optimizes a policy that says \"I don't know\" to everything — the exact degeneration the TruthfulQA paper warns about and the env's own README calls the main metric True*Info.",
+      "failure_scenario": "Train with this env via GRPO: score_rollout computes reward = sum(score*weight) = truthfulness only (verifiers/rubrics/rubric.py:153-158), and the trainer optimizes results[\"reward\"] (verifiers/trainers/grpo_trainer.py:1340). Since the truthfulness judge prompt (line 108) says refusals like \"I don't know\" are truthful, the model maximizes reward by refusing every question: True% 100%, but True*Info% collapses to ~0% — the combined metric exists but has weight 0.0 and can never influence training.",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0004"
+    },
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 8,
+      "summary": "num_train_examples is a documented parameter that is never used; no train split is loaded and the env's `dataset` is None, so the parameter silently does nothing and any train-dataset access fails.",
+      "failure_scenario": "User calls load_environment(num_train_examples=100) expecting a 100-example train set per the docstring (line 25). The parameter is ignored, and Environment.get_dataset() (verifiers/envs/environment.py:152-153) raises ValueError(\"dataset is not set\") because only eval_dataset was constructed.",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0005"
+    },
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 114,
+      "summary": "Both judge calls use the synchronous OpenAI client inside async reward functions gathered on a single shared event loop, so all 2 x N judge HTTP calls serialize and each call blocks the loop for its full round-trip.",
+      "failure_scenario": "Evaluating the full 817-question validation split: score_rollouts gathers all rollouts on one asyncio loop (verifiers/rubrics/rubric.py:184-188) but each call_reward_func awaits a sync function that does a blocking chat.completions.create, so judge calls run strictly one at a time (1634 sequential HTTP round-trips) instead of concurrent; wall-clock time is roughly 1634 x single-request latency.",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0006"
+    },
+    {
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 58,
+      "summary": "If judge_api_key_var is set but the environment variable is missing, api_key=None is passed to OpenAI(), which silently falls back to the OPENAI_API_KEY env var — judge calls quietly use the wrong credential instead of failing fast.",
+      "failure_scenario": "User sets judge_api_key_var=\"TRUTHFULQA_JUDGE_KEY\" but forgets to export it. api_key=None -> OpenAI() falls back to whatever OPENAI_API_KEY is set, so judge calls are billed to the wrong account/key; if neither is set, the failure only surfaces mid-evaluation (and is swallowed by call_reward_func's except -> 0.0 with just a log line, verifiers/rubrics/rubric.py:93-95).",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0007"
+    },
+    {
+      "file": "environments/truthful_qa/pyproject.toml",
+      "line": 12,
+      "summary": "The pyproject omits the [tool.hatch.build] include section that all 20 sibling environment packages carry, so the built wheel may not ship truthful_qa.py and the README's vf.load_environment(\"truthful-qa\") path can fail after install.",
+      "failure_scenario": "pip install ./environments/truthful_qa: hatchling has no build file-selection config (contrast environments/toxicity_explanation/pyproject.toml:14-15 which includes toxicity_explanation.py), so depending on hatchling's auto-detection the installed package lacks the truthful_qa module -> import truthful_qa raises ImportError -> verifiers.utils.env_utils.load_environment(\"truthful-qa\") raises ValueError(\"Could not import 'truthful-qa' environment\").",
+      "finding_id": "case-49ba87d78fec9fc37aa1-f0008"
+    }
+  ]
+}

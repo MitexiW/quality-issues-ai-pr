@@ -1,0 +1,83 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user follows TOOL_OPTIONS.md:90 and sets XCODEBUILDMCP_TOOL_IOS_DEVICE_BUILD_TOOLS=true. isSelectiveToolsEnabled() in tool-groups.ts:56 keys off any XCODEBUILDMCP_TOOL_* var being 'true', so selective mode turns on; no toolReg.envVar equals that name any more and no XCODEBUILDMCP_GROUP_* var is set, so shouldRegisterTool() returns false for every entry and the server exposes no tools at all (previously it exposed the device build tools). TOOL_OPTIONS.md was not updated (it still documents every old name).",
+      "file": "src/utils/register-tools.ts",
+      "line": 295,
+      "summary": "Renaming the selective-tool env vars (e.g. XCODEBUILDMCP_TOOL_IOS_DEVICE_BUILD_TOOLS -> XCODEBUILDMCP_TOOL_DEVICE_BUILD_TOOLS, XCODEBUILDMCP_TOOL_GET_IOS_BUNDLE_ID -> XCODEBUILDMCP_TOOL_GET_APP_BUNDLE_ID, all XCODEBUILDMCP_TOOL_TEST_IOS_* and XCODEBUILDMCP_TOOL_IOS_SIMULATOR_BUILD_* names) without an alias leaves existing configurations matching no registration at all, so zero tools get registered."
+    },
+    {
+      "failure_scenario": "Running tsc --noEmit under the repo's strict tsconfig reports TS2339 for device.ts(142) 'Property udid does not exist on type { cpuArchitecture?; platform?; productType? }', device.ts(153) 'Property cpuType ...' and device.ts(151) 'Property developerModeStatus ...'. The declared payload shape silently diverges from real devicectl output, so any change to those fields goes unnoticed by the type system.",
+      "file": "src/tools/device.ts",
+      "line": 142,
+      "summary": "The new code reads device.hardwareProperties.udid, device.hardwareProperties.cpuType.name and device.deviceProperties.developerModeStatus, but the DeviceCtlDevice interface (lines 38-59) declares none of those fields, so the parsed-JSON type no longer describes what the parser reads and the file does not typecheck."
+    },
+    {
+      "failure_scenario": "On a Mac with Xcode 16 and no physical device attached, `xcrun devicectl list devices --json-output ...` exits 0 with result.devices = [], so devices.length === 0 forces the xctrace branch; the user gets an unparsed xctrace dump plus 'Note: For better device information, please upgrade to Xcode 15 or later', and the troubleshooting block (trust/dev mode/unlock steps) at lines 208-216 can never execute because uniqueDevices.length is always >= 1 once the fallback is skipped.",
+      "file": "src/tools/device.ts",
+      "line": 170,
+      "summary": "The fallback condition `if (!useDevicectl || devices.length === 0)` also triggers when devicectl succeeds and simply finds no devices, which makes the intended 'No physical Apple devices found' branch at line 208 unreachable and instead returns raw xctrace output with misleading 'upgrade to Xcode 15' advice."
+    },
+    {
+      "failure_scenario": "list_devices reports an available device and the MCP client follows the emitted instructions: build_ios_dev_ws/test_ios_dev_ws/get_ios_dev_app_path_ws are no longer registered (register-tools.ts now registers build_dev_ws, test_device_ws, get_device_app_path_ws), so the calls fail as unknown tools; the test_ios_dev_ws example also omits the now-required deviceId parameter.",
+      "file": "src/tools/device.ts",
+      "line": 274,
+      "summary": "The new list_devices Next Steps block advertises build_ios_dev_ws, test_ios_dev_ws and get_ios_dev_app_path_ws, all three of which this same change renamed to build_dev_ws, test_device_ws and get_device_app_path_ws."
+    },
+    {
+      "failure_scenario": "A client acting on the returned Next Steps calls install_app_in_simulator({ simulatorUuid, appPath }) or launch_app_in_simulator({ simulatorUuid, bundleId }) and gets 'tool not found'; the actual registrations are 'install_app_sim' (src/tools/simulator.ts:184) and 'launch_app_sim' (src/tools/simulator.ts:268).",
+      "file": "src/tools/bundleId.ts",
+      "line": 165,
+      "summary": "The newly added guidance tells callers to use install_app_in_simulator / launch_app_in_simulator, but the registered simulator tools are install_app_sim / launch_app_sim (the same wrong names already sit in the touched block at src/tools/app_path.ts:155-156)."
+    },
+    {
+      "failure_scenario": "When the devicectl JSON listing throws (e.g. unparseable output or an old devicectl build), the log line reads only 'devicectl with JSON failed, trying xctrace fallback' with no cause because logger.ts:33 only formats the first two arguments; tsc reports 'Expected 2 arguments, but got 3'. This is the only 3-argument log() call in src/.",
+      "file": "src/tools/device.ts",
+      "line": 159,
+      "summary": "log() is declared as log(level: string, message: string), so passing the caught error as a third argument is an arity error and the error detail is silently discarded."
+    },
+    {
+      "failure_scenario": "Every successful physical-device build (build_dev_ws / build_dev_proj) returns 'Next Steps: 1. Get App Path: get_ios_device_app_path_workspace 2. Get Bundle ID: get_ios_bundle_id'; following that guidance fails because neither tool name is registered any more.",
+      "file": "src/utils/build-utils.ts",
+      "line": 305,
+      "summary": "The iOS build success message was not updated after this change renamed the tools it names: get_ios_bundle_id is now get_app_bundle_id, and get_ios_device_app_path_workspace/project (line 304, and line 313) are now get_device_app_path_workspace/project."
+    },
+    {
+      "failure_scenario": "Under strict tsconfig, T falls back to its `object` constraint and `const { deviceId, appPath } = args;` at device.ts:332 (also device.ts:396, device_log.ts:218, device_log.ts:265) reports 'Property deviceId/appPath/bundleId/logSessionId does not exist on type object'. Every other registerTool call site in the repo either passes a type argument or uses a separately declared handler with an annotated parameter (e.g. src/tools/log.ts:38).",
+      "file": "src/tools/device.ts",
+      "line": 331,
+      "summary": "The install/launch handlers are inline arrows with no parameter annotation and registerTool is invoked without a type argument, so T cannot be inferred from the schema (typed Record<string, z.ZodType>) and the destructured property accesses do not typecheck."
+    },
+    {
+      "failure_scenario": "list_sims tells the client 'Build for simulator: build_ios_sim_id_proj(...)'; after this change only build_sim_id_proj/build_sim_id_ws are registered, so the suggested call fails as an unknown tool.",
+      "file": "src/tools/simulator.ts",
+      "line": 144,
+      "summary": "This line still emits the pre-rename tool name build_ios_sim_id_proj, which this change renamed to build_sim_id_proj (same for build_ios_sim_name_ws / build_run_ios_sim_name_ws at src/tools/scaffold.ts:439-440)."
+    },
+    {
+      "failure_scenario": "start_device_log_cap launches the app, the app crashes, and the user immediately calls stop_device_log_cap: the SIGTERM handler path goes straight to readFile of the file being written by the piped logStream, so the returned logContent ends mid-line and omits the crash output that prompted the capture.",
+      "file": "src/tools/device_log.ts",
+      "line": 135,
+      "summary": "stopDeviceLogCapture kills the devicectl process and immediately reads the log file without waiting for the child's stdout/stderr pipes or the write stream to flush, so the tail of the captured output can be lost."
+    },
+    {
+      "failure_scenario": "Four parallel branches (lines 148-171) must be edited in lockstep for any destination-format change; a future edit or a new platform is likely to diverge, producing a generic destination for a specific device.",
+      "file": "src/utils/build-utils.ts",
+      "line": 149,
+      "summary": "The deviceId destination branch is copy-pasted verbatim for iOS, watchOS, tvOS and visionOS instead of being expressed once as `platformOptions.deviceId ? `platform=${platform},id=${deviceId}` : `generic/platform=${platform}``."
+    },
+    {
+      "failure_scenario": "Adding or correcting a device platform requires editing four identical copies; a single missed copy silently maps a requested platform to undefined, which _handleGetAppPathLogic turns into 'Unsupported platform: undefined'. A single shared map in common.ts (or reusing platformDeviceSchema values) would cover all four sites.",
+      "file": "src/tools/app_path.ts",
+      "line": 288,
+      "summary": "The platformMap literal (Record<string, XcodePlatform> with the same four iOS/watchOS/tvOS/visionOS entries) is duplicated four times: app_path.ts:288, app_path.ts:330, test_ios_device.ts:67 and test_ios_device.ts:118."
+    },
+    {
+      "failure_scenario": "Two ~100-line copies of the same session/retention code must be maintained: a fix to either copy (for example the missing flush wait above, or the never-closed write stream/session leak) leaves the other broken, and the two cleanup routines can only be verified separately.",
+      "file": "src/tools/device_log.ts",
+      "line": 53,
+      "summary": "startDeviceLogCapture/stopDeviceLogCapture/cleanOldDeviceLogs re-implement the session map, stop-and-read and 3-day retention logic already provided by startLogCapture/stopLogCapture/cleanOldLogs in src/utils/log_capture.ts; only the spawn command and the log-file prefix differ."
+    }
+  ],
+  "level": null
+}

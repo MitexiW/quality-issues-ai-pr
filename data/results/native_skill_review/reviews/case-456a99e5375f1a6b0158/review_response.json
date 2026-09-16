@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A per-category subscription whose budgets map is partial and whose top-level fields carry the values, e.g. {budgetMode: 'per_category', errorsBudget: 1000, attachmentsBudget: 3000, budgets: {errors: 1000}} (the shape this PR now POSTs and that the specs' GET fixtures were updated to return), parses to attachmentsBudget: 0. The edit modal then renders the Attachments input from `budgets[category] ?? 0` as $0, and clicking Save POSTs attachmentsBudget: 0 + budgets: {errors: 1000}, silently zeroing the customer's $30 attachments budget. The only reader of an incoming flat field is the dead method in onDemandBudgetEditModal.tsx, which is never rendered; the PR's own fixture in subscriptionPage/onDemandSettings.spec.tsx (attachmentsBudget: 3000 vs budgets.attachments: 2400) already shows the two representations can disagree.",
+      "file": "static/gsApp/views/onDemandBudgets/utils.tsx",
+      "line": 46,
+      "summary": "parseOnDemandBudgets derives the new flat per-category fields only by iterating `onDemandBudgets.budgets` and never reads the corresponding top-level fields from the payload, so values that exist only in the flat form are dropped and then re-posted as 0."
+    },
+    {
+      "failure_scenario": "render() (lines 306-358) only calls this.renderError and renders <OnDemandBudgetEdit>; grepping the file shows a single occurrence of renderInputFields (the definition), so the new shared/per-category inputs, their aria-labels, and the '$'-prefixed currency styling can never appear. The cost is a permanent second copy of the budget-input markup and of coerceValue/parseInputValue (which now exist in three files: this one, onDemandBudgetEdit.tsx:25-34, and setPayAsYouGo.tsx:101-110): a change to cents/dollars handling or to the input list must be made in every copy, and the copy in this modal is invisible in the UI, so drift will not be caught by tests. If it is ever wired up, its per-category branch only renders Errors/Transactions/Attachments and updates only the flat fields (not `budgets`, which getTotalBudget/analytics/formatOnDemandBudget read), so edits to replays/monitorSeats/uptime/profileDuration would be lost.",
+      "file": "static/gsApp/views/onDemandBudgets/onDemandBudgetEditModal.tsx",
+      "line": 198,
+      "summary": "The newly added renderInputFields method (plus its coerceValue/parseInputValue helpers and the InputFields/Currency/OnDemandInput/DetailTitle styled components, ~150 added lines) is never called from render(), so it is unreachable dead code that duplicates the live input UI in onDemandBudgetEdit.tsx."
+    },
+    {
+      "failure_scenario": "Adding a data category (the change the 'TODO: refactor this out later in the future' comments anticipate) requires editing the PerCategoryOnDemandBudget type, the default block here (lines 56-67) and the identical block at lines 281-292. If only one block is updated, e.g. a new `uptimeBudget`-style field is added to convertOnDemandBudget but not to parseOnDemandBudgets, then one code path emits the field and the other does not: switching budget mode in the modal/checkout (convertOnDemandBudget) versus opening the modal on an existing subscription (parseOnDemandBudgets) produce different payloads, and the path that omits the field causes the server to receive/reset that category as absent. A single helper that maps a `budgets` map to flat fields (the two implementations already differ in style: a for-in loop vs Object.fromEntries) would keep one source of truth.",
+      "file": "static/gsApp/views/onDemandBudgets/utils.tsx",
+      "line": 56,
+      "summary": "The eight hard-coded flat-budget defaults and the `${category}Budget` key mapping are duplicated verbatim in parseOnDemandBudgets and convertOnDemandBudget, so the category list must be maintained in two places that can silently drift."
+    },
+    {
+      "failure_scenario": "Any environment that already applied 0936 (migrations run on deploy, and the baseline lockfile already listed 0936) keeps the physical index and a django_migrations row for a file that no longer exists; no remaining migration drops that index (the squashed migration 0001_squashed_0904 contains no indexes entry for sentry_promptsactivity, and 0935 is now the head), and no code declares it, so the orphaned index can never be removed by the migration system, while environments that migrate after this change never create it. Query plans for promptsactivity lookups by feature/organization_id/project_id therefore differ between production and fresh/CI databases, and the schema history is no longer reproducible from the migration graph. Removing the index via a new RemoveIndex migration (or keeping 0936 and dropping the model declaration in a follow-up) would leave every environment in one state.",
+      "file": "src/sentry/models/promptsactivity.py",
+      "line": 30,
+      "summary": "The model's (feature, organization_id, project_id) index and migration 0936_prompts_activity_index are both deleted and migrations_lockfile.txt is reverted to 0935, a revert that is not re-established anywhere and leaves already-migrated environments permanently different from fresh ones."
+    },
+    {
+      "failure_scenario": "CLAUDE.md at the repo root, section 'Anti-Patterns (NEVER DO) / Frontend', states `// WRONG: Inline styles <div style={{padding: 16}}>  // NO!` and `// RIGHT: Emotion styled`. The new line `<InputFields style={{alignSelf: 'center'}}>` (onDemandBudgetEditModal.tsx:205) hard-codes layout in JSX instead of the Emotion styled component used everywhere else in this file, so the alignment cannot be themed or overridden by the media queries the other styled blocks in the same file define; it is also a copy of the same violation in onDemandBudgetEdit.tsx:71, propagating the pattern rather than fixing it.",
+      "file": "static/gsApp/views/onDemandBudgets/onDemandBudgetEditModal.tsx",
+      "line": 205,
+      "summary": "The added input container uses a React inline style, violating the repository's documented anti-pattern in CLAUDE.md (Frontend: 'WRONG: Inline styles  // NO!')."
+    }
+  ],
+  "level": null
+}

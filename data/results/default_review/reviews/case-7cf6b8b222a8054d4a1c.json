@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "weave/trace/weave_client.py",
+      "line": 1398,
+      "summary": "Closure `send_end_call` references undefined variable `summary`; will raise NameError when the deferred call executes, meaning the deep-merged summary is never written to the database.",
+      "failure_scenario": "Any traced op call calls finish_call, which defers send_end_call. When the future executor runs send_end_call, Python looks up `summary` in the global scope, finds nothing, and raises NameError. The call_end record (with summary) is never persisted to the trace server. The new docstring at lines 1282-1286 claims the summary is written to the database, which contradicts this behavior.",
+      "finding_id": "mf-15da7f709fb7908a527b"
+    },
+    {
+      "file": "weave/trace/weave_client.py",
+      "line": 796,
+      "summary": "New AttributesDict docstring overstates immutability: `clear()` is not overridden and bypasses the `_frozen` check on CPython < 3.11, allowing a frozen dict to be silently emptied.",
+      "failure_scenario": "User code or library code calls `call.attributes.clear()` on a frozen AttributesDict. On CPython 3.10 and earlier, dict.clear() clears the internal hash table without calling __delitem__, so the freeze guard is bypassed and the dict is silently emptied. This violates the docstring claim (lines 796-797) that 'Any attempt to modify the dictionary after call start will raise TypeError.'",
+      "finding_id": "mf-0062c6b8964071b991aa"
+    },
+    {
+      "file": "weave/trace/weave_client.py",
+      "line": 828,
+      "summary": "`AttributesDict.__delitem__` lacks the reserved-key guard that `__setitem__` has; before freeze(), the reserved 'weave' key can be deleted, corrupting internal state.",
+      "failure_scenario": "If any code path allows access to an unfrozen AttributesDict (e.g., between creation and freeze in create_call), calling `del attrs['weave']` succeeds because __delitem__ only checks `_frozen` but not the 'weave' key. This deletes the WeaveKeyDict storing client_version, source, sys_version, etc. Unlike __setitem__ which raises KeyError('Cannot set weave directly') for the weave key.",
+      "finding_id": "mf-bd07a33a7889db2eab31"
+    },
+    {
+      "file": "weave/trace/weave_client.py",
+      "line": 1358,
+      "summary": "`_deep_update` silently overwrites user-set summary values when the user key is non-dict but the computed key is a dict (or vice versa), violating the 'deep-merged' promise in the new docstring.",
+      "failure_scenario": "User sets `call.summary['usage'] = 42` (an int), and the computed summary has `{'usage': {'gpt-4': {'requests': 1, ...}}}`. Because `isinstance(42, dict)` is False, the else-branch executes: `dst['usage'] = {'gpt-4': ...}`, discarding the user's value 42 entirely. The docstring claims values are 'deep-merged' but a non-dict user value at a key that computed treats as a dict is overwritten rather than preserved.",
+      "finding_id": "mf-5e38f0ba981b8b016134"
+    },
+    {
+      "file": "tests/trace/test_current_call.py",
+      "line": 59,
+      "summary": "`test_call_summary_deep_merge` does not actually test deep-merge behavior: user and computed summary keys are disjoint, so the test passes even if merge were implemented as a shallow overwrite.",
+      "failure_scenario": "The test sets `call.summary['nested'] = {'foo': 1}` and the only computed key is `RESERVED_SUMMARY_STATUS_COUNTS_KEY` ('status_counts'). These keys do not overlap. If `_deep_update` were replaced with `merged_summary.update(computed_summary)` (shallow overwrite), the test would still pass, providing no regression protection for the actual deep-merge logic. A proper test would set `call.summary['status_counts'] = {'custom': 5}` and verify both `custom: 5` and `SUCCESS: 1` are present after finish.",
+      "finding_id": "mf-7ac21c15681a41240f2f"
+    }
+  ]
+}

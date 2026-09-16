@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "ocl_threshold compiles the kernel with T=uchar4 when predictOptimalVectorWidth returns kercn=4 (src cols*cn % 4 == 0 and aligned offsets/steps, e.g. 8UC1 256x256 with step%4==0). Each thread gx covers pixel columns 4*gx..4*gx+3, but mask_index uses gx/1, so thread 1 reads mask[1] instead of mask[4]. With a mask that is 255 only in columns 4-7, the kernel skips thresholding columns 4-7 entirely (and would consult mask columns beyond cols/4 never); the CPU path thresholds per element via mask[j/cn]. The new OCL test Threshold_masked compares CPU vs OCL with exact equality over a random ellipse mask and random ROIs, so it fails on any OpenCL device whenever a random draw yields kercn>1.",
+      "file": "modules/imgproc/src/opencl/threshold_mask.cl",
+      "line": 28,
+      "summary": "The OpenCL threshold_mask kernel indexes the mask at column gx/CN, ignoring the vector width kercn, so every vectorized launch (kercn>1, the normal case for 8U/16U on OpenCL devices) reads the wrong mask pixel and produces wrong output."
+    },
+    {
+      "failure_scenario": "thresholdWithMask on an 8U image with a mask and thresh>=255 (user-passed, or an Otsu result of 255) under THRESH_BINARY executes dst.setTo(0), zeroing every pixel including mask==0 pixels the docs say must be 'left as-is' (the generic path and the OpenCL kernel leave them unchanged). Conversely, THRESH_TRUNC with thresh<0 executes src.copyTo(dst), leaving mask!=0 pixels at their source value instead of clamping them to 0. Identical masked fast paths exist at lines 1845-1848 (16S) and 1876-1879 (16U). No test covers these branches: the fixed test uses in-range thresh=127 and the auto test compares only the masked rectangle.",
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1814,
+      "summary": "thresholdWithMask's out-of-range-threshold fast paths (dst.setTo(v) / src.copyTo(dst) in the CV_8U, CV_16S, and CV_16U branches) ignore the mask entirely, clobbering masked-out pixels that the API contract and the in-range generic path (mask[j/cn] != 0 guard) leave untouched."
+    },
+    {
+      "failure_scenario": "With a 50x50 mask against a 100x100 src, threshGenericWithMask reads mask[j/cn] past the end of every mask row and past the whole buffer on the last rows (the same unguarded reads occur in the masked Otsu/Triangle histograms at pMask[j] and in the OpenCL kernel), producing garbage output or a heap-buffer-overflow crash. With a same-size CV_32F or 3-channel mask, mask bytes are reinterpreted as uchar, silently applying a wrong mask. Other masked OpenCV APIs (e.g. cv::compare) assert size/type equality; the documented contract 'mask (same size as src, 8-bit)' is unenforced.",
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1769,
+      "summary": "thresholdWithMask never validates the mask's size, type, or channel count, so a mismatched mask causes out-of-bounds reads (mask smaller than src) or silently wrong masking (wrong type/channels) instead of a clean CV_Assert error."
+    },
+    {
+      "failure_scenario": "thresholdWithMask(src, dst, Mat::zeros(src.size(), CV_8UC1), 0, 255, THRESH_BINARY | THRESH_OTSU) computes maskCount==0, scale=1/0.0=+inf, then mu=0*inf=NaN; every subsequent q1/mu1/sigma comparison against NaN is false, so max_val stays 0 and the function returns thresh=0 with no error, silently thresholding with a meaningless value. A dynamic mask that happens to end up all-zero (a plausible runtime state) triggers this.",
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1241,
+      "summary": "Masked Otsu divides by maskCount, so an all-zero mask yields scale=1/0=inf, NaN propagation through the sigma computation, and a silently arbitrary threshold of 0 (Triangle similarly returns an arbitrary value), instead of a defined result or an error."
+    },
+    {
+      "failure_scenario": "Any future change to threshold semantics, fast-path conditions, saturate_casts, or a new supported depth must be edited in both copies; drift between them is already the mechanism of the fast-path bug above, and this PR itself had to add the CV_16U branch twice. Extracting the shared block into one helper parameterized by an optional mask removes the duplication and the drift risk.",
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1793,
+      "summary": "The ~140-line depth-dispatch and out-of-range-threshold special-case block is duplicated verbatim between cv::threshold (lines 1647-1745) and thresholdWithMask (lines 1793-1885), with the two copies already requiring identical hand-synchronized fixes (the mask-ignoring fast paths exist only in the second copy)."
+    }
+  ],
+  "level": null
+}

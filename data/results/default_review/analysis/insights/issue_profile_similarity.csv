@@ -1,0 +1,3 @@
+scope,ai_pr_category_occurrence_n,human_pr_category_occurrence_n,jensen_shannon_divergence_bits,total_variation_distance,maximum_absolute_share_difference_percentage_points,eligible_language_n,minimum_prs_per_group,distribution_overlap,top_10_rule_overlap_n_mean
+broad_quality_categories,277,305,0.00039576271748534004,0.013564538083683509,1.356453808368352,,,,
+within_language_rule_profiles_weighted_mean,,,0.1032680745901615,,,6,20,0.7923373668979969,6.277731958762887

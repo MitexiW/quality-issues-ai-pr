@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "jina-ai/src/patch-express.ts",
+      "line": 37,
+      "summary": "The InsufficientBalanceError guard (wallet.total_balance > 0) is removed with no replacement anywhere in the billing path, so zero/negative-balance users can call the API for free.",
+      "failure_scenario": "A user whose wallet.total_balance is 0 (exhausted) POSTs to /v1/chat/completions: assertUser succeeds, rate-limit checks pass, the request is served, and reportUsage (jina-ai/src/dto/jina-embeddings-auth.ts:272) merely decrements the balance into negative values, only logging warnings on failure. Previously the middleware threw InsufficientBalanceError and rejected the request; grep confirms no other balance check exists in the middleware chain (jinaAiBillingMiddleware is the only gate in jina-ai/src/server.ts).",
+      "finding_id": "case-df4aa08de27bda8bfe40-f0001"
+    },
+    {
+      "file": "src/app.ts",
+      "line": 501,
+      "summary": "The streaming path now calls buildMdFromAnswer(finalStep as AnswerAction) unconditionally, dropping the old 'result.action === \"answer\"' guard, so a non-answer final step streams the literal string 'undefined' instead of the step's think text.",
+      "failure_scenario": "Beast mode runs with an answer-only schema; the LLM emits valid JSON of the wrong action (e.g. {\"action\":\"reflect\",\"think\":\"Let me think again\",\"questionsToAnswer\":[\"q\"]}). Schema validation fails, ObjectGeneratorSafe.handleGenerateObjectError (src/utils/safe-generator.ts:80-94) manually JSON.parses the raw text without re-validation and returns it, so getResponse returns a ReflectAction with isFinal=true. buildMdFromAnswer hits answer.references === undefined, returns answer.answer === undefined, and the client receives '</think>\\n\\nundefined' as the final answer; the old code streamed result.think in this case.",
+      "finding_id": "case-df4aa08de27bda8bfe40-f0002"
+    },
+    {
+      "file": "src/app.ts",
+      "line": 29,
+      "summary": "The new early return (!answer.references.some(ref => ref.url.startsWith('http'))) drops the entire <references> block and also skips the (REF_n) -> [^n] marker replacement, which the old code always applied.",
+      "failure_scenario": "An answer whose references contain scheme-less URLs (e.g. url: \"example.com/docs\", as can be produced by readUrl-derived URLs) now returns raw answer text with literal '(REF_1)' markers visible and no reference list, whereas the old code always ran the (REF_n) replacement and appended the references block when references existed. Dangling [^n] footnotes and raw markers degrade the client-visible response.",
+      "finding_id": "case-df4aa08de27bda8bfe40-f0003"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 711,
+      "summary": "The final storeContext call uses the outer 'prompt' variable (last regular-iteration prompt) instead of the beast-mode prompt because the beast block shadows prompt with 'const prompt = getPrompt(...)' at line 683, so the persisted debug artifact records the wrong prompt paired with the beast-mode schema.",
+      "failure_scenario": "After beast mode runs, prompt-${totalStep}.txt is written with the last regular-loop prompt (the one that produced the rejected answer) alongside the beast-only-answer JSON schema (schema = getSchema(false,false,true,false) reassigns the outer variable). Anyone replaying the logged prompt/schema pair to reproduce the beast-mode step gets mismatched artifacts; the old code wrote the actual beast-mode prompt inside the else branch.",
+      "finding_id": "case-df4aa08de27bda8bfe40-f0004"
+    },
+    {
+      "file": "src/app.ts",
+      "line": 500,
+      "summary": "Pre-existing race re-exposed in the rewritten streaming block: completeCurrentStreaming flushes only the current item's remainingContent and does not drain streamingState.queue, so queued think items (notably the beast-mode final think queued by trackAction milliseconds before getResponse returns) continue streaming after the final answer and after res.end().",
+      "failure_scenario": "With stream:true, the beast-mode answer's think is queued right before getResponse returns; completeCurrentStreaming sets currentlyStreaming=false mid-item, causing streamTextNaturally to yield the remainder of the text, duplicating content, and processQueue keeps res.write-ing queued items after the '</think>'+answer chunk and res.end() — duplicated think text after the final answer and ERR_STREAM_WRITE_AFTER_END errors.",
+      "finding_id": "case-df4aa08de27bda8bfe40-f0005"
+    }
+  ]
+}

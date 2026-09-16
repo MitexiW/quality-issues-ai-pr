@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The metrics table defaults to row height 's' (metrics.tsx:100-103), so every data row's cell content is wrapped in `<div class=\"flex items-center h-6\">` (data-table.tsx:502) and the `<td>` sets `overflow-hidden` (data-table.tsx:492). The labels column is 160px (metrics.tsx:175). With `maxVisibleLabels={3}` and the pinned, long badges ('production' + 'latest' + one more ≈ 150px), the `+N more` Button (about 73px wide) cannot fit on the first 24px line, so it wraps to line 2; that line is painted outside the h-6/clipped cell content and is invisible and not clickable. E.g. the newly seeded 'prompt-with-many-labels' (51 labels) shows only production/latest/vx in the metrics table and its '+48 more' fallback is never visible at the default row height, so those labels are unreachable.",
+      "file": "web/src/pages/project/[projectId]/prompts/metrics.tsx",
+      "line": 180,
+      "summary": "The new '+N more' control in the metrics table's labels cell wraps onto a second flex line that the cell clips, so labels beyond the first three cannot be revealed (the previous code at least rendered all labels in the same flow)."
+    },
+    {
+      "failure_scenario": "In the metrics table the labels cell is inside two `overflow-auto` containers (data-table.tsx:237 and 242) and each `<td>` is `overflow-hidden` (data-table.tsx:492). Hovering '+N more' on a row near the bottom of the scroll area renders the w-80 popup inside the scrollable table content, where it is cut off by the cell/container edges and scrolls away with the table instead of overlaying it. Every other HoverCard usage in the repo portals its content (ActionButton.tsx:96, date-range-dropdowns.tsx:69, MembersTable.tsx:200, RoleSelectItem.tsx:41, WidgetPropertySelectItem.tsx:28).",
+      "file": "web/src/components/TruncatedLabels.tsx",
+      "line": 83,
+      "summary": "HoverCardContent is rendered in place instead of through HoverCardPortal, unlike every other hover card in the repository, so the 'hidden labels' popup is positioned inside the table cell's scroll/clip context rather than the viewport."
+    },
+    {
+      "failure_scenario": "For a prompt with labels ['latest','production','alpha'], the badges render as production, latest, alpha (this comparator), while getPythonCode/getJsCode on the same prompt-detail page order labels production, alpha, latest (prompt-detail.tsx:244-248, unchanged). The same prompt version therefore shows two different label orders, and a future change to the ranking must be applied in three places (also the removed copy in SetPromptVersionLabels). Extract one comparator into web/src/features/prompts/utils.ts next to isReservedPromptLabel and reuse it in both sites.",
+      "file": "web/src/components/TruncatedLabels.tsx",
+      "line": 28,
+      "summary": "The label comparator is now a third copy of the production-first sort and additionally pins `latest` second, so badge order no longer matches the label order used for the SDK snippets generated from the same prompt."
+    },
+    {
+      "failure_scenario": "The simple-badge `<div>` and the `StatusBadge` branches (lines 52-71 and 87-109, ~30 duplicated lines) must be edited twice for any change to label styling or behavior; editing only one branch makes the collapsed row and the popup show the same label differently (e.g. one gets the live dot/tooltip and the other does not). Mapping once over a shared render helper would keep them identical.",
+      "file": "web/src/components/TruncatedLabels.tsx",
+      "line": 52,
+      "summary": "The badge-rendering JSX is copy-pasted between the visible list and the hover-card list, so the two renderings of the same labels can silently diverge."
+    },
+    {
+      "failure_scenario": "Both call sites style labels via `className` only (metrics.tsx:183 passes className; SetPromptVersionLabels passes only labels/maxVisibleLabels), so `badgeClassName` and its two `cn(...)` usages are untested and unreachable; a future badge-styling need has to thread a prop no caller uses. Remove it or wire it through the call site that needs per-badge classes.",
+      "file": "web/src/components/TruncatedLabels.tsx",
+      "line": 16,
+      "summary": "The `badgeClassName` prop is dead API surface: neither call site (metrics.tsx, SetPromptVersionLabels) ever passes it."
+    }
+  ],
+  "level": null
+}

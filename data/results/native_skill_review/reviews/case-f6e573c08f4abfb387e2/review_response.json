@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Building/installing this tree (`pip install -e .`, `pip install git+...`, `python -m build`) produces dspy 3.0.0b1 while the base commit declared 3.0.0b2; because 3.0.0b1 < 3.0.0b2 under PEP 440 ordering, pip treats a source/editable install as a downgrade, requirement specs such as `dspy>=3.0.0b2` can no longer be satisfied by this code, and `dspy.utils.saving.load` (dspy/utils/saving.py:45-54) now logs a spurious 'mismatch of dspy version' warning for programs saved with 3.0.0b2. This reverts metadata that is unrelated to the streaming feature and must move forward, not backward, for any subsequent release to be publishable.",
+      "file": "pyproject.toml",
+      "line": 11,
+      "summary": "The change rolls the project version backwards from 3.0.0b2 to 3.0.0b1 in every version source (pyproject.toml:11, dspy/__metadata__.py:4, .github/.internal_dspyai/pyproject.toml:5), so the repository now declares an older release than its own base commit."
+    },
+    {
+      "failure_scenario": "A user configures an adapter that extends ChatAdapter (the documented customization point, e.g. `class MyChatAdapter(ChatAdapter)` overriding parse/format) and calls `dspy.streamify(program, stream_listeners=[...])` inside `dspy.context(adapter=MyChatAdapter())`: on the first streamed chunk `receive()` computes adapter_name == 'MyChatAdapter', finds no such key in `self.adapter_identifiers`, and raises `ValueError: Unsupported adapter for streaming: MyChatAdapter, please use one of the following adapters: ChatAdapter, XMLAdapter, JSONAdapter`, aborting the program. The previous code streamed such subclasses fine via the `isinstance(settings.adapter, ChatAdapter)` branch, and `flush()` (line 187/192) still dispatches by isinstance, so the two halves of the class disagree about which adapters are supported.",
+      "file": "dspy/streaming/streaming_listener.py",
+      "line": 76,
+      "summary": "Adapter dispatch was changed from isinstance(...) to an exact class-name lookup (`settings.adapter.__class__.__name__`), so any adapter that subclasses ChatAdapter/JSONAdapter/XMLAdapter is now rejected as unsupported, even though StreamListener.flush() still accepts those subclasses via isinstance."
+    },
+    {
+      "failure_scenario": "Building the internal shim (dspy-ai 3.0.0b1) emits metadata `dependencies = [\"dspy>=2.6.5\"]`; an environment that already pins dspy 2.6.5 satisfies the requirement and the shim installs alongside it, but dspy 2.6.5 predates `dspy.streaming.StreamListener`'s XMLAdapter identifiers and dspy.XMLAdapter entirely, so the pairing this release advertises fails at import/attribute access instead of the resolver refusing the combination. The previous floor (`dspy>=3.0.0b2`) prevented that mismatch.",
+      "file": ".github/.internal_dspyai/pyproject.toml",
+      "line": 14,
+      "summary": "The dspy-ai shim's required dspy version is lowered from >=3.0.0b2 to >=2.6.5, declaring the 3.0.0b1 shim compatible with dspy releases that predate the StreamListener/XMLAdapter streaming code it ships with."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "web/src/app/login/page.tsx",
+      "line": 77,
+      "summary": "Navigator-based language fallback detection is dead code -- unconditionally unreachable because the preceding block always writes to localStorage, making the subsequent localStorage read always truthy",
+      "failure_scenario": "N/A (dead code, not a runtime bug): the first block (lines 63-69) always executes localStorage.setItem for either zh-Hans or en-US on both branches; the localStorage.getItem on line 72 always retrieves that value; the if (lang) branch on line 73 always executes; the else branch (navigator detection) on lines 77-89 never runs. If someone modifies the first block without understanding this dependency, the navigator fallback could silently stop working",
+      "finding_id": "mf-51ea10c351a6026f14b9"
+    },
+    {
+      "file": "web/src/app/register/page.tsx",
+      "line": 76,
+      "summary": "Same dead navigator-based language fallback detection as login -- the preceding block's unconditional localStorage write makes the navigator fallback code unreachable",
+      "failure_scenario": "Same as above: lines 62-68 always write to localStorage; line 71 always reads a truthy value; the else block at lines 76-89 never executes",
+      "finding_id": "mf-80b4497578e61e2d55d0"
+    },
+    {
+      "file": "web/src/app/register/page.tsx",
+      "line": 72,
+      "summary": "Debug console.log statements left in production code -- language state and handler values logged to browser console",
+      "failure_scenario": "Lines 72, 85, and 94 log runtime language state to the browser console in all environments; these debug statements should have been removed before merge. Not a crash or user-facing bug, but indicates incomplete cleanup and leaks internal state",
+      "finding_id": "mf-65496d34471f52134e3e"
+    },
+    {
+      "file": "web/src/app/login/page.tsx",
+      "line": 63,
+      "summary": "judgeLanguage and handleLanguageChange logic is copy-pasted from the register page with only minor differences -- duplicated code between both authentication pages",
+      "failure_scenario": "Any fix or enhancement to language detection (e.g., adding support for zh-TW, updating the fallback logic, fixing the dead code) must be applied in both login/page.tsx and register/page.tsx independently, creating a maintenance burden and risk of divergent behavior",
+      "finding_id": "mf-47cfc238b19d63249108"
+    }
+  ]
+}

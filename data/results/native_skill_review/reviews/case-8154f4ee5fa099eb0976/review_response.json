@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "parse_inputs_to_str({\"question\": \"...\", \"context\": [Document(page_content=\"...\")]}) has two keys, so it falls through to json.dumps; json then calls default(obj) -> TraceJSONEncoder(obj), and json.JSONEncoder.__init__ is keyword-only, raising TypeError('JSONEncoder.__init__() takes 1 positional argument but 2 were given') instead of returning a request string. TraceJSONEncoder.default explicitly handles dataclasses and pydantic models, which proves those inputs were meant to be serialized, not to crash. Every other call site in the repo (mlflow/entities/span.py:715, mlflow/tracing/client.py:546, mlflow/evaluation/evaluation.py:410, mlflow/crewai/autolog.py:84) uses cls=TraceJSONEncoder.",
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 73,
+      "summary": "parse_inputs_to_str passes the encoder class as json.dumps' `default` callback (`default=TraceJSONEncoder`) instead of using it as the encoder (`cls=TraceJSONEncoder`), so any non-JSON-native input raises TypeError and the custom serialization logic never runs."
+    },
+    {
+      "failure_scenario": "parse_inputs_to_str({\"question\": 42}) returns the int 42, {\"messages\": [ {...} ]} returns a list, {\"input\": None} returns None. A caller that treats the result as the judges' request string (embedding it in a prompt template or calling json.loads on it) gets a non-string and either crashes or builds a wrong request, while the annotation/docs promise str.",
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 70,
+      "summary": "The single-key-dict shortcut returns the value unchanged, so parse_inputs_to_str violates its declared `-> str` return type and the \"request string compatible with the judges API\" contract for non-string values."
+    },
+    {
+      "failure_scenario": "retrieval_span.outputs = [{\"page_content\": \"doc\", \"metadata\": None}] -> AttributeError: 'NoneType' object has no attribute 'get'. The caller's per-span try/except only debug-logs, and `retrieved[span_id] = ...` is in the same try block, so the span's key is never added: all documents of that retrieval span disappear (empty/None retrieval context for the scorer) instead of just the one malformed chunk being skipped.",
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 152,
+      "summary": "`chunk.get(\"metadata\", {}).get(\"doc_uri\")` raises AttributeError when the chunk has a `metadata` key whose value is None, and the exception aborts extraction for the entire retrieval span."
+    },
+    {
+      "failure_scenario": "For a partially loaded/truncated trace where a RETRIEVER span's parent_id points to a span absent from trace.data.spans, `break` prevents the `else: top_level_retrieval_spans.append(span)` branch, so the span and its retrieved documents are omitted from the returned dict even though it is the top-level retrieval step; only a _logger.debug records it. A scorer then sees no retrieval context for a trace that actually has one.",
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 133,
+      "summary": "A retrieval span whose parent span is missing from trace.data.spans is dropped instead of being treated as top-level, because the missing-parent path reuses the same `break` that the while/else relies on to exclude nested retrieval spans."
+    },
+    {
+      "failure_scenario": "set_span_chat_messages(span, {\"role\": \"user\", \"content\": \"hi\"}) — a call the new annotation now declares valid — iterates the dict's keys; neither \"role\" nor \"content\" is a dict or ChatMessage, so sanitized_messages stays [] and span.set_attribute('mlflow.chat.messages', []) is written (wiping existing messages when append=False). Passing a bare ChatMessage (pydantic model) iterates (key, value) tuples with the same result. The docstring still says messages is \"A list of standardized chat messages\", matching the implementation, not the annotation.",
+      "file": "mlflow/tracing/utils/__init__.py",
+      "line": 335,
+      "summary": "set_span_chat_messages' annotation was narrowed from `list[Union[dict, ChatMessage]]` to a single `Union[dict, ChatMessage]`, but the body still iterates the argument as a sequence of messages, so a caller that follows the new annotation silently loses its messages."
+    },
+    {
+      "failure_scenario": "safe_patch invokes patch_function(call_original, *args, **kwargs) with the original call's arguments. When the installed autogen/ag2 module calls register_function with an extra keyword (the ag2 0.7-0.9 line, which is exactly the code path that needed **kwargs), the wrapper raises TypeError instead of wrapping the tool. safe_patch swallows patch exceptions outside test mode and logs a warning, so agent execution continues but every registered tool silently loses its TOOL span.",
+      "file": "mlflow/autogen/autogen_logger.py",
+      "line": 92,
+      "summary": "The patched register_function wrapper lost the **kwargs that the version it replaces (mlflow/ag2/ag2_logger.py) accepted and forwarded, so calls passing extra keyword arguments raise TypeError inside the patch."
+    },
+    {
+      "failure_scenario": "A caller trusting the docstring keeps a single entry (e.g. next(iter(retrieved.values())) or values()[-1] assuming it is the final retrieval step) and discards the remaining retrieval contexts. The added test itself contradicts the docstring: it is commented \"multiple retrieval steps - only take the last top-level one\" while asserting that both span 0000000000000002 and 0000000000000003 are returned.",
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 79,
+      "summary": "extract_retrieval_context_from_trace's docstring (and the new test's comment) claim only the last retrieval span is considered, but the implementation returns every top-level retrieval span."
+    },
+    {
+      "failure_scenario": "A user upgrading with mlflow.ag2.autolog() in their code now gets `AttributeError: module 'mlflow' has no attribute 'ag2'` with no deprecation message. An ag2 (>=0.7) user who calls mlflow.autolog() instead has the `autogen` module routed to mlflow.autogen (the 0.2 runtime-logging integration), and because \"autogen\" is still in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST (mlflow/utils/autologging_utils/__init__.py:74) while the supported range changed to 0.2.36-0.2.40, no unsupported-version warning is ever emitted; autologging can also be silently disabled for them when disable_for_unsupported_versions=True.",
+      "file": "mlflow/ml_package_versions.py",
+      "line": 429,
+      "summary": "The ag2 flavor (mlflow/ag2/, its LazyLoader, docs and requirements entry) is removed with no deprecation shim, while the `autogen` module name it used is now mapped to the 0.2-based integration and remains on the unsupported-version warning suppress list."
+    },
+    {
+      "failure_scenario": "The only reference to the new helpers is the added test file (tests/genai/utils/test_trace_utils.py); nothing in mlflow/ imports them, and mlflow/genai/scorers/builtin_scorers.py still requires retrieved_context to be passed in explicitly rather than extracted from a trace. Similarly, mlflow/entities/trace.py:135's new span_id argument has neither a caller nor a test, so any intent to wire trace-based retrieval context into the scorers in this change was missed and the new parameter's behavior is unverified.",
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 63,
+      "summary": "parse_inputs_to_str and extract_retrieval_context_from_trace, plus the new Trace.search_spans(span_id=...) parameter, are added with no production caller anywhere in the repo — the change adds API surface without connecting it to a consumer."
+    }
+  ],
+  "level": null
+}

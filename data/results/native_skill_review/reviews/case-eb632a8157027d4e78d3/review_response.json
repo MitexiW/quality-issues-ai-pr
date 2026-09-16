@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User taps 'Cache stories' then backs out of the app within a few seconds. The queue is an app-scoped singleton (NetworkComponent) and the untagged requests are not cancelled when the fragment is destroyed; when a response is delivered after detach, Toast.makeText(getContext(), ...) or Utils.cacheStory(getContext(), id, res) runs with getContext() == null -> NullPointerException crash.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 859,
+      "summary": "The 21 requests fired by cacheStories() are never tagged with requestTag, so they survive onDestroyView's queue.cancelAll(requestTag) and their callbacks dereference a possibly-null fragment context."
+    },
+    {
+      "failure_scenario": "On a flaky connection the user scrolls the list (loadStory item requests in flight), the refresh fails so loadingFailed=true and 'Show cached stories' appears; tapping it swaps the list. A pending loadStory response arrives: stories.indexOf(story) == -1, so the dead-story path calls adapter.notifyItemRemoved(-1) (and wrongly decrements loadedTo), and the success path calls adapter.notifyItemChanged(-1), corrupting RecyclerView AdapterHelper offset bookkeeping and risking the classic 'Inconsistency detected' crash or misaligned items.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 876,
+      "summary": "showCachedStories() replaces the stories list without calling queue.cancelAll(requestTag) first, so in-flight loadStory responses then resolve stories.indexOf(story) to -1 and drive adapter notifications at position -1."
+    },
+    {
+      "failure_scenario": "An Ask HN post is in the top 20 when the user taps 'Cache stories'; algolia's item JSON has no 'url' field, so updateStoryInformation takes the isLink=false branch and sets story.url = 'https://news.ycombinator.com/item?id=' + story.id, where the new Story()'s id is still 0; story.id is set correctly only on the next line. Opening that cached post's comments and sharing (CommentsFragment.java:1370-1372 uses story.url) shares the wrong 'item?id=0' URL. The existing JSONParser.updateStoryWithAlgoliaResponse (used at StoriesFragment.java:692 for exactly this cached-fill purpose) builds the same URL from the already-known story id and avoids the bug.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 255,
+      "summary": "Cached stories without a link URL (Ask HN/text posts, polls) get story.url built as 'https://news.ycombinator.com/item?id=0' because updateStoryInformation computes the non-link URL from story.id while the fresh Story still has id == 0 (story.id is only assigned afterwards)."
+    },
+    {
+      "failure_scenario": "User is reading the 'Ask' tab and taps Menu -> 'Cache stories': the request hardcodes topstories.json, so Ask stories are not cached. Later offline, tapping 'Show cached stories' replaces the list with top stories while the type spinner still says 'Ask'. attemptRefresh() (line 668) shows the intended per-type mapping: hnUrls[adapter.type == 0 ? 0 : adapter.type - 3].",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 851,
+      "summary": "cacheStories() always fetches Utils.URL_TOP regardless of the currently selected story type, so 'Cache stories' caches top stories even when the user is on the New/Ask/Show/Jobs/day/week/month tabs."
+    },
+    {
+      "failure_scenario": "User searches while offline: loadAlgolia fails, setting adapter.loadingFailed = true while adapter.searching = true, which makes the 'Show cached stories' button visible in the search header (bindHeader line 295 does not check searching). Tapping it fills the list with cached stories but leaves adapter.searching true: the header still shows the stale query edit box, swipeRefreshLayout remains disabled (setEnabled(!searching) in updateSearchStatus), and exiting search wipes the cached list and re-hits the network.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 872,
+      "summary": "showCachedStories() does not reset or guard adapter.searching, so tapping the button while a search has failed leaves the adapter in search mode with the cached list underneath."
+    },
+    {
+      "failure_scenario": "A user with ~100 cached items (cacheStory stores the complete hn.algolia.com items JSON, which embeds all comment children and can be multiple MB for large threads) taps 'Show cached stories'; the click handler synchronously runs new JSONObject(json) plus getTotalCommentCount()'s full-tree recursion over the entire corpus, i.e. tens of MB of JSON parsing on the main thread -> multi-second UI freeze and ANR on low-end devices.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 252,
+      "summary": "loadCachedStories() runs on the main thread and parses up to 100 cached algolia item payloads (each including the full comment tree) plus a full recursive tree count per story, freezing the UI on every 'Show cached stories' tap."
+    },
+    {
+      "failure_scenario": "Each of the 20 Volley callbacks invokes cacheStory -> saveStringSetToSharedPreferences -> Editor.apply(), whose commitToMemory() runs on the calling (main) thread and writes the whole preferences XML map to a string. With a large cached corpus this is 20 full-map serializations back-to-back on the main thread, causing seconds-long UI stalls right after tapping 'Cache stories' (the pre-existing CommentsFragment caller does this one story at a time, never in a 20-way burst).",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 855,
+      "summary": "The 'Cache stories' burst calls Utils.cacheStory 20 times in rapid succession, and each call re-serializes the entire SharedPreferences map (all cached story JSONs, up to 100 multi-MB strings) synchronously on the main thread via putStringSet(...).apply()."
+    },
+    {
+      "failure_scenario": "User taps 'Cache stories' on a flaky connection: the top-list request succeeds and the toast 'Stories cached' appears immediately, but several of the 20 algolia item fetches fail silently; the user later goes offline and 'Show cached stories' yields a partial/empty list despite the earlier confirmation.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 862,
+      "summary": "The 'Stories cached' success toast is shown as soon as the 20 item requests are enqueued, before any of them complete, and per-item failures are silently swallowed (error -> {}), so users are told the cache is ready when it is not."
+    },
+    {
+      "failure_scenario": "No code path consults showingCached, so cached mode has no observable flag to hang invariants on (e.g., suppressing pagination/updates or restoring the previous mode on resume); the three write sites create the appearance of a mode transition that does not exist, which is the likely source of the state inconsistencies in this feature and makes its behavior harder to reason about. Cost: misleading redundant state to maintain.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 81,
+      "summary": "The showingCached field is write-only dead state: set in showCachedStories(), attemptRefresh() and the type-change listener, but never read anywhere, so it cannot gate any behavior."
+    }
+  ],
+  "level": null
+}

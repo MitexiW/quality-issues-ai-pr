@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/gui/csvImport/CsvImportWidget.cpp",
+      "line": 282,
+      "summary": "Modified Time value read from the wrong column: validity check uses index 9 (Last Modified) but data read uses index 8 (Icon), which is the pre-Tags column number that was not updated",
+      "failure_scenario": "User imports a CSV with a Last Modified column mapped. The entry's modification time is parsed from the value in the Icon column (e.g., an integer 0-99 becomes a 1970 timestamp) instead of the actual timestamp column.",
+      "finding_id": "mf-dd717874f9180842abd1"
+    },
+    {
+      "file": "src/gui/csvImport/CsvImportWidget.cpp",
+      "line": 301,
+      "summary": "Created Time value read from the wrong column: validity check uses index 10 (Created) but data read uses index 9 (Last Modified), which was not updated after the Tags column insertion",
+      "failure_scenario": "User imports a CSV with a Created column mapped. The entry's creation time is parsed from the Last Modified column instead. The Created column value is silently ignored.",
+      "finding_id": "mf-911cfe15fedb0e936809"
+    },
+    {
+      "file": "src/gui/csvImport/CsvImportWidget.cpp",
+      "line": 326,
+      "summary": "Error message truncation label shows wrong skip count: appendStatusMsg no longer appends a trailing newline per message, so text.count('\\n') returns one less than the number of messages, causing 'N more message(s) skipped' to display N-1",
+      "failure_scenario": "CSV file has 4 malformed records producing 4 error messages. Two are displayed with the label '[1 more message(s) skipped]' but actually 2 are skipped. The singular/plural form is also wrong.",
+      "finding_id": "mf-d475d70df38c19aa1e87"
+    },
+    {
+      "file": "tests/TestCsvParser.h",
+      "line": 37,
+      "summary": "testEmptyReparsing test removed, silently dropping coverage for the parse(nullptr) followed by reparse() code path",
+      "failure_scenario": "A future refactoring that breaks the reparse-after-null behavior would not be caught by the test suite. The behavior is preserved currently but unguarded.",
+      "finding_id": "mf-2deffd75fe0b501f270f"
+    }
+  ]
+}

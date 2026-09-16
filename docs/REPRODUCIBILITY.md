@@ -7,12 +7,13 @@ The artifact supports three distinct operations.
 2. **Reported-result recomputation.** The post-release convenience wrapper
    `python scripts/reproduce_analysis.py` starts from frozen final tables and
    rebuilds validation summaries, reruns RQ1--RQ3 statistics and rule-exclusion
-   checks, exports numbered table data, and draws figures from those new results.
+   checks and the guided-review comparison, exports all 37 numbered table data
+   bundles, and draws figures from those new results.
    It does not repeat data
    collection, CodeQL, model inference, or human decisions.
-3. **Upstream experiment rerun.** The active CodeQL, model-screening,
+3. **New experiment rerun.** The active CodeQL, model-assessment,
    manual-review, and LLM-review code is included. A complete rerun requires
-   the upstream AIDev data, public GitHub repositories, CodeQL 2.23.2, reviewer
+   the provided AIDev selection metadata, public GitHub repositories, CodeQL 2.23.2, reviewer
    labor, and a separately configured model endpoint.
 
 The integrity checker and the one-command analysis wrapper were added for the
@@ -39,7 +40,10 @@ AIDev/GitHub PRs
   -> RQ1 profiles and 412 mechanism clusters, RQ2 GEE, and RQ3 recovery analyses
 ```
 
-Separately, RQ3 contains 1,016 finding--reference relation decisions. Initial
+The current default RQ3 dataset contains 1,106 human-reviewed finding--reference
+relations, including 90 findings from successful reruns of invalid outputs.
+See [DEFAULT_REVIEW.md](DEFAULT_REVIEW.md) for the combined dataset and counts.
+The historical audit contains 1,016 relation decisions. Initial
 provenance is preserved as 776 `LLM_assistant` and 240 `deterministic_rule`
 decisions; one author subsequently reviewed each relation manually. This RQ3
 relation review was not independently double-annotated, and the artifact does

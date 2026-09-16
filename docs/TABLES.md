@@ -13,11 +13,12 @@ No new CodeQL scan, model call, or human annotation is performed.
 | Paper table | Numerical data |
 |---|---|
 | 1 | AI language profile |
-| 2 | Top 30 Quality rules |
+| 2 | Top 40 Quality rules |
 | 3 | Five root-cause categories |
 | 4 | AI/Human language profiles and percentage-point differences |
 | 5 | Quality-category review recovery |
-| 6 | Root-cause review recovery |
+| 6 | Default/guided review on primary and broad references |
+| 7 | Default/guided review by root-cause category |
 | S1 | Fixed outcome definitions (not estimated data) |
 | S2 | Final cohort PR/repository counts |
 | S3 | Recomputed descriptive balance |
@@ -32,8 +33,17 @@ No new CodeQL scan, model call, or human annotation is performed.
 | S22–S23 | Raw/confirmed outcomes and raw-alert filter checks |
 | S24 | Final-label rule-exclusion refits |
 | S25 | Primary, higher-severity and broad reference tiers |
-| S26–S27 | Review recovery, execution and matching statistics |
+| S26 | Default-review recovery of human-confirmed primary Quality references, by authorship |
+| S27 | Review execution and matching statistics |
 | S28 | Root-cause recovery by authorship |
+| S29 | Default/guided recovery by authorship and reference tier |
+| S30 | Broad-tier default/guided root-cause recovery and paired gains/losses |
+
+RQ3 confirmed-reference counts use the combined default reviews (21/114 primary,
+37/187 broad). S26 includes only the AI and human results for confirmed primary
+references, matching the current supplement; it excludes raw-reference recovery.
+S27 reports current execution counts and labels its original 1,016-finding
+matching audit separately. The audit does not cover the 90 additional findings.
 
 The full run compares regenerated statistical CSVs with the published numerical
 results and stops on a mismatch. Quick mode reduces simulation draws and skips

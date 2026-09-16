@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "libs/core/kiln_ai/adapters/model_adapters/base_adapter.py",
+      "line": 232,
+      "summary": "COT prompt (chain-of-thought instructions) is silently dropped when building chat formatter for reasoning-capable (R1-style) models",
+      "failure_scenario": "User selects a chain-of-thought prompt for a reasoning-capable model (e.g. DeepSeek R1, QwQ, Qwen3). `build_chat_formatter` line 236 passes `thinking_instructions=cot_prompt` to `get_chat_formatter`, but `get_chat_formatter` at line 217 does NOT forward `thinking_instructions` to `SingleTurnR1ThinkingFormatter(system_message, user_input)`. The old `run_strategy()` returned 'cot_as_message' and the COT prompt was appended as a system message; the new code drops it entirely. The formatter's `next_turn()` never includes thinking instructions in the message list, so the model receives no COT guidance despite the user selecting a chain-of-thought prompt.",
+      "finding_id": "mf-ea5a0598f7507b6d1bd2"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/fine_tune/dataset_formatter.py",
+      "line": 184,
+      "summary": "generate_json_schema_message mutates its input parameter in-place by overwriting training_chat[-1].content",
+      "failure_scenario": "A caller passes a `training_chat` list to `generate_json_schema_message`, which sets `training_chat[-1].content = json_string` (re-formatting the JSON). If the caller subsequently processes the same chat list — for example by passing it to another format generator — the last message's content has been silently altered from the original model output to a re-serialized compact JSON string. This could corrupt multi-format dataset generation or confuse debugging.",
+      "finding_id": "mf-c608d1ae996fc5125dd3"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/chat/chat_formatter.py",
+      "line": 92,
+      "summary": "TwoMessageCotFormatter and TwoMessageCotLegacyFormatter raise ValueError referencing the old enum name 'final_and_intermediate' instead of the current strategy names",
+      "failure_scenario": "A user or developer passes `thinking_instructions=None` with strategy `two_message_cot` (the new enum value). Both formatters at lines 92-94 and 138-140 raise `ValueError(\"thinking_instructions are required when strategy is final_and_intermediate\")`. The message references 'final_and_intermediate' which is no longer a user-facing strategy name (`ChatStrategy.two_message_cot_legacy` has that value, but `ChatStrategy.two_message_cot` has value 'two_message_cot'). This misleads debugging — the error name does not match the strategy the caller actually used.",
+      "finding_id": "mf-0747eb5279913add22c6"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/fine_tune/dataset_formatter.py",
+      "line": 268,
+      "summary": "R1-style thinking guard removed from generate_vertex_gemini; Vertex training data may be generated for R1 models without backend validation",
+      "failure_scenario": "Old code raised `ValueError(\"R1 style thinking is not supported for Vertex Gemini.\")` when `thinking_r1_style` was True. The new code has no such guard — `generate_vertex_gemini` will produce Vertex-format training data with R1 content (e.g. `<think>...</think>` tags embedded in the assistant message). While the Svelte UI filters R1 out of Vertex download options, the backend API endpoint accepts the combination without validation. A direct API call or future UI change could produce training data that Vertex Gemini cannot parse correctly.",
+      "finding_id": "mf-54c14eef8773cab6043a"
+    }
+  ]
+}

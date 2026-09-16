@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A caller following the newly declared contract, e.g. DatasetQuery.generate(udf, partition_by=\"file.path\") or add_signals(..., partition_by=\"file.path\"), hits create_partitions_table (dataset.py:562-571): the string is not a list/tuple/Function, so it lands in order_by as unquoted raw text `ORDER BY file.path`; SQLite parses that as table `file`, column `path` and fails with \"no such table: file\". Simple names only work by accident (bare identifier resolution), and DataChain.agg is the only caller that pre-converts — the string support was implemented at the wrong layer.",
+      "file": "src/datachain/query/dataset.py",
+      "line": 85,
+      "summary": "PartitionByType was widened to accept str, but the query-layer consumer UDFStep.create_partitions_table still only converts Function objects, so a string partition_by reaches dense_rank().over(order_by=...) as raw SQL text."
+    },
+    {
+      "failure_scenario": "dc.read_storage(\"s3://...\").agg(f, partition_by=\"file\") — get_column_type (signal_schema.py:567-572) is called with the default with_subtree=False, which skips any column with a subtree, so the File model column matches nothing and SignalResolvingError is raised claiming column \"file\" \"is not found\" although it exists; partition_by=C(\"file\") orders fine (serialized JSON column). Worse, for any leaf column whose stored DataType is not in python_to_sql's mapping (e.g. Union[int, str]), python_to_sql raises an opaque `TypeError: Cannot recognize type ...`.",
+      "file": "src/datachain/lib/dc/datachain.py",
+      "line": 822,
+      "summary": "The new string branch of agg cannot partition by model-typed columns and raises a misleading \"is not found\" error, even though the old C(\"col\") notation works for the same column."
+    },
+    {
+      "failure_scenario": "group_by raises DataChainColumnError for a partition_by element that is neither str nor Function; the new agg code instead hits the `else: # Assume it's already a ColumnElement` branch and forwards anything (None, int, 42) into query.generate, producing an obscure SQLAlchemy ArgumentError deep inside UDFStep.apply() at query execution time. Two divergent copies of the same conversion logic now exist in the same class (datachain.py:818-832 vs 1003-1023) and will drift — the resolution logic should be factored into one shared helper with the same validation.",
+      "file": "src/datachain/lib/dc/datachain.py",
+      "line": 819,
+      "summary": "agg re-implements the partition_by string/Function conversion already present in group_by (lines 1003-1023) but drops its input validation, silently passing invalid elements through to the SQL layer."
+    },
+    {
+      "failure_scenario": "A regression that swaps the summed values between partitions, returns wrong names (e.g. \"a-x\" for group (a,y)), or misgroups rows still yields 3 names and 3 sizes, so both `assert len(result_names) == 3` and `assert len(result_sizes) == 3` pass while the aggregation output is incorrect. Compare the first test, which asserts exact ordered values — the sequence test should assert the exact sorted names/sizes, e.g. [\"a-x\", \"a-y\", \"b-x\"] and [1, 5, 9].",
+      "file": "tests/unit/lib/test_datachain.py",
+      "line": 3653,
+      "summary": "test_agg_partition_by_string_sequence only asserts result lengths, so wrong per-partition values or membership silently pass."
+    }
+  ],
+  "level": null
+}

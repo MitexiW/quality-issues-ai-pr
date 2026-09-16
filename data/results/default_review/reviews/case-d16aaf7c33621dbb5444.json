@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 210,
+      "summary": "Exception in usage-limit error handler silently falls through, bypassing the limit and corrupting state",
+      "failure_scenario": "When _check_usage_limit returns an error and _format_result or _telemetry.tool_usage_error raises within the try block (lines 205-209), the bare except at line 210 catches it with no return statement. Execution falls through. Since result is still the error string (not None), the 'if result is None:' guard at line 214 is skipped. The code continues to line 284 where _telemetry.tool_usage fires (reporting the tool as used), line 296 emits on_tool_use_finished, line 312 appends to agent.tools_results, and critically, line 315 increments current_usage_count. The tool appears successfully used despite being over its limit, and the limit counter advances, allowing further uses. The tool invocation block (lines 214-269) is also skipped because result is not None, so no actual tool execution occurs -- but the system believes it did.",
+      "finding_id": "mf-d32a96c46c45d9238288"
+    },
+    {
+      "file": "src/crewai/tools/base_tool.py",
+      "line": 150,
+      "summary": "BaseTool.from_langchain and Tool.from_langchain construct new instances without propagating max_usage_count or current_usage_count",
+      "failure_scenario": "A tool with max_usage_count=5 enters the agent pipeline at base_agent.py:189, which calls Tool.from_langchain(tool). The factory at line 258-263 constructs a new Tool with cls(name=..., description=..., func=..., args_schema=...). Since max_usage_count and current_usage_count are not extracted from the source tool and passed to the constructor, the new instance defaults to max_usage_count=None (unlimited) and current_usage_count=0. The usage limit is silently lost for any tool that passes through from_langchain. Same gap exists in BaseTool.from_langchain at line 150.",
+      "finding_id": "mf-b0dde1d78e70e6eec59e"
+    },
+    {
+      "file": "src/crewai/tools/structured_tool.py",
+      "line": 105,
+      "summary": "CrewStructuredTool.from_function accepts **kwargs but never forwards them to the constructor, silently dropping max_usage_count",
+      "failure_scenario": "A caller invokes CrewStructuredTool.from_function(func=my_func, max_usage_count=3). The **kwargs parameter at line 61 collects max_usage_count=3, but the cls(...) constructor call at lines 105-111 passes only name, description, args_schema, func, and result_as_answer -- no **kwargs. The max_usage_count value is silently discarded. The resulting CrewStructuredTool has the default max_usage_count=None, giving it unlimited usage despite the caller's intent. The docstring at line 72 even states that **kwargs are 'Additional arguments to pass to the tool,' misleading callers.",
+      "finding_id": "mf-1bfbb3d559bf2973b4e0"
+    },
+    {
+      "file": "src/crewai/tools/base_tool.py",
+      "line": 85,
+      "summary": "BaseTool.run() increments current_usage_count but never checks max_usage_count, allowing unlimited direct execution",
+      "failure_scenario": "A tool with max_usage_count=2 is invoked directly via tool.run() 10 times. Each call successfully executes _run() and increments current_usage_count at line 85. No pre-check against max_usage_count exists in run(), so the limit is tracked but never enforced. The limit is only enforced in ToolUsage._use() (agent path). Direct callers like the LangGraphToolAdapter at langgraph_tool_adapter.py:37-41 call tool.run() and completely bypass usage-limit enforcement. The PR's own test (test_tool_usage_limit) only calls run() twice (equal to max_usage_count=2) and never tests blocking a third call, masking this gap.",
+      "finding_id": "mf-2a7ea8cc33f857fbfb7a"
+    },
+    {
+      "file": "src/crewai/tools/base_tool.py",
+      "line": 89,
+      "summary": "reset_usage_count on BaseTool does not reset the CrewStructuredTool wrapper's counter used by the agent path",
+      "failure_scenario": "A tool is used through the agent. to_structured_tool() at line 101 creates a CrewStructuredTool with current_usage_count copied from the BaseTool at construction time. Both objects then have independent counters. Calling tool.reset_usage_count() (line 89) resets the BaseTool's counter to 0, but the CrewStructuredTool in ToolUsage.tools retains its old counter. The agent still sees the tool as having reached its limit. Since CrewStructuredTool has no reset_usage_count method, there is no way to reset the counter for agent-mediated tool usage through the public API.",
+      "finding_id": "mf-030db5fd84eff48d088b"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`osslsigncode sign -certs cert.spc -key key.pvk -in a.exe -out b.exe` (the workflow documented in README.md lines 93-111): OSSL_STORE has no MSBLOB decoder, so options->pkey stays NULL and the run aborts with \"Failed to read key or certificates\"; previously the key was decrypted with b2i_PVK_bio, including the non-interactive -askpass path that NEWS.md 2.9 says was fixed.",
+      "file": "osslsigncode.c",
+      "line": 4254,
+      "summary": "PVK (MSBLOB) private-key support was removed: find_pvk_key()/read_pvk_key() and their dispatch in read_crypto_params() were deleted and not replaced, yet README.md still documents PVK keys and the new comment above read_crypto_params() still lists PVK as supported (options->pvkfile is now a dead struct member)."
+    },
+    {
+      "failure_scenario": "Configure against an OpenSSL built with `no-engine` (version >= 3.0, the exact configuration the new `|| OPENSSL_VERSION_NUMBER>=0x30000000L` guards are meant to support): preprocessing read_crypto_params produces `if (...) { ... } else }` (syntax error: expected statement) and `options->p11module`/`options->p11cert` are undeclared, so the build fails.",
+      "file": "osslsigncode.c",
+      "line": 4243,
+      "summary": "With OPENSSL_NO_ENGINE the preprocessor drops the `if (!engine_load(options)) {` line (4247) but not the closing brace at line 4250, leaving `} else` followed by `}`, and the same configuration also references the engine-only GLOBAL_OPTIONS members p11module (4237) and p11cert (4242, helpers.c:195, osslsigncode.c:4029, 4598), which osslsigncode.h declares only under `#ifndef OPENSSL_NO_ENGINE`."
+    },
+    {
+      "failure_scenario": "`osslsigncode sign -provider /usr/lib64/ossl-modules/pkcs11prov.so -key 'pkcs11:token=t;object=key' -pkcs11cert 'pkcs11:token=t;object=cert' -in a.exe -out b.exe` passes option validation, then read_crypto_params takes the plain-file branch (line 4254), provider_load() is never called, the pkcs11: URI cannot be resolved and the command fails with \"Failed to read key or certificates\"; with a file-based key/cert the -provider argument is silently ignored.",
+      "file": "osslsigncode.c",
+      "line": 4237,
+      "summary": "The new -provider option is only honored inside the `options->p11module` branch, so a provider passed without -pkcs11module is silently never loaded even though main_configure (line 4912) accepts options->provider as satisfying the sign-parameter requirement and the usage text (line 3508) presents -provider as an alternative to -engine."
+    },
+    {
+      "failure_scenario": "A PKCS#12 container exported with an empty password (`openssl pkcs12 -export -passout pass:`): `osslsigncode sign -pkcs12 empty.p12 -in a.exe -out b.exe` used to succeed; now ui_read() sees pass == NULL, falls through to the UI_OpenSSL() reader, and in a script/CI run without a terminal the password read fails and the command aborts with \"Failed to read key or certificates\".",
+      "file": "osslsigncode.c",
+      "line": 4228,
+      "summary": "PKCS#12 loading changed from PKCS12_parse(p12, options->pass ? options->pass : \"\") to OSSL_STORE_open(..., pass, ...), so when no -pass/-readpass is given the empty password is no longer used but a UI prompt is issued instead."
+    },
+    {
+      "failure_scenario": "`osslsigncode sign -pkcs11module /usr/lib64/pkcs11/libsofthsm2.so -key <id> -certs test.crt ...` (the misc/softhsm-example-token workflow, no -provider) on a machine with only the libp11 engine: OSSL_PROVIDER_load(\"pkcs11prov\") returns NULL, stderr gets the misleading \"Unable to load provider: pkcs11prov\" line, and only afterwards does the engine path that actually succeeds run.",
+      "file": "osslsigncode.c",
+      "line": 4240,
+      "summary": "On OpenSSL 3.0 the engine fallback is preceded by an unconditional provider_load(\"pkcs11prov\") attempt, and provider_load() prints \"Unable to load provider: pkcs11prov\" on failure, so normal engine-based token signing emits a spurious error on systems where the OpenSC provider is not installed."
+    },
+    {
+      "failure_scenario": "If sk_OSSL_PROVIDER_push() fails in provider_load() (allocation failure, line 4463-4465), providers_cleanup() frees the cached UI_METHOD; read_crypto_params continues down the engine/file branch and load_objects_from_store() calls OSSL_STORE_open(url, ui_osslsigncode(), ...) with the stale pointer -> use-after-free.",
+      "file": "osslsigncode.c",
+      "line": 4450,
+      "summary": "providers_cleanup() destroys the UI method returned by ui_osslsigncode() but leaves the function's cached static pointer dangling, and providers_cleanup() is also invoked from provider_load()'s failure path, so a later OSSL_STORE_open() can receive a freed UI_METHOD."
+    },
+    {
+      "failure_scenario": "`osslsigncode sign -pkcs11module libsofthsm2.so -key <id> -in a.exe -out b.exe` (no -pkcs11cert and no -certs): certs remains empty, read_pkcs7_certfile() calls BIO_new_file(NULL, \"rb\") and fails with the misleading message \"Failed to read certificate from: (null)\" (on MSVC CRT a NULL path also trips the invalid-parameter handler) instead of reporting the missing certificate.",
+      "file": "osslsigncode.c",
+      "line": 4271,
+      "summary": "read_pkcs7_certfile() is invoked whenever options->certs is empty, but it opens options->certfile unconditionally (line 4024), so runs without -certs pass a NULL filename to BIO_new_file()."
+    },
+    {
+      "failure_scenario": "A readable but undecodable input (e.g. a truncated PEM key/cert, or an unsupported container passed to -ac/-certs): OSSL_STORE_load() keeps returning NULL with OSSL_STORE_eof() still 0, so the while loop re-invokes the failing load forever and osslsigncode hangs instead of reporting the error.",
+      "file": "osslsigncode.c",
+      "line": 4356,
+      "summary": "load_objects_from_store() ignores OSSL_STORE errors: a NULL return from OSSL_STORE_load() is treated as \"try again\" (`continue`) although NULL also signals a non-EOF error, and OSSL_STORE_error()/OSSL_STORE_eof() are never consulted to break out."
+    },
+    {
+      "failure_scenario": "`osslsigncode sign -pkcs12 cert.p12 -pass wrong -in a.exe -out b.exe`, or a mistyped `-key key.pem` path, now reports only \"Failed to read key or certificates\" (plus a raw OpenSSL error dump), so the user cannot tell a wrong password from a missing/unreadable file, unlike the previous \"(Wrong password?)\" / \"Failed to read private key file: <name>\" messages.",
+      "file": "osslsigncode.c",
+      "line": 4350,
+      "summary": "The store-based loaders swallow every failure (OSSL_STORE_open() returning NULL, failed object loads, unknown object types) and the specific diagnostics the deleted read_pkcs12file/read_certfile/read_xcertfile/read_keyfile printed are gone, leaving only the generic message from main()."
+    }
+  ],
+  "level": null
+}

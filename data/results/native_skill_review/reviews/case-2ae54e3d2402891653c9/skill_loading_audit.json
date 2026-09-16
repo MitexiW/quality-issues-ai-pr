@@ -1,0 +1,12 @@
+{
+  "required": [
+    "rq3-quality:review"
+  ],
+  "successful_skill_calls": [
+    "rq3-quality:review"
+  ],
+  "verified": true,
+  "command_sent": "/code-review",
+  "command_available": true,
+  "criterion": "explicit /code-review dispatch, command advertised by CLI, and successful custom Skill PostToolUse; code inspection gated on skill load"
+}

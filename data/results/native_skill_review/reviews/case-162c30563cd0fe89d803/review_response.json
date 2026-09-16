@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User creates StaticStreamWorkbench(tools=[FunctionTool(name='double')], tool_overrides={'double': ToolOverride(name='multiply_by_two')}) and passes it to AssistantAgent, which routes StaticStreamWorkbench through call_tool_stream (autogen_agentchat/agents/_assistant_agent.py:1583). list_tools() advertises 'multiply_by_two', the model calls it, and call_tool_stream's lookup at line 185 finds no tool named 'multiply_by_two' (StaticWorkbench.call_tool's _override_name_to_original mapping is never consulted), yielding ToolResult 'Tool multiply_by_two not found.' with is_error=True on every call.",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_static_workbench.py",
+      "line": 185,
+      "summary": "StaticStreamWorkbench.call_tool_stream looks up tools by the raw requested name without applying the override-name reverse mapping, so renamed tools are advertised by list_tools but cannot be executed through the streaming path."
+    },
+    {
+      "failure_scenario": "An MCP server exposes tools 'fetch' and 'search'; the user configures tool_overrides={'fetch': ToolOverride(name='search')}. list_tools() returns two entries both named 'search' (one carrying fetch's schema), and because call_tool maps names through _override_name_to_original ('search' -> 'fetch') before calling the actor, call_tool('search', {...}) executes fetch with the search arguments. The real search tool becomes unreachable by any name. The StaticWorkbench counterpart (python/packages/autogen-core/src/autogen_core/tools/_static_workbench.py:54-58) detects exactly this conflict and raises ValueError.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/mcp/_workbench.py",
+      "line": 199,
+      "summary": "McpWorkbench accepts an override name that collides with another server tool's real name (StaticWorkbench raises ValueError for the same configuration), causing duplicate tool names in list_tools and silent misrouting of call_tool to the wrong server tool."
+    },
+    {
+      "failure_scenario": "Caller builds overrides = {'double': ToolOverride(name='multiply_by_two')} and constructs StaticWorkbench(tools=[...], tool_overrides=overrides); later the caller adds overrides['add'] = ToolOverride(name='plus'). list_tools() then advertises 'plus', but _override_name_to_original was frozen at construction, so call_tool('plus', {...}) falls through the mapping, matches no tool, and returns 'Tool plus not found.' with is_error=True. The same pattern exists in McpWorkbench.__init__ (autogen-ext/tools/mcp/_workbench.py:197-208).",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_static_workbench.py",
+      "line": 45,
+      "summary": "The override-name reverse mapping is snapshotted once in __init__ while list_tools reads the caller's live (uncopied) overrides dict, so the two can silently disagree when the dict is mutated after construction."
+    },
+    {
+      "failure_scenario": "The suite passes while the renamed-tool feature is broken end-to-end: AssistantAgent always executes StaticStreamWorkbench tools via call_tool_stream (_assistant_agent.py:1583), but no test constructs a StaticStreamWorkbench with a name override and calls call_tool_stream with the override name, so the 'Tool multiply_by_two not found.' failure ships undetected.",
+      "file": "python/packages/autogen-core/tests/test_static_workbench_overrides.py",
+      "line": 67,
+      "summary": "The new override tests exercise renamed tools only through call_tool and never through call_tool_stream, leaving the override-name mapping gap in StaticStreamWorkbench.call_tool_stream (the path AssistantAgent uses) completely uncovered."
+    },
+    {
+      "failure_scenario": "Maintainability cost: at line 54 the second conjunct can never be False because execution only reaches it when override.name is truthy and differs from original_name (line 52), so the clause is dead code that makes the conflict-detection logic harder to read; drop the redundant 'and override.name != original_name'.",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_static_workbench.py",
+      "line": 54,
+      "summary": "Dead condition: the conflict check repeats 'override.name != original_name' even though the enclosing branch (line 52) already guarantees it, adding unreachable code to the new validation logic."
+    }
+  ],
+  "level": null
+}

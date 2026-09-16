@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Index Exchange responds with `\"ext\": {\"ibv\": false}` (an explicit non-IBV marker) → the branch is skipped, `bid.ext` is never created, and the bid is returned without `ext.ibv`. Downstream consumers that distinguish key presence from value (e.g., `'ibv' in bid.ext`, or publisher renderers checking `bid.ext?.ibv !== undefined`) then observe `undefined` instead of the server's explicit `false`, and any targeting/reporting keyed on `ext.ibv` is silently absent. The check should be presence-based (`'ibv' in (rawBid.ext || {})` or `hasOwnProperty`) if the exchange can send a falsy flag.",
+      "file": "modules/ixBidAdapter.js",
+      "line": 500,
+      "summary": "The IBV passthrough guards on truthiness (`if (rawBid.ext?.ibv)`), so a falsy `ibv` value (`false` or `0`) sent by the exchange is silently dropped instead of copied to `bid.ext.ibv`."
+    },
+    {
+      "failure_scenario": "A banner bid response carrying `ext.ibv: true` (in-banner video) parses to `{ mediaType: 'banner', ext: { ibv: true } }` with no `meta.mediaType`, while the identical signal from PubMatic yields `meta.mediaType: 'video'` (the purpose the codebase documents for that override at pubmaticBidAdapter.js:880). Any shared downstream handling that picks the video renderer or records video metrics from `bid.meta.mediaType` will render and measure the IX IBV creative as a plain banner, so the in-banner video never plays for IX wins while it does for PubMatic wins.",
+      "file": "modules/ixBidAdapter.js",
+      "line": 500,
+      "summary": "Unlike the sibling IBV implementation in pubmaticBidAdapter.js (`setIBVField`, lines 875-883), this change sets `bid.ext.ibv` without overriding `bid.meta.mediaType` to 'video', so the two bidders expose the same `ext.ibv` signal with divergent contracts."
+    },
+    {
+      "failure_scenario": "No runtime failure, but the guard is redundant state copied from PubMatic's `setIBVField`, where `newBid` is caller-supplied and the guard is actually needed. In `parseBid` the equivalent simpler form is `bid.ext = { ibv: rawBid.ext.ibv }`; keeping the guard misleads future editors into believing `bid.ext` may already exist at this point (e.g., they may add code that mutates a supposed pre-existing `bid.ext`), and it adds dead branches for static analysis and coverage tooling.",
+      "file": "modules/ixBidAdapter.js",
+      "line": 501,
+      "summary": "`bid.ext = bid.ext || {}` is dead guard code: `bid` is a fresh object literal created at the top of `parseBid` and nothing assigns `bid.ext` before this line, so the `|| {}` fallback can never trigger."
+    }
+  ],
+  "level": null
+}

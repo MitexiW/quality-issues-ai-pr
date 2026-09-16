@@ -1,0 +1,95 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run any entry point without tools (python open_instruct/grpo_fast.py or ppo_fast.py/ppo2.py/ppo_vllm_thread_ray_gtrl.py, or grpo_vllm_thread_ray_gtrl.py with use_search_actor=False) -> actor construction raises TypeError: __init__() got an unexpected keyword argument 'model'; even if construction succeeded, LLMRayActor.generate calls self.llm.generate(...), which does not exist on LLMEngine (baseline called LLM.generate), and reset_prefix_cache/sleep/wake_up dereference self.llm.llm_engine, also absent on a bare LLMEngine. All non-tool training crashes at vLLM engine creation.",
+      "file": "open_instruct/vllm_utils3.py",
+      "line": 148,
+      "summary": "The non-tool branch of LLMRayActor.__init__ constructs a vLLM LLMEngine with LLM-style kwargs (model=, tensor_parallel_size=, enable_sleep_mode=, ...), but LLMEngine.__init__ does not accept those arguments (baseline used vllm.LLM)."
+    },
+    {
+      "failure_scenario": "Starting the RL-RAG training entry point (scripts/train/rl-rag/full_command.sh or debug_1node.sh) fails immediately with ImportError: cannot import name 'create_snippet_mask' from 'open_instruct.utils' - the file cannot run at all, with or without --mask_snippet_loss.",
+      "file": "open_instruct/grpo_vllm_thread_ray_gtrl.py",
+      "line": 121,
+      "summary": "Imports create_snippet_mask from open_instruct.utils, but no such function is defined anywhere in the repository (only the import and one call site exist)."
+    },
+    {
+      "failure_scenario": "Even after the missing create_snippet_mask import is fixed, main() crashes at startup with TypeError: create_vllm_engines() got an unexpected keyword argument 'ray_actor_class' - the new --use_search_actor path (LLMSearchRayActor) can never be exercised and the script cannot start.",
+      "file": "open_instruct/grpo_vllm_thread_ray_gtrl.py",
+      "line": 1780,
+      "summary": "Passes ray_actor_class= and additional_ray_actor_kwargs= to create_vllm_engines, but vllm_utils3.create_vllm_engines has no such parameters (and no **kwargs), so the call raises TypeError."
+    },
+    {
+      "failure_scenario": "broadcast_to_vllm is invoked every training step (main() lines 1581/1593) and on resume (line 1482); the first call after training_step 1 raises NameError: name 'args' is not defined inside the Ray actor, so every grpo_fast run dies at step 2 with a RayTaskError.",
+      "file": "open_instruct/grpo_fast.py",
+      "line": 687,
+      "summary": "broadcast_to_vllm references a bare 'args' (args.vllm_enable_prefix_caching) but the method only has self.args and there is no module-level 'args', so the condition raises NameError."
+    },
+    {
+      "failure_scenario": "A rollout issues a query that returns zero passages (common for obscure queries): massive_ds raises IndexError inside the tool executor, future.result() propagates it out of _run_engine, the actor's generate task fails, ray.get() in vllm_generate_thread raises and the generation thread dies; data_preparation_thread then blocks forever on inference_results_Q.get() and the whole training run hangs silently.",
+      "file": "open_instruct/search_utils/massive_ds.py",
+      "line": 53,
+      "summary": "get_snippets_for_query does data.get(\"results\", []).get(\"passages\", [])[0] - a list has no .get when 'results' is missing, and an empty passages list raises IndexError; neither is caught (only RequestException is), and ToolUseLLM._run_engine calls future.result() with no try/except (tool_vllm.py:237)."
+    },
+    {
+      "failure_scenario": "With defaults num_evals=10 and num_training_steps=1000, eval_freq=100: at the last step (1000-1)%100=99, so no eval is generated; the main thread then waits 100 seconds on evaluation_inference_results_Q.get(timeout=100), catches Empty, and logs 'Evaluation responses not received' - the final checkpoint is never evaluated in-loop and every run ends with a 100-second stall (baseline always evaluated at the final step).",
+      "file": "open_instruct/grpo_fast.py",
+      "line": 1067,
+      "summary": "The eval condition dropped 'or training_step == num_training_steps' (and the num_evals>0 guard) that baseline had, so the final training step is no longer evaluated when eval_freq does not divide num_training_steps-1."
+    },
+    {
+      "failure_scenario": "Run ppo_fast.py with --tools search: retrieved document/tool-output tokens are not masked from mb_response_masks_bool in train(), so they receive full policy-gradient signal - the model is trained to reproduce retrieved snippets, directly contradicting the documented default ('Whether to mask the tool output. By default on.'). The identical logic works in grpo_fast (collated_tool_masks threaded to train), confirming this is a dropped wiring step, not a design choice.",
+      "file": "open_instruct/ppo_fast.py",
+      "line": 1275,
+      "summary": "ppo_fast passes masks=masks to pack_sequences and computes packed_sequences.tool_masks, but never adds collated_tool_masks to the collated data and train() has no tool-mask logic, so the new mask_tool_use option (default True) is silently a no-op in ppo_fast."
+    },
+    {
+      "failure_scenario": "Prediction 'The answer is 42</finish>' (opening tag missing) passes the guard, answer_string becomes 'The answer is 42', and the model receives full F1 reward for a malformed output; with 'or' such outputs would score 0, which is the verifier's stated format-check purpose. Every reward computation also spams stdout with 'label: ...'.",
+      "file": "open_instruct/ground_truth_utils.py",
+      "line": 277,
+      "summary": "ReSearchVerifierF1's format guard uses 'and' (return 0 only when BOTH tags are missing) where 'or' is needed to reject a prediction missing either tag; a stray per-sample debug print(f\"label: {label}\") is also left in __call__ (line 275)."
+    },
+    {
+      "failure_scenario": "Running ./analyse_existing_results.sh <model_path> fails on the first dataset with 'No module named open_instruct.search_utils.short_form_qa_eval', so the analyse-existing-results workflow cannot run at all.",
+      "file": "open_instruct/search_utils/analyse_existing_results.sh",
+      "line": 9,
+      "summary": "The script invokes python -m open_instruct.search_utils.short_form_qa_eval, but no such module exists (only short_form_qa_eval_toolvllm.py was added)."
+    },
+    {
+      "failure_scenario": "Running scripts/train/rl-rag/eval.sh crashes with 'No module named open_instruct.search_utils.simpleqa_eval' before any evaluation output is produced.",
+      "file": "scripts/train/rl-rag/eval.sh",
+      "line": 7,
+      "summary": "The script invokes python -m open_instruct.search_utils.simpleqa_eval, but no simpleqa_eval module exists anywhere in the repository."
+    },
+    {
+      "failure_scenario": "Any grpo_fast run with --deepspeed_stage 3: stage3_prefetch_bucket_size/stage3_max_live_parameters/stage3_max_reuse_distance are now 'auto' instead of 0 (trace cache no longer disabled by default) and zero_hpz_partition_size=8 is now set - a silent memory-behavior change that can change stage-3 memory footprint or cause OOM compared to baseline runs.",
+      "file": "open_instruct/grpo_fast.py",
+      "line": 484,
+      "summary": "The deleted local get_train_ds_config had disable_trace_cache=True as default and the ZeRO++ block commented out; the imported utils.get_train_ds_config has disable_trace_cache=False and an active zero_hpz_partition_size=zpg block, and grpo_fast's call passes no disable_trace_cache, silently changing deepspeed stage-3 configuration."
+    },
+    {
+      "failure_scenario": "A transient network error or API outage during search raises NameError: name 'data' is not defined, crashing the eval pipeline instead of returning no snippets; and even on success only 1 web result is ever returned, making the number_of_results parameter misleading.",
+      "file": "open_instruct/search_utils/you.py",
+      "line": 30,
+      "summary": "When the requests call raises RequestException, 'data' is never assigned, so the following 'if \"error_code\" in data' raises NameError instead of degrading gracefully; the API is also queried with num_web_results=1 while the code then slices snippets[:number_of_results] (default 10)."
+    },
+    {
+      "failure_scenario": "A connection failure to api.semanticscholar.org raises NameError: name 'res' is not defined in the error-reporting line, masking the original error and crashing the caller instead of returning None.",
+      "file": "open_instruct/search_utils/s2.py",
+      "line": 50,
+      "summary": "After catching RequestException, the failure print references 'res', which is unbound if session.get() itself raised (connection/DNS error), so the error path raises NameError."
+    },
+    {
+      "failure_scenario": "With max_tool_calls=[5], a model that keeps emitting </query> gets 6 real searches executed per rollout (the 6th fires while num_calls==5 <= 5) instead of the configured 5, inflating search API load and rollout length beyond the stated limit.",
+      "file": "open_instruct/tool_utils/tool_vllm.py",
+      "line": 323,
+      "summary": "Off-by-one in the tool-call limit check: num_calls[req_id] <= self.max_tool_calls[stop_str] counts completed calls, so with max_tool_calls=5 the model can make a 6th call before the 'exceeded' dummy tool triggers."
+    },
+    {
+      "failure_scenario": "When concat token_ids exceed max_tokens (the exact condition these checks guard), the Ray worker enters an interactive debugger; with no controlling terminal in the Ray actor the run hangs indefinitely rather than raising the ValueError that follows.",
+      "file": "open_instruct/tool_utils/tool_vllm.py",
+      "line": 266,
+      "summary": "Debug breakpoint() calls are left in the production _run_engine path (lines 266, 313, 377, 387) before the token-limit ValueErrors, so when the invariant check trips inside a Ray actor worker (no attached TTY) training drops into pdb instead of failing fast."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "ste/sourceInfoProvider-Local_linux.go",
+      "line": 305,
+      "summary": "Nil pointer dereference: accesses currentUser.Uid and currentUser.Gid before checking error from user.Current()",
+      "failure_scenario": "When user.Current() fails (e.g., user entry missing from /etc/passwd during container/NFS upload), currentUser is nil. The code dereferences currentUser.Uid on line 305 (before the error check on line 309), causing a panic.",
+      "finding_id": "mf-75f501c7d0c6062c0535"
+    },
+    {
+      "file": "cmd/zc_traverser_file.go",
+      "line": 209,
+      "summary": "Nil pointer dereference in listing callback: direct dereference of *fileProperties.NFSFileType, *fileProperties.LinkCount, and *fileProperties.ID without nil checks",
+      "failure_scenario": "When getShareProtocolType API fails (e.g., network error), it returns the fallback value matching the user's --nfs flag with no error. If the share is actually SMB, the listing response has nil NFS-specific fields. The direct dereference on lines 209-211 panics. The morpher code path (line 268) safely uses adapter methods with IffNotNil, so this inconsistency between the two code paths creates a crash surface.",
+      "finding_id": "mf-25bda74def2cb5fa6093"
+    },
+    {
+      "file": "common/parallel/Transformer.go",
+      "line": 90,
+      "summary": "Silent error swallowing: when worker returns nil output with non-nil error, the error is dropped by the 'if out != nil' guard",
+      "failure_scenario": "Any transform worker (parallel.PoolFunc) that returns (nil, someError) will have its error silently discarded instead of propagated to the output channel. The NFS skip path returns (nil, nil) which is safe, but future code or third-party transformers could silently lose errors.",
+      "finding_id": "mf-69d7e19c359310aa79b5"
+    },
+    {
+      "file": "ste/downloader-azureFiles_linux.go",
+      "line": 257,
+      "summary": "Original file access time (atime) is overwritten with modification time during NFS download",
+      "failure_scenario": "PutNFSProperties sets both atime (syscall.Timeval[0]) and mtime (syscall.Timeval[1]) to the same lastWriteTime value, discarding the source file's actual access time which is available via FileAccessTime(). When downloading from NFS shares, the atime is silently replaced with the mtime.",
+      "finding_id": "mf-be381602638c012b9372"
+    },
+    {
+      "file": "ste/sourceInfoProvider-Local_linux.go",
+      "line": 282,
+      "summary": "Race condition: getUmask() temporarily changes process-wide umask to 0 during capture via sync.Once",
+      "failure_scenario": "On first invocation, syscall.Umask(0) sets the process-wide umask to 0 before restoring it. If another goroutine creates a file during this brief window, it will be created with permissions 0666/0777 instead of the intended masked permissions. The sync.Once caches the result so subsequent calls are safe, but the initial capture window affects all threads.",
+      "finding_id": "mf-01c0f0f968089afb3c5a"
+    },
+    {
+      "file": "cmd/flagsValidation.go",
+      "line": 1626,
+      "summary": "performNFSSpecificValidation silently ignores --preserve-posix-properties flag with no error or warning",
+      "failure_scenario": "When user runs 'azcopy copy --nfs --preserve-posix-properties=true', the POSIX properties flag is silently dropped because performNFSSpecificValidation's return type omits preservePOSIXPropertiesVal (it returns only 4 values vs. performSMBSpecificValidation's 5). The NFS path assigns cooked.preservePOSIXProperties only via the retain-zero-value path. Users get no indication their flag was ignored.",
+      "finding_id": "mf-bd5bef7593642fa2f3cb"
+    },
+    {
+      "file": "cmd/flagsValidation.go",
+      "line": 1792,
+      "summary": "getShareProtocolType silently returns fallback protocol on API error, masking protocol mismatches",
+      "failure_scenario": "When shareClient.GetProperties() fails (network error, permissions, transient outage), the function logs an info message and returns the fallback protocol value (matching the user's --nfs flag) with nil error. This means protocol validation passes regardless of the actual share protocol, and subsequent code will proceed with potentially wrong protocol assumptions.",
+      "finding_id": "mf-32151992601c99be8054"
+    }
+  ]
+}

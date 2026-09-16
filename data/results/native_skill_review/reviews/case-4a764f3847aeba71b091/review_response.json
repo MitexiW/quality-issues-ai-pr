@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Starting the app (skyvern.forge.api_app) imports routes/__init__ -> agent_protocol -> run_service -> task_v1_service -> skyvern.forge.sdk.executor.factory -> async_executor -> task_v2_service -> workflow_service -> executor.factory (still partially initialized, paused at its own async_executor import), so 'from skyvern.forge.sdk.executor.factory import AsyncExecutorFactory' fails with ImportError: cannot import name 'AsyncExecutorFactory' from partially initialized module 'skyvern.forge.sdk.executor.factory' (most likely due to a circular import). The server fails to boot; the only import order that survives is importing workflow_service first, which no startup path does.",
+      "file": "skyvern/services/task_v2_service.py",
+      "line": 63,
+      "summary": "The new module-level 'from skyvern.services import workflow_service' creates a circular import chain (task_v2_service -> workflow_service -> executor.factory -> async_executor -> task_v2_service) that raises ImportError during the server's standard startup import order."
+    },
+    {
+      "failure_scenario": "Any task_v2 with webhook_callback_url (and an org API key) completes, fails, is canceled, terminated, or times out: send_task_v2_webhook builds payload_dict from task_v2.model_dump(by_alias=True) merged with task_run_response.model_dump(), both of which contain datetime objects for created_at/modified_at (TaskV2 lines 47-48 are plain datetime fields; TaskRunResponse inherits datetime created_at/modified_at from BaseRunResponse). json.dumps(payload_dict) raises TypeError: Object of type datetime is not JSON serializable before the try/except around the POST, so the webhook is never sent, and the TypeError escapes mark_task_v2_as_completed/failed/etc. - in run_task_v2's exception handlers (lines 321-346) it replaces the original error and the completion/failure flow crashes again on the retry. The replaced code used task_v2.model_dump_json(by_alias=True), which serializes datetimes correctly.",
+      "file": "skyvern/services/task_v2_service.py",
+      "line": 1652,
+      "summary": "json.dumps fails on the merged webhook payload because pydantic model_dump() (python mode) returns datetime objects for created_at/modified_at, so every task-v2 webhook send raises TypeError before the HTTP POST and the webhook is never delivered."
+    },
+    {
+      "failure_scenario": "GET /runs/{run_id} for a task_v2 run (run_service.get_run_response line 70 delegates to this helper): if get_workflow_run_response fails (transient DB error or artifact-storage failure fetching recording/screenshots/downloaded_files), the new bare 'except Exception' silently discards it and the endpoint returns 200 with failure_reason=None, recording_url=None, screenshot_urls=None even for a failed task. The pre-change code let the exception propagate (HTTP 500), so API consumers and monitoring could distinguish failure from unavailable data; the try/except was needed for the webhook path but now also degrades the API read path.",
+      "file": "skyvern/services/task_v2_service.py",
+      "line": 1591,
+      "summary": "build_task_v2_run_response now swallows all exceptions from get_workflow_run_response, so the shared helper used by the runs API (GET /runs/{run_id}) returns a misleading partial TaskRunResponse instead of surfacing the error."
+    }
+  ],
+  "level": null
+}

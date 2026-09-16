@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 56,
+      "summary": "DockerCommandLineCodeExecutor is created but never started; code execution crashes with ValueError",
+      "failure_scenario": "User calls MagenticOne(client=client) without specifying code_executor on a system with Docker available. The team is created successfully via _create_default_code_executor() returning an unstarted DockerCommandLineCodeExecutor. When the Orchestrator later delegates code execution, CodeExecutorAgent.execute_code_block() calls self._code_executor.execute_code_blocks(), which reaches _execute_code_dont_check_setup() at DockerCommandLineCodeExecutor line 332, which checks 'if self._container is None or not self._running' and raises ValueError('Container is not running. Must first be started with either start or a context manager.'). The executor.__init__ only stores configuration; the Docker container is only created in its async start() method, which nothing in the call chain (MagenticOne.__init__ -> CodeExecutorAgent.__init__ -> BaseGroupChat.run_stream) ever calls.",
+      "finding_id": "mf-71a68737fb31b24423f7"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 57,
+      "summary": "Bare 'except Exception: pass' silently swallows Docker executor construction failures and falls through to a misleading warning claiming Docker is unavailable",
+      "failure_scenario": "Docker is installed and running, but DockerCommandLineCodeExecutor() raises an exception during construction (e.g., a disk-full error creating the work dir, or a bug in a dependency). The bare 'except Exception: pass' at line 58 swallows the error completely. Execution falls through to lines 62-68 which emit a UserWarning stating 'Docker is not available or not running... install Docker.' The user is misled into thinking they need to install Docker, and the actual construction error is never reported.",
+      "finding_id": "mf-94ba281cd3d800a3e94e"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 130,
+      "summary": "Docstring example for the default constructor path is misleading and leads users to a runtime crash",
+      "failure_scenario": "A user follows the docstring example on line 130: 'm1 = MagenticOne(client=client)  # Uses DockerCommandLineCodeExecutor by default'. The comment implies this is correct and safe. But this path creates an unstarted Docker executor (see finding 1), so when the user later calls m1.run_stream(task=task), code execution fails with ValueError. The docstring is the first code many users will copy-paste, leading them directly into the crash.",
+      "finding_id": "mf-336f6f1529aac3a29f28"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/teams/magentic_one.py",
+      "line": 49,
+      "summary": "Unreachable 'return False' at end of _is_docker_available() is dead code",
+      "failure_scenario": "Given the module-level import logic, when _docker_available is True, docker is guaranteed to be non-None. All code paths before line 49 either return True (successful ping), return False (DockerException caught), or are unreachable (docker is None when _docker_available is True is impossible). This dead code confuses maintainers and may mask bugs if the import logic changes in the future.",
+      "finding_id": "mf-d89ae357727b60bc7bc1"
+    },
+    {
+      "file": "python/packages/autogen-ext/tests/teams/test_magentic_one.py",
+      "line": 26,
+      "summary": "docker_tests_enabled() creates a Docker client via docker.from_env() but never closes it, leaking connections",
+      "failure_scenario": "The docker_tests_enabled() helper creates a Docker client (line 26: client = docker.from_env()) and calls client.ping() but never calls client.close(). Each invocation leaks a connection. This function is called from @pytest.mark.skipif decorators (evaluated at collection time) and from test assertions. On systems with Docker connection limits or when running test collection many times, this can exhaust available connections.",
+      "finding_id": "mf-74a2185554d0a8bb5164"
+    },
+    {
+      "file": "python/packages/autogen-ext/tests/teams/test_magentic_one.py",
+      "line": 70,
+      "summary": "test_docker_availability_check tests the test-file-local helper instead of the production _is_docker_available function",
+      "failure_scenario": "test_docker_availability_check() at line 70 calls _is_docker_available(), which at line 33 is redefined in the test file as a thin wrapper around docker_tests_enabled(). The actual production function at autogen_ext.teams.magentic_one._is_docker_available() has real Docker connection logic (docker.from_env(), client.ping(), DockerException handling) that is never directly tested by this test case. A bug in the production function's Docker connectivity logic would not be caught.",
+      "finding_id": "mf-2335a349ff7ebd8282d2"
+    }
+  ]
+}

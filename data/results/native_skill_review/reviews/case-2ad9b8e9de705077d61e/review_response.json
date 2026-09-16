@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user configures a claude channel with 'claude-2.1' (still listed in relay/channel/claude/constants.go ModelList and exposed to clients via controller/model.go GetModelList, so it remains selectable/advertised). The request is converted with RequestOpenAI2ClaudeMessage (messages-format body: messages/max_tokens) and sent to {BaseUrl}/v1/messages; Anthropic's Messages API only supports claude-3+ models, so it returns 404/400 'model not found'. Before this change, Init routed non-'claude-3' model names to /v1/complete with the prompt-format body and these requests succeeded. Native-Anthropic-format clients sending completion-format bodies (prompt/max_tokens_to_sample) break the same way, since ConvertClaudeRequest forwards the raw body to /v1/messages.",
+      "file": "relay/channel/claude/adaptor.go",
+      "line": 42,
+      "summary": "GetRequestURL now hard-codes /v1/messages for all models, but ModelList still advertises legacy models (claude-instant-1.2, claude-2, claude-2.0, claude-2.1) that only exist on the removed /v1/complete API, so every request for those models now fails at the upstream."
+    },
+    {
+      "failure_scenario": "Non-streaming request to a claude channel whose BaseUrl points at a legacy Claude-compatible gateway that returns a completion-format payload ({\"completion\": \"...\", \"stop_reason\": \"...\"}) with HTTP 200 — no 'usage' key. DecodeJson leaves claudeResponse.Usage nil, and claudeResponse.Usage.InputTokens on line 585 panics (recovered by gin only as an empty 500). Before the diff, such responses were handled by the removed RequestModeCompletion branch, which never touched Usage and counted tokens locally with service.CountTextToken, so the same upstream state returned a valid completion.",
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 585,
+      "summary": "HandleClaudeResponseData now unconditionally dereferences claudeResponse.Usage (a *ClaudeUsage pointer with json omitempty), so any non-streaming 200 response without a 'usage' object panics with a nil pointer dereference instead of returning the completion."
+    },
+    {
+      "failure_scenario": "No runtime failure — maintenance cost: the dead converter (prompt concatenation loop, 4096 default max_tokens_to_sample) together with the now-unused dto.ClaudeRequest.Prompt / MaxTokensToSample and dto.ClaudeResponse.Completion fields implies the removed /v1/complete mode still exists. A future maintainer updating request conversion (e.g., adding a new field to RequestOpenAI2ClaudeMessage) will not know the legacy converter is unreachable, and any code resurrecting it would silently restore the broken legacy mode.",
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 34,
+      "summary": "RequestOpenAI2ClaudeComplete is now dead code with no callers after the completion-mode branches were removed, leaving a second divergent copy of the OpenAI-to-Claude request mapping that no longer reflects the live path."
+    },
+    {
+      "failure_scenario": "No runtime failure — maintenance cost: aws/relay-aws.go and vertex/adaptor.go still pass RequestModeMessage/requestMode values that no branch reads, obscuring that the mode dispatch is gone; the vestigial Adaptor.RequestMode field invites future code to branch on it again. The silent constant renumber (2→1) is a trap: any future code that persists or compares the numeric value (or any operator tooling/DB that recorded the old value 2) will misbehave without a compile error.",
+      "file": "relay/channel/claude/relay-claude.go",
+      "line": 467,
+      "summary": "The requestMode/reqMode parameters of all six handlers (StreamResponseClaude2OpenAI, ResponseClaude2OpenAI, FormatClaudeResponseInfo, HandleStreamResponseData, HandleStreamFinalResponse, HandleClaudeResponseData) plus Adaptor.RequestMode are now write-only plumbing, and RequestModeMessage was silently renumbered from 2 to 1 in both the claude and aws packages."
+    }
+  ],
+  "level": null
+}

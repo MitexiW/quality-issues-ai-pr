@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "react-icons 5.5.0 only consumes the new IconContext API (src/index.jsx:11 still wraps the app in IconContext.Provider; no component in src/ declares contextTypes, and nothing else reads reactIconBase). Rendering the layer editor therefore shows MdMoreVert, FilterEditorBlock's MdDelete, _FunctionButtons' MdFunctions/MdInsertChart, FieldDocLabel's MdInfoOutline/MdHighlightOff and Collapser icons in currentColor instead of the #8e8e8e gray the removed LayerEditor provider injected, and any icon not pinned by the root .react-icons CSS (width/height 14px) falls back to 1em. The mechanism is dead code, React 18 logs legacy-context deprecation warnings for these three components on every render, and it is removed entirely in React 19. The fix is to keep the IconContext.Provider wrappers, as the baseline and src/index.jsx do.",
+      "file": "src/components/AppLayout.tsx",
+      "line": 16,
+      "summary": "Restoring the legacy reactIconBase child context is inert with the pinned react-icons 5.5.0, so the icon size/color defaults previously delivered by the removed IconContext.Provider wrappers (AppLayout.tsx, LayerEditor.tsx:89/119, LayerListItem.tsx:94/98) silently stop applying"
+    },
+    {
+      "failure_scenario": "User types a duplicate layer ID, clicks 'Add Layer' to trigger the error, then clicks the 'x' close link. The browser follows href=\"#\", replacing the MapLibre camera hash (the map is created with hash: true at src/components/MapMaplibreGl.tsx:145, e.g. '#2.5/41.3805/2.1635') with '#', pushing a history entry and losing the shareable/refreshable map position from the URL until the next map moveend. The handler should call e.preventDefault() (or use a button).",
+      "file": "src/components/ModalAdd.tsx",
+      "line": 146,
+      "summary": "The error-close anchor uses href=\"#\" with an onClick that does not preventDefault, so dismissing the duplicate-ID error navigates the URL hash"
+    }
+  ],
+  "level": null
+}

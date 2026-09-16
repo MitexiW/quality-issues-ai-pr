@@ -63,8 +63,8 @@ def main():
     emit('Table1', {'language': q}, [ai/'introduced_by_language.csv'])
     rules = read(ai/'rule_profile.csv')
     rules = rules[rules.family.eq('quality') & rules.task_type.eq('all')].sort_values(
-        ['introduced_alert_n', 'rule_id'], ascending=[False, True]).head(30)
-    emit('Table2', {'top30_rules': rules}, [ai/'rule_profile.csv'])
+        ['introduced_alert_n', 'rule_id'], ascending=[False, True]).head(40)
+    emit('Table2', {'top40_rules': rules}, [ai/'rule_profile.csv'])
     bundle('Table3', {'categories': out/'rq1-root-causes/category_summary.csv'})
     groups = []
     for group, path in [('ai', ai), ('human', human)]:
@@ -78,7 +78,11 @@ def main():
     emit('Table4', {'groups_by_language': combined, 'differences': difference},
          [ai/'introduced_by_language.csv', human/'introduced_by_language.csv'])
     bundle('Table5', {'category_recovery': out/'insights/rq3_recovery_by_category.csv'})
-    bundle('Table6', {'root_cause_recovery': out/'rq3-mechanisms/recovery_by_rq1_mechanism.csv'})
+    guided_summary = out/'rq3-guided/comparison_summary.csv'
+    guided_categories = out/'rq3-guided/root_cause_comparison.csv'
+    gs, gc = read(guided_summary), read(guided_categories)
+    emit('Table6', {'review_settings': gs[gs.group.eq('all')]}, [guided_summary])
+    emit('Table7', {'root_cause_recovery': gc[gc.group.eq('all') & gc.tier.eq('broad')]}, [guided_categories])
 
     raw_path = reports/'rq_analysis_final_20260727_v3/analysis_pr_level.csv'
     final_path = out/'validated-snapshot/analysis_pr_level.csv'
@@ -185,8 +189,13 @@ def main():
                       'raw': int(mask.sum()), 'confirmed': int((mask & truth(refs.validated_issue_reference)).sum())})
     assert [(x['raw'], x['confirmed']) for x in tiers] == [(420,114),(151,40),(535,187)]
     emit('S25', {'tiers': pd.DataFrame(tiers)}, [refs_path])
-    bundle('S26', {'recovery': out/'rq3-metrics/group_metrics.csv'})
-    cases_path = reports/'rq3_formal_results_20260729_v1/case_metrics.csv'
+    recovery_path = out/'rq3-metrics/group_metrics.csv'
+    recovery = read(recovery_path)
+    recovery = recovery[recovery.layer.eq('human_confirmed_primary')].copy()
+    if set(recovery.group) != {'ai', 'human'} or len(recovery) != 2:
+        raise ValueError('S26 requires the AI and human confirmed-primary rows')
+    emit('S26', {'recovery': recovery}, [recovery_path])
+    cases_path = reports/'default_review/case_metrics.csv'
     relation_path = reports/'rq3_semantic_results_20260729_v1/semantic_finding_relations_public.csv'
     cases, relations = read(cases_path), read(relation_path)
     metrics = {'completed_cases': len(cases), 'findings': int(cases.review_finding_n.sum()),
@@ -197,11 +206,15 @@ def main():
                'p95_seconds': float(cases.latency_ms.quantile(.95)/1000)}
     same = relations.codeql_relation.eq('same_issue')
     auto = truth(relations.automatic_recovered)
-    metrics.update(TP=int((same&auto).sum()), FP=int((~same&auto).sum()), FN=int((same&~auto).sum()))
+    audit = dict(TP=int((same&auto).sum()), FP=int((~same&auto).sum()), FN=int((same&~auto).sum()),
+                 scope='Historical 1,016-finding matching audit; excludes new findings')
     emit('S27', {'execution': pd.DataFrame([metrics]),
-                  'relations': relations.groupby('codeql_relation').size().reset_index(name='n')}, [cases_path, relation_path])
+                  'historical_matching_audit': pd.DataFrame([audit]),
+                  'historical_relations': relations.groupby('codeql_relation').size().reset_index(name='n')}, [cases_path, relation_path])
     bundle('S28', {'root_cause_by_group': out/'rq3-mechanisms/recovery_by_rq1_mechanism.csv'})
-    assert {x['table'] for x in entries} == {f'Table{i}' for i in range(1,7)} | {f'S{i}' for i in range(1,29)}
+    emit('S29', {'guided_by_group': gs[~gs.group.eq('all')]}, [guided_summary])
+    emit('S30', {'guided_root_causes': gc[gc.group.eq('all') & gc.tier.eq('broad')]}, [guided_categories])
+    assert {x['table'] for x in entries} == {f'Table{i}' for i in range(1,8)} | {f'S{i}' for i in range(1,31)}
 
     # Frozen CSVs are comparison oracles only, never inputs to computed tables.
     comparisons = [('validated-snapshot', 'final_human_confirmed_issue_analysis_20260817_v1',
@@ -211,11 +224,12 @@ def main():
                    ('rq2-design', 'rq2_design_unweighted_final_20260727_v3', ['balance.csv']),
                    ('rq2-models', 'final_human_confirmed_rq2_models_20260817_v1', ['standardized_effects.csv']),
                    ('raw-sensitivities', 'alert_sensitivities_final_20260727_v2', ['sensitivity_summary.csv', 'rq1_ai_alerts_per_changed_kloc.csv']),
-                   ('insights', 'final_human_confirmed_insight_analysis_20260817_v1', None),
+                   ('insights', 'default_review/analysis/insights', None),
                    ('rq1-root-causes', 'ai_quality_root_cause_review_20260831_v1/full_summary_v1', None),
-                   ('rq3-mechanisms', 'rq3_all_reference_mechanism_mapping_20260901_v1', ['recovery_by_rq1_mechanism.csv']),
+                   ('rq3-mechanisms', 'default_review/analysis/mechanisms', ['recovery_by_rq1_mechanism.csv']),
                    ('robustness', 'final_human_confirmed_supplementary_robustness_20260907_v2',
                     ['root_cause_filter_summary.csv', 'rule_category_crosstab.csv', 'standardized_effects.csv'])]
+    comparisons.append(('rq3-guided', 'native_skill_review/analysis', None))
     for new, old, names in comparisons:
         for path in sorted((out/new).glob('*.csv')):
             expected = reports/old/path.name

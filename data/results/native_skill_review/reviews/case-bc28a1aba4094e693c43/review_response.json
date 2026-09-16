@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Publisher configures an instream video unit with `mediaTypes.video.plcmt = 1` (the standard OpenRTB signal; prebid's `fillVideoDefaults` also derives `plcmt` from context). Old code sent `placement.placement: 1` to the colossusssp endpoint; new code sends `placement.placement: undefined` (dropped from JSON) and deletes `placement.plcmt`, so the server receives no placement-type signal at all and may serve the wrong video context (e.g., outstream treatment for an instream slot) or fail to return video bids.",
+      "file": "modules/colossussspBidAdapter.js",
+      "line": 74,
+      "summary": "The refactor drops the video placement-type signal: the shared library sets `placement.placement = mediaTypes[VIDEO].placement` (undefined for standard `plcmt` publishers) and `placement.plcmt = mediaTypes[VIDEO].plcmt`, which this adapter then deletes outright, whereas the old code forwarded `placement.placement = mediaTypes[VIDEO].plcmt`."
+    },
+    {
+      "failure_scenario": "`spec.interpretResponse('invalid_response')` evaluates `serverResponse.body.length` on `undefined` and throws TypeError — the two existing, unmodified tests in test/spec/modules/colossussspBidAdapter_spec.js (lines ~390 and ~433, 'Returns an empty array if invalid response is passed') now fail. In production, a server response that parses to `null` or a non-array body makes bidderFactory log 'Bidder colossusssp failed to interpret the server's response' and discard all bids, where the old code degraded to an empty array silently.",
+      "file": "modules/colossussspBidAdapter.js",
+      "line": 151,
+      "summary": "Replacing the local try/catch-wrapped `interpretResponse` with the shared `interpretResponse` removes the error guard, so the adapter now throws a TypeError on any response whose `body` is not an array instead of returning an empty bid list."
+    },
+    {
+      "failure_scenario": "The colossusssp server returns a native bid whose `native` object carries tracking via `native.ortb` (OpenRTB-style response) or via clickUrl/jstracker with an empty or absent top-level `impressionTrackers` array. The old code accepted the bid (truthy `bid.native`); the new code silently filters it out, losing native fill and revenue.",
+      "file": "libraries/teqblazeUtils/bidderUtils.js",
+      "line": 18,
+      "summary": "The shared `isBidResponseValid` adopted by this diff requires native bids to have a non-empty `native.impressionTrackers` array, while the replaced colossusssp-local validation accepted any truthy `bid.native`."
+    },
+    {
+      "failure_scenario": "In production prebid core always injects `ortb2.source.tid` (the auctionId), so the old adapter sent it on every request and Xandr's reporting used it to correlate auctions to transactions. After this change requests carry no tid at all, so publisher-side impression/auction reconciliation against Xandr reporting is lost; bid-level `tag.tid` is likewise no longer available for impression-level matching.",
+      "file": "modules/appnexusBidAdapter.js",
+      "line": 285,
+      "summary": "The diff removes all transaction-id forwarding to the AppNexus/Xandr endpoint: `payload.source.tid` (auction tid from `ortb2.source.tid`) in buildRequests and `tag.tid` (imp tid from `ortb2Imp.ext.tid`) in bidToTag, with no replacement."
+    },
+    {
+      "failure_scenario": "A publisher restricts the `enrichUfpd`/`accessDevice` activities (or enrichment fails in a cross-window context), leaving `ortb2.device` without `w`/`h`/`language`. The old code always sent real screen dimensions and the full locale (e.g., 'en-US'); the new code sends `deviceWidth: 0, deviceHeight: 0, language: ''`, degrading the server's device targeting/fraud checks for that request. Even with enrichment enabled, the locale changes from full tag ('en-US') to base language ('en').",
+      "file": "modules/colossussspBidAdapter.js",
+      "line": 119,
+      "summary": "`deviceWidth`/`deviceHeight`/`language` are now sourced from `bidderRequest.ortb2.device` instead of being read directly from `getWindowTop().screen` and `navigator`, so they become `0`/`0`/`''` whenever device FPD enrichment is unavailable."
+    },
+    {
+      "failure_scenario": "For each valid bid the floor module is invoked twice as many times as before (one wildcard call whose result is discarded, plus the per-size calls). For pages with many colossusssp ad units this doubles floor-module invocation cost per auction with no change in the request payload.",
+      "file": "modules/colossussspBidAdapter.js",
+      "line": 73,
+      "summary": "Every placement now triggers a wasted `bid.getFloor({currency: 'USD', mediaType: '*', size: '*'})` call: `createBasePlacement` computes a wildcard `bidfloor`, and this adapter immediately deletes it (`delete placement.bidfloor`) before re-querying getFloor once per size."
+    }
+  ],
+  "level": null
+}

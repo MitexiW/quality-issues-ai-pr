@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Kernel with reactive_execution_mode='lazy' (default marimo editor mode): cells A and B are stale, B depends on A. The user runs A (or clicks 'run all stale cells', which is what ExecuteStaleRequest/run_stale_cells does). The preparation hook now broadcasts stale_inputs=False for A and every stale cell in runner.cells_to_run before anything executes. A raises an exception; Runner.cancel() marks B (a descendant in cells_to_run) as cancelled, so B never runs. B's displayed output is still from its pre-change inputs, but B is now not-stale, shows no stale indicator, and Kernel.run_stale_cells (which selects via cell_impl.stale / graph.get_stale()) will never re-run it until some ancestor is re-run. Before this change, in lazy mode staleness was only cleared by the pre-execution hook _set_staleness (hooks_pre_execution.py:27) when the cell actually executed, so cancelled cells retained their stale flag.",
+      "file": "marimo/_runtime/runner/hooks_preparation.py",
+      "line": 33,
+      "summary": "Removing the autorun guard makes lazy mode clear a cell's stale flag (and broadcast stale_inputs=False) at queue time, including for cells that never execute because an ancestor fails, so cancelled cells keep out-of-date outputs but lose their stale state and are excluded from run_stale_cells."
+    },
+    {
+      "failure_scenario": "Lazy-mode run of a stale cell: _update_stale_statuses broadcasts CellOp(stale_inputs=False) at queue time; then before the cell executes, hooks_pre_execution._set_staleness runs — its guard `not graph.is_any_ancestor_stale(cell.cell_id)` is now always satisfied (the prep hook already cleared every stale ancestor, since compute_cells_to_run includes all stale ancestors in cells_to_run) — and calls cell.set_stale(stale=False) again, which unconditionally broadcasts a second identical op. Each stale-cell run in lazy mode now sends duplicate stale ops to the frontend, and the pre-execution hook's condition/comment no longer reflects any real invariant; the redundant hook (or the prep-hook broadcast) should be removed.",
+      "file": "marimo/_runtime/runner/hooks_preparation.py",
+      "line": 33,
+      "summary": "The queue-time stale clearing duplicates the still-present pre-execution _set_staleness hook in lazy mode, so every stale cell now broadcasts the identical stale_inputs=False CellOp twice per run and the pre-execution hook is left as dead code."
+    }
+  ],
+  "level": null
+}

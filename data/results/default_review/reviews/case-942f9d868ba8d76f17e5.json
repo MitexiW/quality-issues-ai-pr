@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/cache/_chat_completion_cache.py",
+      "line": 120,
+      "summary": "Cache key in _check_cache omits tool_choice, causing cache collisions across different tool_choice values",
+      "failure_scenario": "Call create(messages=[...], tools=[t], tool_choice='required') to populate the cache, then call create(messages=[...], tools=[t], tool_choice='none') with identical other inputs. The second call hits the cache and returns the result computed under 'required' (which may contain tool calls), instead of a text-only response as 'none' intends.",
+      "finding_id": "mf-8f965c08be3fa9bded51"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/ollama/_ollama_client.py",
+      "line": 591,
+      "summary": "Ollama _process_create_args does not validate that a Tool-valued tool_choice is in the provided tools list, and does not raise an error when tools is empty",
+      "failure_scenario": "Call create(messages=[...], tools=[tool_a, tool_b], tool_choice=tool_c) where tool_c is a Tool not in the tools list. The Ollama client silently sends tool_c to the API without the other tools. The API may return a confusing error or silently use the wrong tool. Other clients (OpenAI, Anthropic) raise a clear ValueError in this case.",
+      "finding_id": "mf-d379db7ed361eb301fb5"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/azure/_azure_ai_client.py",
+      "line": 386,
+      "summary": "Azure AI create and create_stream do not validate that a Tool-valued tool_choice is in the provided tools list",
+      "failure_scenario": "Call create(messages=[...], tools=[tool_a], tool_choice=tool_b) where tool_b is not in tools. The Azure client sends a ChatCompletionsNamedToolChoice referencing tool_b along with tools=[tool_a]. The Azure API will either reject this as an invalid tool_choice (because tool_b's definition was never sent) or behave unpredictably.",
+      "finding_id": "mf-e37e775b510eaa40e7b4"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/anthropic/_anthropic_client.py",
+      "line": 838,
+      "summary": "Dead code: convert_tool_choice_anthropic never returns None, so the guard 'if converted_tool_choice is not None' is always True",
+      "failure_scenario": "No runtime failure, but the misleading guard suggests to future maintainers that None is a possible return value. If the function is later modified to return None for some case, the Anthropic create and create_stream would silently drop tool_choice from the request, causing subtle behavior changes.",
+      "finding_id": "mf-4d4a7f444e509c5baffa"
+    },
+    {
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/anthropic/_anthropic_client.py",
+      "line": 611,
+      "summary": "Duplicate tool_choice validation logic (~20 lines) copy-pasted between create (lines 611-632) and create_stream (lines 811-832) with only variable-name differences",
+      "failure_scenario": "A bug fix or enhancement applied to one copy could be missed in the other. For example, a new validation rule added only to create would silently be absent from create_stream, allowing invalid tool_choice values through the stream path.",
+      "finding_id": "mf-16e4a09c6e5ce1dae353"
+    }
+  ]
+}

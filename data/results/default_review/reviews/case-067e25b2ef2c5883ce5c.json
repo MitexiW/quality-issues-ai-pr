@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 184,
+      "summary": "Function-calling path always fails: LLM.call receives tools but no available_functions, causing empty text_response when the LLM responds with a tool call. json.loads('') fails, fallback text parsing returns ready=False with empty plan, leading to wasted API calls and an ineffective reasoning plan.",
+      "failure_scenario": "Agent with reasoning=True and an LLM that supports function calling. The handler calls llm.call(messages, tools=[function_schema]) without available_functions. The LLM responds with a tool call (content=''). LLM._handle_non_streaming_response sees available_functions is None and returns text_response=''. json.loads('') raises JSONDecodeError, fallback returns ('', False). The refinement loop runs max_attempts iterations making API calls that produce empty plans. The task description gets '\n\nReasoning Plan:\n' with no actual plan content.",
+      "finding_id": "mf-ba5b08a38e109f824e5e"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 244,
+      "summary": "Task description accumulates reasoning plans on each execution retry. When execute_task retries after an error (line 422 recursion), the reasoning block runs again and re-appends the plan via +=, causing unbounded growth of the task description.",
+      "failure_scenario": "Agent with reasoning=True and max_retry_limit=2. First execute_task call appends reasoning plan to task.description and begins execution. Execution fails (non-litellm error). execute_task recurses at line 422, reasoning runs again on the already-mutated task, appending a second Reasoning Plan section. The task description now contains duplicate reasoning plans. If the second attempt also fails and retries, a third plan is appended. The LLM prompt balloons with redundant reasoning plans.",
+      "finding_id": "mf-908d9535241802fe0ae0"
+    },
+    {
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 257,
+      "summary": "Agent reasoning only considers task.tools, ignoring agent.tools. The actual execution uses both, so the reasoning plan is generated with incomplete tool information.",
+      "failure_scenario": "An agent has agent.tools=[SearchTool, Calculator] but the task has task.tools=None. __format_available_tools returns 'No tools available'. The reasoning plan tells the LLM 'Available tools: No tools available'. During actual execution at agent.py line 354, tools = [] or [SearchTool, Calculator] or [] = [SearchTool, Calculator]. The LLM receives tools for execution that it was told don't exist in the reasoning plan, causing a mismatch between the planned and actual execution environment.",
+      "finding_id": "mf-6ee093281186a3645edd"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 701,
+      "summary": "reasoning=True is silently ignored when using kickoff() or kickoff_async(). The reasoning block only exists in execute_task, while kickoff methods delegate to LiteAgent which has no reasoning support.",
+      "failure_scenario": "User creates Agent(role='Analyst', reasoning=True) and calls agent.kickoff('Analyze this data'). No reasoning occurs; no warning is produced. The user expects the agent to reflect and create a plan before execution, but the plan is never generated because kickoff bypasses execute_task entirely and uses LiteAgent which lacks a reasoning parameter.",
+      "finding_id": "mf-cffede46ddfe7fdba50b"
+    },
+    {
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 24,
+      "summary": "Dead code: ReasoningFunction pydantic model is defined but never instantiated, imported, or referenced anywhere in the codebase. The function-calling path constructs the schema as a raw dict instead of using this model.",
+      "failure_scenario": "Maintenance cost: the unused class adds 4 lines of code that serve no purpose. A developer reading the file may waste time understanding why it exists. The raw dict at line 153 duplicates the schema fields (plan, ready) that ReasoningFunction already defines.",
+      "finding_id": "mf-e5d1403547dc4581fac8"
+    }
+  ]
+}

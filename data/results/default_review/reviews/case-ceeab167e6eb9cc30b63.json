@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/cli/tools/main.py",
+      "line": 92,
+      "summary": "TypeError crash: `extract_available_exports()` returns `list[dict]` (e.g. `[{\"name\": \"MyTool\"}]`) but `str.join` requires `list[str]`, so `', '.join(available_exports)` raises TypeError at runtime",
+      "failure_scenario": "Any publish where `extract_available_exports` successfully finds tools (non-empty list). `available_exports` = `[{\"name\": \"MyTool\"}]`, then `if available_exports:` is truthy, and `', '.join(available_exports)` raises `TypeError: sequence item 0: expected str instance, dict found`. This crash happens before the build or API call, making the feature unusable whenever tools exist. The regression test at tests/cli/tools/test_main.py:219 masks this: it patches `extract_available_exports` with `return_value=[\"SampleTool\"]` (a list of strings), which does not match the real function's return type of `list[dict]`.",
+      "finding_id": "mf-fb96db3805c2d08b5e3b"
+    },
+    {
+      "file": "src/crewai/cli/tools/main.py",
+      "line": 125,
+      "summary": "Wrong type passed to API: `publish_tool(available_exports=available_exports)` receives `list[dict]` where the signature declares `Optional[List[str]]`, so the JSON body contains objects instead of strings",
+      "failure_scenario": "After fixing the join crash (finding above), `available_exports` = `[{\"name\": \"MyTool\"}]` is passed to `PlusAPI.publish_tool()`. The JSON sent to the server becomes `\"available_exports\": [{\"name\": \"MyTool\"}]` instead of the expected `[\"MyTool\"]`. The server-side validation or downstream consumers expecting a list of tool-name strings may reject the request or silently ignore the values.",
+      "finding_id": "mf-a3a4fc246044bef6ec0c"
+    },
+    {
+      "file": "src/crewai/cli/utils.py",
+      "line": 403,
+      "summary": "Overly broad `**/__init__.py` glob combined with hard SystemExit on missing `__all__` kills publish when any non-tool subpackage lacks `__all__`",
+      "failure_scenario": "A project under `src/` has the expected tool package (`my_tool/__init__.py` with `__all__`) plus a utility subpackage (`src/utils/__init__.py` without `__all__`). `extract_available_exports` iterates all `__init__.py` files found by `**` glob. When it hits `src/utils/__init__.py`, `_load_tools_from_init` finds no `__all__` and raises `SystemExit(1)`, killing the entire publish process before ever reaching the valid tool package. The scan should either skip non-tool directories or downgrade the missing `__all__` from a hard failure to a warning with a skip.",
+      "finding_id": "mf-b61e41a6c22320198a21"
+    }
+  ]
+}

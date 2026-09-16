@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "src/ts/component/block/chat.tsx",
+      "line": 628,
+      "summary": "onScroll now calls C.ChatReadMessages individually per unread message instead of batching them into a single range-based call via onReadStop, causing N server roundtrips per scroll-stop instead of 1",
+      "failure_scenario": "User scrolls through a chat with 80 unread messages. Old code: 1 batched ChatReadMessages(range) call after scroll-stop. New code: 80 individual ChatReadMessages(orderId, orderId) calls spread across scroll events, multiplying network requests and server load with no compensatory benefit.",
+      "finding_id": "mf-5fa1960d986713ec374c"
+    },
+    {
+      "file": "src/ts/component/block/chat.tsx",
+      "line": 25,
+      "summary": "timeoutScrollStop class property is dead code — initialized to 0 and cleared in componentWillUnmount but never assigned a timer ID after the scroll-stop debounce was removed from onScroll",
+      "failure_scenario": "The property wastes a few bytes of instance memory and window.clearTimeout(0) at unmount is a harmless no-op. The deferred-batch mechanism it supported was replaced by the immediate-read approach, leaving this leftover.",
+      "finding_id": "mf-2c66c4ec3f2df79a72f3"
+    }
+  ]
+}

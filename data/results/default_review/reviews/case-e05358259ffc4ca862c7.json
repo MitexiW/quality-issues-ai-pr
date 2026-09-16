@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "src/gui/Src/Bridge/Bridge.cpp",
+      "line": 543,
+      "summary": "Thread-unsafe concurrent access to shared member mDisasm: converting from per-call stack-local QZydis to a shared member introduces data races when GUI_GET_DISASSEMBLY is called from multiple threads (debugger thread via dbg commands + GUI thread via repaint), corrupting ZydisTokenizer intermediate state and the Zydis decoder.",
+      "failure_scenario": "A dbg command handler (debugger thread) and a GUI repaint (GUI thread) both call GuiGetDisassembly concurrently. Both threads call mDisasm->DisassembleAt(), which calls mTokenizer.Tokenize() writing shared members mInst and mSuccess, then reads mTokenizer.Size() and mTokenizer.GetZydis(). One thread reads the other's token list, wrong instruction length, or corrupted decoder state. Additionally, configUpdatedSlot (main thread) can concurrently call UpdateArchitecture()->mZydis.Reset() while another thread is inside mZydis.DisassembleSafe(), corrupting the decoder and potentially crashing. The old per-call stack-local QZydis avoided all of this because each thread had its own isolated tokenizer and decoder.",
+      "finding_id": "mf-ad1cd6a0e50d377ad617"
+    },
+    {
+      "file": "src/gui/Src/Bridge/Bridge.cpp",
+      "line": 219,
+      "summary": "After 'delete mDisasm' in the destructor, the pointer is not set to nullptr; the !mDisasm guard in processMessage can be bypassed with a dangling pointer leading to use-after-free.",
+      "failure_scenario": "During Bridge destruction, setDbgStopped() marks the bridge as stopped. A thread already past the mDbgStopped check in processMessage reaches the !mDisasm guard. mDisasm was deleted but not nulled, so the dangling pointer passes the null check. The thread then calls mDisasm->DisassembleAt() on freed memory, causing a use-after-free crash. The old code had no such risk because the QZydis was stack-allocated per call, never separately freed.",
+      "finding_id": "mf-956eb14a4a5c48cb986b"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "click() now starts a page.evaluate whose returned promise only resolves when a 200ms setTimeout fires in the page, and runs it in Promise.all with page.mouse.click(x, y, { delay: 200 }). When the clicked element navigates (link, submit button, mousedown-handler navigation), the page's execution context is destroyed while the evaluate promise is still pending, so page.evaluate rejects with 'Execution context was destroyed, most likely because of a navigation', Promise.all rejects, click throws, and browser-tool.ts wraps it in ToolError('Action failed: ...'). The AI tool call then fails and runAction retries (5s + 10s sleeps) or the test fails. Previously showClickAnimation resolved immediately (sync evaluate callback) before the click was dispatched, so navigation clicks were reliable.",
+      "file": "packages/shortest/src/browser/actions/index.ts",
+      "line": 78,
+      "summary": "Running showClickAnimation's 200ms in-page promise concurrently with mouse.click makes every click that triggers navigation reject with 'Execution context was destroyed'"
+    },
+    {
+      "failure_scenario": "Caching is enabled by default, so on the first run of every test, testCache.get() returns null and runCachedTest throws CacheError('not-found'). The catch block then executes page.goto(initialState.metadata?.window_info?.url!) even though the page state was never touched on a not-found miss. If the goto fails (hanging resource makes the 'load' wait hit the 30s timeout, network blip, or the recorded url is the 'navigating...' placeholder from getMetadata), the non-CacheError passes the `if (!(error instanceof CacheError)) throw error` check and propagates out of executeTest, so executeTestFile marks the whole file failed without running any test. In the happy path, every uncached test now pays an extra full page reload before its beforeFn/AI execution; previously a cache miss proceeded straight to execution with no navigation.",
+      "file": "packages/shortest/src/core/runner/index.ts",
+      "line": 193,
+      "summary": "The cache-miss fallback unconditionally re-navigates the page with page.goto before running the test, adding a full page reload to every cold-cache test and a new file-fatal failure mode"
+    },
+    {
+      "failure_scenario": "For a test that passes using only screenshot tool calls (or zero tool calls), set() caches steps that all get filtered out by runCachedTest's screenshot filter, leaving steps.length === 0. The new check throws CacheError('invalid'), which makes executeTest call testCache.delete(), page.goto the initial URL, and re-run the test via the AI, which then re-writes an identical cache entry. Every subsequent run repeats this delete + reload + full AI execution cycle: the cache never serves the test, and each run pays the cost of a fresh AI run plus the cache delete and page reload. The old code replayed an empty step list and returned 'passed' immediately.",
+      "file": "packages/shortest/src/core/runner/index.ts",
+      "line": 408,
+      "summary": "Cache entries whose steps are all screenshots (or empty) are deleted and re-run through the AI on every run, so the cache can never be used for such tests"
+    },
+    {
+      "failure_scenario": "Two shortest processes running the same suite share the cache directory and lock file. When process A holds the lock, process B's set() (now awaited inside runConversation before the pass result is returned) loops through 10 acquireLock attempts with exponential backoff (10+20+40+80+160+320+640+1280+2560+5120 ms, about 10.2s total) before giving up and returning without writing. Previously set() was fire-and-forget, so the passed response and the test result were returned immediately; now each concurrently-run test's completion is delayed by up to ~10s per cache write.",
+      "file": "packages/shortest/src/ai/client.ts",
+      "line": 269,
+      "summary": "Awaiting testCache.set() on the pass path can block returning the test response for up to ~10 seconds of lock-acquisition backoff when another process holds the cache lock"
+    }
+  ],
+  "level": null
+}

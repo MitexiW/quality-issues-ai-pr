@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User supplies a 25-word guess of a damaged share (any guess of 21-28 words): expected_len = max(25, slip39_min_words=20) = 25 and 25 is not > 28, so num_inserts = num_deletes = 0. verify_mnemonic_syntax then only accepts 25-word candidates and Share.from_mnemonic rejects every one, because SLIP39 shares can only be exactly 20 or 33 words. The multi-hour search exhausts with 'Seed not found' with zero chance of success, and the printed 'Assuming a 25 word share' gives no hint that 25 is impossible. Relatedly, --share-length is accepted with no validation that it is 20 or 33 (e.g. --share-length 25 produces the same guaranteed-failure search), so the impossible length can never be caught.",
+      "file": "btcrecover/btcrseed.py",
+      "line": 3474,
+      "summary": "Auto-detected SLIP39 share length picks an impossible length for 21-28 word guesses, guaranteeing the search can never succeed"
+    },
+    {
+      "failure_scenario": "The three deleted tests were the only ones exercising SeedListTest.txt, SeedListTest_pylist.txt, and SeedListTest_pytupe.txt; the data files remain in btcrecover/test/test-listfiles/ and btcrpass's seed-list parsing (raw one-seed-per-line, Python list, Python tuple formats) remains in the product, but no test references those formats anymore, and seedlist_tester() (line 1807) now has no callers. A regression in raw/pylist/pytupe seed-list parsing now ships undetected by the suite.",
+      "file": "btcrecover/test/test_seeds.py",
+      "line": 1821,
+      "summary": "Deletion of test_seedlist_raw/pylist/pytupe removes the only coverage for the seed-list file formats and orphans the seedlist_tester helper"
+    },
+    {
+      "failure_scenario": "The diff inserted new 'Seed sentence was too short, inserting...'/'...too long, deleting...' print blocks (lines 765-774) directly above the pre-existing identical blocks (lines 776-781) without deleting the old ones. Any Electrum1 recovery whose guess length differs from the expected length now prints each message twice to the console (e.g. an 11-word guess prints 'Seed sentence was too short, inserting 1 word into each guess.' two times, once with and once without a trailing period).",
+      "file": "btcrecover/btcrseed.py",
+      "line": 765,
+      "summary": "WalletElectrum1.config_mnemonic now prints the too-short/too-long messages twice because the new print blocks were added instead of replacing the existing ones"
+    },
+    {
+      "failure_scenario": "Running `seedrecover.py --slip39 --seedlist shares.txt --mnemonic-length 20` sets only the local wallet_type variable, leaving args.wallet_type as None; the guard at lines 4012-4017 therefore takes the `!= 'electrum1'` branch and exits with 'Error: Language needs to be specificed if using tokenlist or passwordlist'. Adding --language then passes `lang` to WalletSLIP39Seed.config_mnemonic, which exits with 'WalletSLIP39Seed does not support the lang option'. Seed-list-based SLIP39 share recovery is thus impossible and fails with an error about an irrelevant requirement (SLIP39 has a single wordlist language).",
+      "file": "btcrecover/btcrseed.py",
+      "line": 4012,
+      "summary": "The seedlist/tokenlist guard keys off args.wallet_type, which --slip39 never sets, so slip39 + seedlist exits with a misleading language error and can never work"
+    }
+  ],
+  "level": null
+}

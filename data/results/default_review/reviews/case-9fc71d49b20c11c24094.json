@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "app/blueprints/wizard/routes.py",
+      "line": 18,
+      "summary": "Session key 'wizard_access' is set on join but never cleared, granting indefinite wizard re-access instead of one-shot access",
+      "failure_scenario": "An unauthenticated user joins via Emby/Jellyfin/Plex and accesses the wizard. The server-side session persists (the app uses flask_session with FileSystemCache). Even after completing the wizard, the user can revisit /wizard/ at any point during the session's lifetime (31 days by default), re-triggering run_all_importers() and re-rendering onboarding steps. The codebase already has the correct cleanup pattern for the analogous 'in_setup' key (app/blueprints/settings/routes.py line 107: session.pop('in_setup')), but no matching session.pop('wizard_access') exists anywhere in the codebase.",
+      "finding_id": "mf-86e9ef9a46449938610f"
+    },
+    {
+      "file": "app/blueprints/emby/routes.py",
+      "line": 55,
+      "summary": "Hardcoded redirect '/wizard/' will break if the wizard blueprint url_prefix changes; inconsistent with public/routes.py which uses url_for('wizard.start')",
+      "failure_scenario": "The wizard blueprint's url_prefix is changed from '/wizard' to '/onboarding'. The redirect in emby/routes.py line 55 (redirect('/wizard/')) silently breaks with a 404, while the redirect in public/routes.py line 87 (redirect(url_for('wizard.start'))) would adapt correctly. The same hardcoded pattern exists at app/blueprints/jellyfin/routes.py line 47.",
+      "finding_id": "mf-ea2143b43d6c648cd7d5"
+    }
+  ]
+}

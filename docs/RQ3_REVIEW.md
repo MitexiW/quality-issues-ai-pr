@@ -179,8 +179,10 @@ references. Count each reference once even if several findings recover it.
 The positive-PR measure counts PRs with at least one recovered eligible reference.
 Use the primary tier for the primary estimate; report higher-severity and broad
 analyses separately. Do not copy the historical `semantic_recovered` column
-into a new run. The public frozen-metrics command reproduces 20/114 from old
-labels; it is not a scorer for unjoined new reviewer outputs.
+into a new run. For the current combined dataset, run
+`python scripts/analyze_default_review.py` to reproduce 21/114 from the released
+labels; it is not a scorer for unjoined new reviewer outputs. Historical dated
+files retain the original 20/114 result. See [DEFAULT_REVIEW.md](DEFAULT_REVIEW.md).
 
 ## What has been checked
 

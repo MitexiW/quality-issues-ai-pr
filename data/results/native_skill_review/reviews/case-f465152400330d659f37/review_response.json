@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A gene with _numBranches == 1 (e.g., any gene created by the '+' add-gene button, which inserts GeneDescription().numBranches(1)) is selected in the gene editor. In processHeaderData(), numBranches (1) is decremented to 0, then `numBranches > 0` is false, so numBranchesOptional is std::nullopt — the 'Attach to host' combo renders disabled and the final else-branch writes gene._numBranches = 0. The 1-branch gene is converted into a separation gene with no user action; resulting cell count and creature structure change. The old code decremented only when has_value() and passed optional(0), which the combo correctly displays as '1 branch', then restored the value with ++.",
+      "file": "source/Gui/GeneEditorWidget.cpp",
+      "line": 97,
+      "summary": "Genes with exactly 1 branch are conflated with separation: the editor renders them as 'no branches' and silently rewrites _numBranches from 1 to 0 on every frame the gene is selected."
+    },
+    {
+      "failure_scenario": "A simulation file saved by the previous build stores Id_Gene_NumBranches as the std::optional<int> alternative of VariantData (SerializerService.cpp always emplaces the field, and ProgramVersion is still 5.0.0-alpha.0, which passes the isVersionOutdated gate). On load, SerializerService.cpp:100 executes std::get<int>(variantData) on a variant holding std::optional<int>, throwing std::bad_variant_access; the exception is swallowed by catch(...) in deserializeSimulationFromFiles, which returns false — every previously saved simulation/genome fails to load (and files saved by the new build fail to load in older builds).",
+      "file": "source/EngineInterface/GenomeDescription.h",
+      "line": 211,
+      "summary": "Changing _numBranches from std::optional<int> to int changes the persisted type for Id_Gene_NumBranches without a format migration, so simulation files saved by earlier builds can no longer be loaded."
+    }
+  ],
+  "level": null
+}

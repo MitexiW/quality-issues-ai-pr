@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A TypeScript user following the shipped type writes `doc.changeTracking.diff.structured.files` — it compiles, then throws TypeError (reading 'files' of undefined) on a changed page; writing `doc.changeTracking.diff.json.files` fails to compile because the type has no `json` property. The SDK type also omits the new `changeTracking.json` field entirely.",
+      "file": "apps/js-sdk/firecrawl/src/index.ts",
+      "line": 77,
+      "summary": "The SDK's FirecrawlDocument.changeTracking.diff declares the parsed-diff sub-object as `structured`, but the API returns it under `json` (Document type and diff.ts both use `json`), so SDK users read a field that is undefined at runtime."
+    },
+    {
+      "failure_scenario": "In the deployed API container, a scrape of a changed page with changeTrackingOptions.modes ['git-diff']: shelljs exec fails with 'git: not found' (exit 127), git-diff returns no diff (or throws) — `if (diffText)` is skipped (or deriveDiff throws and the scrape fails), so changeTracking.diff is silently missing with no warning even though the page changed. The coerceFieldsToFormats warning path never fires because the mode WAS requested.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 85,
+      "summary": "The new git-diff mode depends on the `git` CLI (git-diff@2.0.6 executes `git diff --no-index` via its shelljs dependencies), but the production image built by apps/api/Dockerfile (node:22-slim, no git install anywhere in the repo's Docker/compose files) does not contain git, so the feature cannot work in production."
+    },
+    {
+      "failure_scenario": "Scrape of a large page with formats ['markdown','changeTracking'] and changeTrackingOptions.modes ['json']: engine scrape plus two sequential gpt-4o-mini extractions (plus a possible third fallback call) exceed 30s; waitForJob rejects with 'Job wait' and scrapeController returns 408 'Request timed out' even though the job later completes — the user is billed 5 credits and receives an error for a successful scrape.",
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 203,
+      "summary": "The new changeTracking 'json' mode runs up to three sequential LLM calls inside the job, but extractTransform's timeout bump (30s to 60s) only triggers for extract/json formats or options, so these requests keep the 30s default timeout and the controller returns 408."
+    },
+    {
+      "failure_scenario": "Run 'supports schema-based extraction for change tracking' when example.com content changed: compareExtractedData returns {pricing: {previous, current}} and toHaveProperty('old') fails, reddening CI; conversely, if the test's old/new shape is the intended contract, the API is shipping the wrong shape to every consumer.",
+      "file": "apps/api/src/__tests__/snips/scrape.test.ts",
+      "line": 169,
+      "summary": "The new schema-mode test asserts changeTracking.json.<field> has properties 'old' and 'new', but compareExtractedData emits {previous, current}, so the implementation and its own test disagree on the API response shape."
+    },
+    {
+      "failure_scenario": "A crawl of N pages with scrapeOptions.changeTrackingOptions.modes ['json'] runs two or three gpt-4o-mini calls per changed page; each page is billed 1 credit instead of 5, so the LLM cost is not covered and users trivially bypass the scrape-endpoint pricing by using /v1/crawl or /v1/batch/scrape.",
+      "file": "apps/api/src/controllers/v1/scrape.ts",
+      "line": 107,
+      "summary": "The 5-credit billing for changeTracking json mode was added only to the /v1/scrape controller; crawl and batch-scrape jobs execute the same LLM work but queue-worker.ts bills them 1 credit because it only checks scrapeOptions.extract."
+    },
+    {
+      "failure_scenario": "User scrapes a URL with formats ['html'] (markdown deleted from the stored returnvalue), then re-scrapes with formats ['markdown','changeTracking'] plus either new mode: job.returnvalue.markdown is undefined, transformer(previousMarkdown) throws TypeError inside deriveDiff, and the whole scrape fails with an error instead of returning changeTracking data.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 71,
+      "summary": "deriveDiff non-null-asserts the previous job's markdown, but when the last scrape of the URL used formats without markdown, coerceFieldsToFormats stripped markdown from the stored document (queue-worker stores the post-coerce document as returnvalue) and transformer(undefined) throws; the new git-diff/json modes inherit this crash path."
+    },
+    {
+      "failure_scenario": "First-ever scrape of a URL (or any scrape whose changeStatus is 'new', 'same', or 'removed', or where the previous-scrape lookup fails) with changeTrackingOptions.modes ['json']: deriveDiff performs zero LLM calls because the json branch only runs when changeStatus === 'changed', yet the controller bills 5 credits instead of 1.",
+      "file": "apps/api/src/controllers/v1/scrape.ts",
+      "line": 107,
+      "summary": "Scrapes are billed 5 credits for changeTracking json mode even when no LLM call occurs, charging 5x for a plain comparison."
+    },
+    {
+      "failure_scenario": "A TypeScript user passes changeTrackingOptions: { modes: ['git-diff'] } to app.scrapeUrl(...): excess-property checking rejects the literal and there is no typed way to express the new API options, leaving the feature unreachable through the official client despite the response type being partially added.",
+      "file": "apps/js-sdk/firecrawl/src/index.ts",
+      "line": 106,
+      "summary": "The JS SDK's CrawlScrapeOptions/ScrapeParams do not declare changeTrackingOptions, so SDK users cannot request the new git-diff/json change-tracking modes with type safety."
+    },
+    {
+      "failure_scenario": "A consumer reads changeTracking.diff.json.files[0].from and receives a meaningless, environment-specific temp path such as '/tmp/git-diff-0.481232940281934.txt' (also leaking the server's temp-file naming) instead of a document identity; the fields are useless for any client-side file mapping.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 96,
+      "summary": "The structured diff's from/to fields carry git-diff's temporary file paths (e.g. /tmp/git-diff-0.1234.txt) rather than the scraped URL, because `git diff --no-index` headers reference the library's temp files and parse-diff parses those paths."
+    }
+  ],
+  "level": null
+}

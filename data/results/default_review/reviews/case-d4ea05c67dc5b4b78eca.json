@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "packages/kit-bg/src/services/ServiceAddressBook.ts",
+      "line": 319,
+      "summary": "`fn` callback silently dropped when `syncItems` is empty — cloud-synced address book data from server is never saved locally when `skipSaveLocalSyncItem: true`",
+      "failure_scenario": "CloudSyncFlowManagerAddressBook calls `withAddressBookCloudSync({ fn, skipSaveLocalSyncItem: true })`. With `skipSaveLocalSyncItem: true`, `syncItems` stays `[]` (empty). The `if (syncItems?.length)` guard at line 319 is false, so `addAndUpdateSyncItems` is never called and `fn` — which calls `setItems()` to persist the address book data locally — never executes. Address book items received from cloud sync are silently dropped.",
+      "finding_id": "mf-5a0621b5eb6185d5e40e"
+    },
+    {
+      "file": "packages/kit-bg/src/services/ServiceCustomRpc.ts",
+      "line": 118,
+      "summary": "`fn` callback silently dropped when `syncItems` is empty in `withCustomRpcCloudSync` — same root cause as ServiceAddressBook, breaking cloud sync for custom RPC configurations",
+      "failure_scenario": "CloudSyncFlowManagerCustomRpc calls `withCustomRpcCloudSync({ fn, skipSaveLocalSyncItem: true })`. `syncItems` remains empty, the `if (syncItems?.length)` guard fails, `fn` never runs, and the RPC data from the server is never committed to local storage.",
+      "finding_id": "mf-3ae49cb8efc52ff2fa40"
+    },
+    {
+      "file": "packages/kit-bg/src/services/ServiceCustomRpc.ts",
+      "line": 146,
+      "summary": "Same `fn`-dropping bug in `withCustomNetworkCloudSync` — custom network cloud sync also broken",
+      "failure_scenario": "When `skipSaveLocalSyncItem: true`, `syncItems` stays empty, `fn` never called, custom network data from cloud sync never saved locally.",
+      "finding_id": "mf-df1bd17a139628e13a6e"
+    },
+    {
+      "file": "packages/kit-bg/src/services/ServiceCustomToken.ts",
+      "line": 78,
+      "summary": "Same `fn`-dropping bug in `withCustomTokenCloudSync` — custom token cloud sync broken",
+      "failure_scenario": "When `skipSaveLocalSyncItem: true`, `syncItems` stays empty, `fn` never called, custom token data from cloud sync never saved locally.",
+      "finding_id": "mf-d5cd566519330d3398be"
+    },
+    {
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 4406,
+      "summary": "TOCTOU race condition in `addSignedMessage`: context counter read outside any transaction (line 4406), then used in archive-bucket transaction (line 4407), with counter increment in a separate account-bucket transaction (line 4421) — concurrent calls can produce ID collisions that silently overwrite records",
+      "failure_scenario": "Two concurrent calls to `addSignedMessage`: both read `ctx.nextSignatureMessageId = 5` outside any transaction, then both write records with id='5' (second overwrites first), then both increment counter. One signed message is silently lost. Previously the read, write, and increment were inside a single transaction, preventing this.",
+      "finding_id": "mf-ab3d9870cb255a34708d"
+    },
+    {
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 4437,
+      "summary": "Same TOCTOU race in `addSignedTransaction`: context read outside tx (line 4437), archive write (line 4438), account counter increment (line 4452) in separate transactions — ID collisions possible",
+      "failure_scenario": "Two concurrent `addSignedTransaction` calls both read `nextSignatureTransactionId = 3`, both write to id='3', second overwrites first. Counter ends at 4 but only one record survives.",
+      "finding_id": "mf-05539145b0ccd7fb9c4d"
+    },
+    {
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 4464,
+      "summary": "Same TOCTOU race in `addConnectedSite`: ID collisions for connected site records due to context read outside tx and split transactions",
+      "failure_scenario": "Two concurrent `addConnectedSite` calls collide on the same `nextConnectedSiteId`, silently overwriting one of the connected site entries.",
+      "finding_id": "mf-f448758811f2498eed23"
+    },
+    {
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 2956,
+      "summary": "`setWalletNameAndAvatar` writes cloud sync item (line 2956) BEFORE the wallet update transaction (line 2961) — if the wallet update fails or app crashes between, the sync item is committed but the wallet rename never happened, causing cloud sync inconsistency",
+      "failure_scenario": "`setWalletNameAndAvatar` creates a sync item via `addAndUpdateSyncItems` at line 2956 (which runs in its own transaction), then updates the wallet record at line 2961 in a separate transaction. If the second transaction fails (e.g., crash, constraint violation), the sync item persists with the new name but the wallet record retains the old name. On next cloud sync, the server sees a rename sync item but the actual wallet name hasn't changed locally.",
+      "finding_id": "mf-337fd726466b0d760fa8"
+    },
+    {
+      "file": "packages/kit-bg/src/dbs/local/LocalDbBase.ts",
+      "line": 4066,
+      "summary": "`setAccountName` writes sync item (line 4068) BEFORE account/indexed-account update transaction (line 4073) — same split-transaction inconsistency as `setWalletNameAndAvatar`",
+      "failure_scenario": "Sync item committed at line 4068, then account rename transaction starts at line 4073. If the rename transaction fails, cloud sync item reflects a rename that never completed locally.",
+      "finding_id": "mf-eb87cb58e4bb7d322bc4"
+    }
+  ]
+}

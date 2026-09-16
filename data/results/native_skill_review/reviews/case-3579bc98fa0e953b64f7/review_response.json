@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user whose credentials scopes include https://www.googleapis.com/auth/gmail.metadata runs GmailReadBlock or GmailGetThreadBlock on a mailbox containing an email with an attachment: the metadata-format response returns each attachment part as {filename: 'report.pdf', mimeType: ..., body: {size: N}} with no attachmentId; _get_attachments executes part['body']['attachmentId'] (lines 249 and 657) and raises KeyError, aborting the whole block run. In GmailReadBlock._get_attachments the direct index part['filename'] (line 244) is also unsafe if filename is omitted for non-attachment parts.",
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 185,
+      "summary": "Switching messages.get/threads.get to format='metadata' when gmail.metadata is among the scopes makes _get_attachments crash with KeyError('attachmentId') on any email that has an attachment, because metadata-format responses include part filename but omit body.attachmentId."
+    },
+    {
+      "failure_scenario": "Google credentials that accumulated both gmail.readonly and gmail.metadata (the OAuth flow uses include_granted_scopes=true and credentials_store only allows superset scope updates, so mixed sets are realistic) run GmailReadBlock with query 'is:unread': the API would accept q and format='full' with the readonly scope, but the code omits q — returning the N most recent messages regardless of the query — and fetches every message with format='metadata', so all Email bodies degrade to 'This email does not contain a text body.'. Same wrong predicate at lines 185-189 and 592-596 degrades GmailGetThreadBlock. The check should test that no full-read scope (gmail.readonly/gmail.modify) is present, not that metadata is absent.",
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 177,
+      "summary": "The scope check tests membership instead of exclusivity, so the query filter and full-format bodies are dropped whenever gmail.metadata appears in the scope list — even when gmail.readonly is also granted, contradicting the docs' 'only the gmail.metadata scope' wording."
+    },
+    {
+      "failure_scenario": "A user with only gmail.metadata runs GmailReadBlock with query='is:unread' and max_results=10: the query is silently dropped, so the block yields the 10 newest emails regardless of read state, and every Email.body is the literal string 'This email does not contain a text body.' — indistinguishable from a real (empty) email body. A downstream agent reads this fabricated text as the actual email content and acts on the wrong messages; the block gives no signal (error output, skipped result, or empty body) that the search and content are unavailable.",
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 222,
+      "summary": "For metadata-only users the block silently returns emails whose bodies are replaced by the literal placeholder 'This email does not contain a text body.' and whose listing ignores the search query, with no error or warning despite the block having an unused 'error' output."
+    },
+    {
+      "failure_scenario": "Neither the mocked _read_emails/_get_thread test paths nor TEST_CREDENTIALS (no gmail.metadata scope) exercise lines 175-189 or 591-596, so the KeyError on attachmentId and the dropped-query degradation above shipped with no failing test; a unit test calling _read_emails with scopes=['https://www.googleapis.com/auth/gmail.metadata'] and a mock message containing an attachment part would crash immediately.",
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 141,
+      "summary": "The new scope-conditional query/format logic has zero test coverage: block tests mock out _read_emails and _get_thread, and TEST_CREDENTIALS contains only gmail.readonly and gmail.send scopes, so the gmail.metadata branches never execute in tests."
+    },
+    {
+      "failure_scenario": "Maintainability cost: correcting the membership-vs-exclusivity bug requires three coordinated edits across two classes, and the duplication invites drift — e.g., a future change to the scope predicate in _read_emails but not _get_thread would make the Read and GetThread blocks disagree about format selection for the same credentials. A single helper (e.g., a _uses_metadata_only(scopes) function in _auth.py) would keep the decision in one place.",
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 175,
+      "summary": "Scope lowercasing and the metadata-format selection predicate are copy-pasted between _read_emails and _get_thread, duplicating the same flawed membership check at three sites (lines 177, 185-189, 592-596) instead of a shared helper."
+    }
+  ],
+  "level": null
+}

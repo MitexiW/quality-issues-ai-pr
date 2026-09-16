@@ -3,3 +3,14 @@ __pycache__/
 *.pyc
 outputs/
 .DS_Store
+
+# Local credentials and private keys (never publish).
+.env
+.env.*
+!.env.example
+!.env.template
+.ssh/
+*.pem
+*.key
+id_rsa
+id_ed25519

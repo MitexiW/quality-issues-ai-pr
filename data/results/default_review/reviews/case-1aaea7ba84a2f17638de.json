@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "lib/encryption.ts",
+      "line": 636,
+      "summary": "Encryption key falls back to a hardcoded string 'default-key-change-in-production' when ENCRYPTION_KEY and CSRF_SECRET env vars are not set, allowing anyone with source access to decrypt all stored user API keys.",
+      "failure_scenario": "Developer deploys without setting ENCRYPTION_KEY or CSRF_SECRET environment variables. User stores their OpenAI API key via the BYOK flow. The key is encrypted with the known hardcoded string. Any team member or public source-code reader can decrypt the ciphertext and extract the user's API key.",
+      "finding_id": "mf-32faa127c21ee46b8576"
+    },
+    {
+      "file": "app/components/layout/settings/connections/provider-settings.tsx",
+      "line": 475,
+      "summary": "Users can never delete stored API keys because the save handler skips empty values and there is no DELETE endpoint on the user-keys API.",
+      "failure_scenario": "User stores an API key for Mistral, then later wants to remove it and fall back to the server's environment-provided key. They clear the input field and click Save. The field value is '' (falsy), so the condition 'if (key && !key.includes(\"*\"))' is false and no request is sent. The stale key remains in Supabase and continues to be decrypted and used on every chat request. There is no DELETE endpoint to call.",
+      "finding_id": "mf-c64c255f6d32b442cf9e"
+    },
+    {
+      "file": "app/components/layout/settings/connections/provider-settings.tsx",
+      "line": 99,
+      "summary": "The save handler does not check fetch response status, silently swallowing server errors (403 CSRF rejection, 401 unauthorized, 500 server error) and logging success regardless.",
+      "failure_scenario": "User's CSRF token cookie is stale or missing. User types a new API key and clicks Save. The POST to /api/user-keys returns 403 (invalid CSRF). The handler does not check response.ok or response.status. The loop completes and 'console.log(\"Provider settings saved successfully\")' fires. User sees no error indication. The key was never actually stored and chat requests using that provider will fail without explanation.",
+      "finding_id": "mf-225b92a408748a3354be"
+    },
+    {
+      "file": "app/api/chat/route.ts",
+      "line": 104,
+      "summary": "Dynamic import of getEffectiveApiKey on the hot path of every chat request adds unnecessary module resolution latency; a static import would have no adverse effect.",
+      "failure_scenario": "Every chat request triggers await import('@/lib/user-keys') which resolves the module loader, adding microseconds of latency per request. Under concurrent load this wastes CPU and adds tail latency. A static import at the top of the file would achieve the same result with zero per-request overhead.",
+      "finding_id": "mf-f42c575a62d38aeb8144"
+    },
+    {
+      "file": "lib/openproviders/env.ts",
+      "line": 9,
+      "summary": "Exported function createEnvWithUserKeys is never imported or called anywhere; it is dead code that was apparently abandoned in favor of the per-request apiKey parameter pattern.",
+      "failure_scenario": "Future developers encounter two competing patterns for user key integration: createEnvWithUserKeys (creates a merged env object) vs. the apiKey parameter pass-through used in openproviders and model configs. The dead function wastes maintenance effort, could be accidentally used in new code, and gives a misleading impression that the codebase supports an env-merge approach it never actually exercises.",
+      "finding_id": "mf-6d23b560bffd109c41bb"
+    }
+  ]
+}

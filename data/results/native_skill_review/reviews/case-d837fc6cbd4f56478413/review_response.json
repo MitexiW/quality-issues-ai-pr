@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "package.json lines 56-57 now specify \"5.62.0\", but package-lock.json's root packages[\"\"] entry still records \"^5.9.1\" for both packages. npm ci validates that the specifiers in package.json match the lockfile's root entry, so it aborts with 'npm ci can only install packages when your package.json and package-lock.json are in sync'. Both publish pipelines run npm ci (publish-commit.yml on every push to main, publish-release.yml on every release tag), so the publish jobs deterministically fail; contributors using npm ci cannot install at all, and plain npm install silently rewrites the lockfile, making the pin non-reproducible.",
+      "file": "package.json",
+      "line": 56,
+      "summary": "Pinning @typescript-eslint/eslint-plugin and parser to 5.62.0 in package.json without updating package-lock.json makes every npm ci install fail"
+    },
+    {
+      "failure_scenario": "Jest compiles mapper keys with new RegExp(key); sibling entries in the same config use a bare caret (\"^lodash-es$\", \"^antd/es/\"), confirming the convention, while \"\\\\^\" becomes an identity escape for a literal '^'. The entry therefore never redirects 'lucide-react' to __mocks__/lucide-react.js. The regenerated Designer/Preview snapshots (which expect the mock's plain-text 'Plus'/'Minus'/'GripVertical' output) only pass if Jest's implicit manual-mock detection applies — which per Jest's documented rules requires __mocks__ to be adjacent to a node_modules directory and is not guaranteed in this hoisted npm-workspaces layout. Where that detection does not apply, tests import the real lucide-react and the snapshot tests fail (SVG markup vs. expected text), and the added transformIgnorePatterns entry cannot mitigate anything because the jest 'transform' map only matches ^.+\\.tsx?$, so lucide-react's .js files are never transformed.",
+      "file": "packages/ui/package.json",
+      "line": 92,
+      "summary": "The moduleNameMapper key \"\\\\^lucide-react$\" is over-escaped: the JSON decodes to the regex /\\^lucide-react$/, where \\^ matches a literal caret, so the pattern can never match the module specifier 'lucide-react' and the mapping to the mock is dead"
+    },
+    {
+      "failure_scenario": "packages/ui/src/components/Designer/RightSidebar/DetailView/AlignWidget.tsx imports AlignStartVertical, AlignStartHorizontal, AlignCenterVertical, AlignCenterHorizontal, AlignEndVertical, AlignEndHorizontal, AlignVerticalSpaceAround and AlignHorizontalSpaceAround from 'lucide-react' — none are exported by the mock (the file itself notes 'Add any other icons used in the codebase'). Because the mock shadows the real module for every test in the package, the first test that renders a Designer with a selected schema (DetailView always renders the AlignWidget via propPanelSchema 'align') hits React.createElement(undefined) and fails with 'Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined'. The current Designer/Preview tests pass only because they never select an element.",
+      "file": "packages/ui/__mocks__/lucide-react.js",
+      "line": 2,
+      "summary": "The new manual mock replaces the entire lucide-react module for all tests but omits the 8 Align* icons that AlignWidget.tsx imports, so any test rendering a Designer/Form with an active element selection crashes"
+    }
+  ],
+  "level": null
+}

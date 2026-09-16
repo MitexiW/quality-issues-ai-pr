@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "ddns/cache.py",
+      "line": 46,
+      "summary": "Switching load() from pickle to json drops support for cache files written by previous versions, which are silently discarded and then overwritten on upgrade",
+      "failure_scenario": "A user upgrades with an existing cache file (e.g. /tmp/ddns.<hash>.cache written by the pre-diff pickle code containing {\"example.com:A\": \"1.2.3.4\"}). On the first run, open(file, \"r\") reads the pickle bytes as text: binary pickle raises UnicodeDecodeError (a ValueError subclass) and even an ASCII protocol-0 pickle fails json parsing with JSONDecodeError, so the `except ValueError: pass` branch swallows it, the fallthrough sets __changed = True after clear(), and close()/__del__ calls sync() which overwrites the file with {}. Cached DNS records are destroyed and the first post-upgrade run performs a full DNS update pass for every domain, which can trip provider rate-limit/ban heuristics; no migration or fallback path exists.",
+      "finding_id": "case-2cb2790135584fbec7b6-f0001"
+    },
+    {
+      "file": "ddns/cache.py",
+      "line": 69,
+      "summary": "sync() truncates the cache file before serializing but has no error handling, and json.dump can now raise TypeError where pickle could serialize anything",
+      "failure_scenario": "Any caller stores a non-JSON-serializable value or non-string key (e.g. cache[\"k\"] = {1, 2}, a bytes/datetime value, or a tuple key — all legal dict contents that pickle handled): open(self.__filename, \"w\") truncates the previously valid cache file, json.dump raises TypeError, the exception propagates out of sync() through close()/__del__ where Python only prints \"Exception ignored in: Cache.__del__\", and the cache file is left empty/partial so all previously cached records are permanently lost. Current in-repo callers store only strings, so this is latent rather than triggerable today.",
+      "finding_id": "case-2cb2790135584fbec7b6-f0002"
+    },
+    {
+      "file": "tests/test_cache.py",
+      "line": 527,
+      "summary": "test_cache_new_temp_file writes a fixed-name cache file into the real shared system temp directory and never removes it, making the test non-hermetic and polluting /tmp",
+      "failure_scenario": "Each test run creates /tmp/ddns.test_hash_123.cache and cache.close() (line 539) syncs data into it without cleanup; on the next run the stale file exists, is loaded as a cache with prior data (mtime < 72h), and the test's 'new temp cache' premise is false. Concurrent CI runs on a shared host all use the same fixed filename and can interfere with each other; the test only passes because it never asserts the cache is empty.",
+      "finding_id": "case-2cb2790135584fbec7b6-f0003"
+    },
+    {
+      "file": "tests/test_cache.py",
+      "line": 653,
+      "summary": "test_cache_new_nonexistent_file leaves a cache file behind: the failed load sets __changed=True, so cache.close() creates the supposedly 'nonexistent' file and the test never deletes it",
+      "failure_scenario": "Cache.new(nonexistent_path, ...) fails to load (FileNotFoundError caught in load()), which sets __changed = True; the final cache.close() at line 667 then syncs and creates the file at the mktemp path. tearDown only removes self.cache_file, so a new file is left in the system temp dir after every test run, accumulating garbage and potentially colliding with later mktemp names on the shared /tmp.",
+      "finding_id": "case-2cb2790135584fbec7b6-f0004"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A ModelScope model exists in the DB (or is created via the UI): modelmgr.load_llm_model calls ModelScopeChatCompletions(ap=..., config=...) which raises TypeError (either 'Can't instantiate abstract class ... invoke_llm' or 'unexpected keyword argument config'), and since build_app.py awaits ModelManager.initialize() without try/except, the whole application fails to boot; the runner (pkg/provider/runners/localagent.py:22) calls requester.invoke_llm, which no longer exists.",
+      "file": "pkg/provider/modelmgr/requesters/modelscopechatcmpl.py",
+      "line": 166,
+      "summary": "The ModelScope requester renamed invoke_llm to call and its __init__(self, ap) no longer accepts the config kwarg, so the class cannot be instantiated (abstract method invoke_llm unimplemented) and the modelmgr instantiation call TypeError-crashes."
+    },
+    {
+      "failure_scenario": "A PPIO model is in the DB: load_llm_model raises TypeError: __init__() got an unexpected keyword argument 'config', which propagates through ModelManager.initialize() and aborts application startup. Even if the signature were fixed, the inherited initialize() reads self.requester_cfg['base_url'] while the provider config entry it now loads uses key 'base-url', causing a KeyError.",
+      "file": "pkg/provider/modelmgr/requesters/ppiochatcmpl.py",
+      "line": 16,
+      "summary": "PPIOChatCompletions.__init__(self, ap) dropped the config parameter but modelmgr still instantiates it as Cls(ap=..., config=requester_config), so any PPIO model crashes model loading at startup."
+    },
+    {
+      "failure_scenario": "Any chat request using a DeepSeek model: _closure builds args then evaluates self.requester_cfg['args'] -> KeyError: 'args', which is not caught by the openai-exception handlers in invoke_llm, so every DeepSeek call fails before reaching the API.",
+      "file": "pkg/provider/modelmgr/requesters/deepseekchatcmpl.py",
+      "line": 50,
+      "summary": "DeepSeek requests now read self.requester_cfg['args'] as extra_body, but the deepseek requester config (yaml default_config merged with the DB requester_config {base_url, timeout}) never contains an 'args' key, so every request raises KeyError."
+    },
+    {
+      "failure_scenario": "A user with a Gitee AI model sends any message: _closure hits extra_body=self.requester_cfg['args'] -> KeyError: 'args' (requester_cfg = {base_url, timeout} merged from default_config and DB requester_config), so every Gitee AI request fails with an unhandled KeyError.",
+      "file": "pkg/provider/modelmgr/requesters/giteeaichatcmpl.py",
+      "line": 47,
+      "summary": "Same defect as DeepSeek: giteeaichatcmpl.yaml defines no 'args' config item, so self.requester_cfg['args'] raises KeyError on every Gitee AI request."
+    },
+    {
+      "failure_scenario": "A user with a Moonshot model sends any message: _closure evaluates extra_body=self.requester_cfg['args'] -> KeyError: 'args', failing every Moonshot request before any HTTP call is made.",
+      "file": "pkg/provider/modelmgr/requesters/moonshotchatcmpl.py",
+      "line": 54,
+      "summary": "Same defect as DeepSeek: moonshotchatcmpl.yaml defines no 'args' config item, so self.requester_cfg['args'] raises KeyError on every Moonshot request."
+    },
+    {
+      "failure_scenario": "Second turn of any conversation: localagent sends req_messages = prompt + query.messages + user_message, where query.messages contains the previous assistant reply (role='assistant'); the Gemini API returns 400 InvalidArgument for role 'assistant' (and 'tool' after tool calls), so every multi-turn conversation with a Gemini model fails with RequesterError.",
+      "file": "pkg/provider/modelmgr/requesters/geminichatcmpl.py",
+      "line": 59,
+      "summary": "The new Gemini requester passes LangBot message roles straight through to types.Content, but Gemini only accepts 'user'/'model', so any history message with role 'assistant' or 'tool' makes the API reject the request."
+    },
+    {
+      "failure_scenario": "On a Windows install (a platform LangBot officially supports), import_modules_in_pkg builds rel_path like 'pkg\\core\\stages\\load_config'; replace('/', '.') no longer converts the backslashes and importlib.import_module('pkg\\core\\stages\\load_config') raises ModuleNotFoundError, preventing the application from booting at all.",
+      "file": "pkg/utils/importutil.py",
+      "line": 34,
+      "summary": "Removing the rel_path.replace('\\\\', '.') conversion breaks import_dir on Windows, where full_path uses backslash separators, so module discovery (including the boot stages imported by pkg/core/boot.py) fails with ModuleNotFoundError."
+    },
+    {
+      "failure_scenario": "ModelScope returns a stream with no usable chunks: chunk stays None, _req returns None, and _make_msg(None) crashes with AttributeError ('NoneType' object has no attribute 'choices') instead of retrying; the added fallback line never executes.",
+      "file": "pkg/provider/modelmgr/requesters/modelscopechatcmpl.py",
+      "line": 110,
+      "summary": "The fallback `return await self.client.chat.completions.create(**args)` added to _req is unreachable dead code (the preceding `return (ChatCompletion(...) if chunk else None)` always returns), so the None-chunk crash path it was meant to fix remains."
+    },
+    {
+      "failure_scenario": "User renames pipeline '旧名称' to '新名称': the DB update and pipeline reload succeed, but bots with use_pipeline_uuid pointing at it keep use_pipeline_name='旧名称'; web/src/app/home/bots/page.tsx line 49 renders bot.use_pipeline_name, so the bot list shows the old name indefinitely.",
+      "file": "pkg/api/http/service/pipeline.py",
+      "line": 99,
+      "summary": "update_pipeline dropped the block that propagated a renamed pipeline's new name to the use_pipeline_name column of all bots bound to it, leaving stale pipeline names in the bots UI."
+    },
+    {
+      "failure_scenario": "A pipeline configures plugins/tools (use_funcs non-empty): GenerateContentConfig is built without any tools, so the model never sees the available functions and tool-calling scenarios (which the localagent runner relies on) silently degrade to no tool use.",
+      "file": "pkg/provider/modelmgr/requesters/geminichatcmpl.py",
+      "line": 30,
+      "summary": "The Gemini requester accepts the funcs parameter but never sends tool/function declarations to the API, so models using Gemini silently cannot use pipeline tools or make function calls."
+    },
+    {
+      "failure_scenario": "A client calls PUT /api/v1/plugins/reorder with plugins ordered [A(priority 0), B(priority 1)] intending A to handle events first; after the descending sort B sorts before A, and emit_event iterates plugin_containers in list order, so event handlers run in the reverse order (this was previously consistent with the drag-order UI that assigned priority = index).",
+      "file": "pkg/plugin/manager.py",
+      "line": 82,
+      "summary": "Flipping plugin sort from reverse=False to reverse=True inverts the execution order implied by the reorder API, which assigns priority = list index (0 = first), so plugins execute in reverse of the order a client specifies."
+    },
+    {
+      "failure_scenario": "App loads and spaceClient = new HttpClient('https://space.langbot.app') fires GET /api/v1/system/info on the space host; if that host answers 401 (or any error), the interceptor at line 140 redirects window.location to /login (or leaves an unhandled promise rejection), kicking the user out of the app on load.",
+      "file": "web/src/app/infra/http/HttpClient.ts",
+      "line": 70,
+      "summary": "Removing the `baseURL != 'https://space.langbot.app'` guard makes spaceClient call getSystemInfo() against the space host on construction, which can trigger the response interceptor's 401 handler and force-redirect the user to /login."
+    },
+    {
+      "failure_scenario": "Any caller invoking httpClient.reorderPlugins(...) sends POST /api/v1/plugins/reorder with an array body; pkg/api/http/controller/groups/plugins.py registers the route with methods=['PUT'] and expects {'plugins': [...]}, so the request fails with 405 and, if it ever matched, would pass None to reorder_plugins.",
+      "file": "web/src/app/infra/http/HttpClient.ts",
+      "line": 378,
+      "summary": "reorderPlugins was changed from PUT with body {plugins} to POST with the bare array, but the backend route is registered only for PUT and reads data.get('plugins'), so the method can no longer reach the endpoint it targets."
+    },
+    {
+      "failure_scenario": "User clicks to edit an existing LLM model: the dialog header renders '预览模型' even though the form edits and saves the model, a copy-paste/translation error in the isEditForm branch (was t('models.editModel') = 'Edit Model').",
+      "file": "web/src/app/home/models/page.tsx",
+      "line": 80,
+      "summary": "The model edit dialog title was changed from '编辑模型' (Edit Model) to '预览模型' (Preview Model), so editing an existing model shows a wrong dialog title."
+    },
+    {
+      "failure_scenario": "A third-party plugin manifest defines a config item label with only en_US (the deleted I18nProvider.i18nObj fell back to en_US in that case): the dynamic form now renders an empty FormLabel and empty description for that field, leaving users with unlabeled form controls.",
+      "file": "web/src/app/home/components/dynamic-form/DynamicFormComponent.tsx",
+      "line": 144,
+      "summary": "Replacing i18nObj(config.label) with config.label.zh_CN removes the fallback to en_US, so any adapter/plugin/stage label or description that lacks a zh_CN entry now renders as blank in the UI."
+    }
+  ],
+  "level": null
+}

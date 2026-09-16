@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "skyvern/forge/sdk/routes/agent_protocol.py",
+      "line": 1470,
+      "summary": "run_task condition changed from [skyvern_v1, openai_cua] to CUA_ENGINES, dropping RunEngine.skyvern_v1 so explicit skyvern-1.0 requests now raise HTTP 400 \"Invalid agent engine\"",
+      "failure_scenario": "Existing API client posts /run/tasks with engine=\"skyvern-1.0\" (valid enum value, previously handled by this branch) -> falls through the skyvern_v2 check -> HTTPException 400 raised at line 1592; previously working task runs are rejected",
+      "finding_id": "case-6941800e5dad967c8891-f0001"
+    },
+    {
+      "file": "skyvern/forge/sdk/api/llm/api_handler_factory.py",
+      "line": 681,
+      "summary": "_call_anthropic sends messages containing OpenAI-format image_url screenshot blocks directly to AsyncAnthropic.messages.create, which only accepts Anthropic-format image blocks",
+      "failure_scenario": "Run a task with engine=\"anthropic-cua\"; first _generate_anthropic_actions call builds messages via llm_messages_builder_with_history producing {\"type\":\"image_url\",...} blocks -> anthropic SDK 0.50.0 param validation (or the API) rejects them -> LLMProviderError -> step fails and the anthropic CUA run can never start",
+      "finding_id": "case-6941800e5dad967c8891-f0002"
+    },
+    {
+      "file": "skyvern/webeye/actions/parse_actions.py",
+      "line": 575,
+      "summary": "_parse_anthropic_computer_args checks for type==\"function\" and reads tool_call[\"function\"][\"arguments\"], but Anthropic tool_use blocks have type==\"tool_use\" and args under \"input\", so no action is ever parsed",
+      "failure_scenario": "Anthropic model returns content with {\"type\":\"tool_use\",\"name\":\"computer\",\"input\":{\"action\":\"mouse_move\",\"coordinate\":[x,y]}} -> parser returns None for every block -> parse_anthropic_actions returns [] -> agent_step marks the step failed (\"No actions to execute\") -> anthropic_cua tasks always fail",
+      "finding_id": "case-6941800e5dad967c8891-f0003"
+    },
+    {
+      "file": "skyvern/forge/agent.py",
+      "line": 857,
+      "summary": "Condition inverted from 'engine != RunEngine.openai_cua' to 'engine in CUA_ENGINES' inside the non-CUA else-branch, making run_operation(AgentPhase.llm) dead code for skyvern_v1/v2",
+      "failure_scenario": "Organization registers an async operation with agent_phase=llm; on any skyvern_v1/v2 run, the else-branch executes with engine in {skyvern_v1, skyvern_v2}, so 'engine in CUA_ENGINES' is always False -> the LLM-phase async operation never runs (previously it fired on every LLM call), silently disabling the feature",
+      "finding_id": "case-6941800e5dad967c8891-f0004"
+    },
+    {
+      "file": "skyvern/webeye/actions/handler.py",
+      "line": 371,
+      "summary": "Tool results are added with content={\"result\": ...} (a dict), which is not a valid Anthropic tool_result content type (must be a string or content blocks), so the next LLM call with these in history fails",
+      "failure_scenario": "After the first successful/failed tool execution, current_tool_results are prepended to message_history; the next _generate_anthropic_actions call sends {\"type\":\"tool_result\",\"tool_use_id\":...,\"content\":{\"result\":...}} -> anthropic SDK validation error or API 400 -> LLMProviderError -> task fails on the second step",
+      "finding_id": "case-6941800e5dad967c8891-f0005"
+    },
+    {
+      "file": "skyvern/forge/sdk/api/llm/api_handler_factory.py",
+      "line": 687,
+      "summary": "_call_anthropic always passes betas= to ANTHROPIC_CLIENT.messages.create, but with ENABLE_BEDROCK_ANTHROPIC=True the client is AsyncAnthropicBedrock whose create has no betas parameter, and the model name \"claude-3-5-sonnet-latest\" is not a valid Bedrock model id",
+      "failure_scenario": "Set ENABLE_BEDROCK_ANTHROPIC=True and run an anthropic-cua task -> AsyncAnthropicBedrock.messages.create raises TypeError (unexpected keyword argument 'betas'), and even without that the stripped model name 'claude-3-5-sonnet-latest' would be rejected by Bedrock -> the Bedrock mode added by this diff is non-functional",
+      "finding_id": "case-6941800e5dad967c8891-f0006"
+    },
+    {
+      "file": "skyvern/forge/sdk/api/llm/api_handler_factory.py",
+      "line": 691,
+      "summary": "LLMCallerManager keeps every per-task LLMCaller (including its full message_history with all base64 screenshots) in a class-level dict forever; clear_llm_caller exists but is never called",
+      "failure_scenario": "Long-running server executes many anthropic-cua tasks; each LLMCaller's message_history accumulates every step's base64 screenshot (call() assigns self.message_history = messages which embeds screenshots) and is never released -> unbounded memory growth over time",
+      "finding_id": "case-6941800e5dad967c8891-f0007"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 590,
+      "summary": "ResponsesAPIStreamWrapper lacks __enter__/__exit__ and __aenter__/__aexit__ context manager methods, unlike OpenaiStreamWrapper and OpenAIAsyncStreamWrapper which both implement them",
+      "failure_scenario": "User code using 'with client.responses.create(model=\"gpt-4o\", input=[...], stream=True) as stream:' raises AttributeError: 'ResponsesAPIStreamWrapper' object has no attribute '__enter__'",
+      "finding_id": "mf-29aa660d4483c948a468"
+    },
+    {
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 39,
+      "summary": "handle_responses_attributes checks for 'max_tokens' in kwargs but the OpenAI Responses API parameter is 'max_output_tokens', so the LLM_REQUEST_MAX_TOKENS span attribute is never set",
+      "failure_scenario": "User calls client.responses.create(model='o3-mini', max_output_tokens=1000, ...) -- the max_tokens attribute is silently dropped from telemetry because the code checks for the wrong kwarg key. The existing mapping at agentops/instrumentation/providers/openai/attributes/response.py line 87 already correctly maps SpanAttributes.LLM_REQUEST_MAX_TOKENS to 'max_output_tokens'.",
+      "finding_id": "mf-ccadc6455a7dbe3c4f5a"
+    },
+    {
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 648,
+      "summary": "Double finalization bug in ResponsesAPIStreamWrapper.__anext__: when the underlying stream is sync and StopIteration is raised, _finalize_stream() is called in the inner except, then StopAsyncIteration is raised, caught by the outer except which calls _finalize_stream() a second time -- span is ended twice and context token is detached twice",
+      "failure_scenario": "Sync Responses API stream iterated via __anext__: when the stream exhausts, _finalize_stream() runs twice, calling self._span.end() and context_api.detach(self._token) twice. The second end() on an already-ended span and second detach() on an invalidated token cause OpenTelemetry warnings and potential context corruption.",
+      "finding_id": "mf-0da7da7c1b8ea28bacc5"
+    },
+    {
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 695,
+      "summary": "_current_function_args concatenates streaming deltas from all function calls without any separator; _finalize_stream then prefers this garbled concatenation over the clean per-call _function_call_chunks list via an 'or' fallback",
+      "failure_scenario": "Streaming response with two sequential function calls produces deltas for both. _current_function_args becomes '{\"a\":1}{\"b\":2}' (invalid concatenated JSON). _function_call_chunks correctly holds ['{\"a\":1}', '{\"b\":2}'] but is ignored because the non-empty _current_function_args short-circuits the 'or' at line 752. The span attribute shows garbled function content.",
+      "finding_id": "mf-90b6f4f6d8ae5fb0d2c1"
+    },
+    {
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 304,
+      "summary": "Full code duplication: _process_chunk and _finalize_stream are copied verbatim from OpenaiStreamWrapper (lines 87-232) into OpenAIAsyncStreamWrapper (lines 304-449), replacing the previous delegation pattern that reused the synchronous implementation",
+      "failure_scenario": "A bug fix applied to OpenaiStreamWrapper._process_chunk (e.g., handling a new chunk structure in a future OpenAI API version) is forgotten in OpenAIAsyncStreamWrapper._process_chunk, causing async streaming to behave differently or miss data that sync streaming captures correctly. Maintenance burden doubles for any changes to these methods.",
+      "finding_id": "mf-2545c9e3a4af622c5aa8"
+    },
+    {
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 611,
+      "summary": "self._output_items = [] is initialized in ResponsesAPIStreamWrapper.__init__ but never referenced in any method of the class",
+      "failure_scenario": "Dead field wastes memory and confuses maintainers who might assume it is populated and used. Grep confirms only a single occurrence at initialization with no reads anywhere in the file.",
+      "finding_id": "mf-84708a447db577378b3c"
+    },
+    {
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 174,
+      "summary": "json.JSONDecodeError when parsing function_call arguments in handle_responses_attributes is silently swallowed with 'pass' -- no logging, no fallback reasoning extraction",
+      "failure_scenario": "A function call response returns arguments containing malformed JSON (e.g., truncated by API error). The JSONDecodeError is caught and silently ignored. The reasoning text is not extracted from the arguments, and no warning appears in logs, making the data loss invisible during debugging.",
+      "finding_id": "mf-d2755b58a4f482821e9a"
+    }
+  ]
+}

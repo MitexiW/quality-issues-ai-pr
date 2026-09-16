@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "libs/core/kiln_ai/datamodel/prompt_id.py",
+      "line": 60,
+      "summary": "_check_prompt_id accepts fine-tune IDs that crash FineTunePromptBuilder at runtime -- validator only requires a non-empty suffix after 'fine_tune_prompt::' but FineTunePromptBuilder.__init__ requires 'project_id::task_id::fine_tune_id' (3 colon-delimited parts)",
+      "failure_scenario": "Create RunConfig(prompt_id='fine_tune_prompt::ft_123456'). Validation passes (_check_prompt_id only checks non-empty suffix). Then BaseAdapter.__init__ calls prompt_builder_from_id which strips the prefix to 'ft_123456' and passes it to FineTunePromptBuilder, which splits by '::' and gets len=1 instead of 3, raising ValueError: 'Invalid fine-tune ID format. Expected project_id::task_id::fine_tune_id' -- a crash that the Pydantic validation layer should have prevented.",
+      "finding_id": "mf-ac6fabb3b4807382eda3"
+    },
+    {
+      "file": "libs/core/kiln_ai/datamodel/prompt_id.py",
+      "line": 43,
+      "summary": "Misleading comment on 'id::' validation: comment says 'check it has 4 parts' but code only checks for exactly 2 parts, consistent with the error message format 'id::[prompt_id]'",
+      "failure_scenario": "A developer debugging a validation failure reads the comment and attempts a 4-part id::project::task::prompt format; the validator rejects it with the misleading message; developer wastes time trying to match the wrong comment instead of the correct 2-part format.",
+      "finding_id": "mf-493e4983bfac2990adf0"
+    },
+    {
+      "file": "libs/core/kiln_ai/datamodel/prompt_id.py",
+      "line": 49,
+      "summary": "Incomplete error message for eval_prompt:: validation: message says format is 'eval_prompt::[project_id]::[task_id]::[eval_id]' (4 parts) but code checks for exactly 5 parts (also requires eval_config_id)",
+      "failure_scenario": "User provides a 4-part eval_prompt ID 'eval_prompt::p1::t1::e1' and gets the error telling them the expected format matches what they already provided; they have no idea the 5th part (eval_config_id) is missing because the error message omits it.",
+      "finding_id": "mf-01d9562a429c9f556748"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/prompt_builders.py",
+      "line": 4,
+      "summary": "Dead imports left behind after PromptGenerators/PromptId code extraction: 'Enum' (line 4), 'Annotated' (line 5), 'AfterValidator' (line 6) are no longer used anywhere in this file",
+      "failure_scenario": "Each unused import adds noise, increases import time marginally, and can mislead maintainers into thinking this module still defines the PromptId validation types that were moved to prompt_id.py.",
+      "finding_id": "mf-1656d6c62510a30173a8"
+    }
+  ]
+}

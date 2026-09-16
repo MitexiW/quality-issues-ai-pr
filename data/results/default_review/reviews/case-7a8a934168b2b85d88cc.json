@@ -1,0 +1,74 @@
+{
+  "findings": [
+    {
+      "file": "osslsigncode.h",
+      "line": 269,
+      "summary": "Struct fields p11module/p11cert guarded by #ifndef OPENSSL_NO_ENGINE but code accesses them with broader #if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x30000000L, causing compile error on OpenSSL 3.0+ without engine",
+      "failure_scenario": "Build with -DOPENSSL_NO_ENGINE against OpenSSL 3.0+: struct GLOBAL_OPTIONS has no p11module/p11cert fields, but osslsigncode.c references them via the broader preprocessor guard → compile error",
+      "finding_id": "mf-d4e5c36d1bafce81c263"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4271,
+      "summary": "read_pkcs7_certfile called with NULL certfile when PKCS#11 provider loads but certs fail silently and no -certs option given, causing BIO_new_file(NULL, ...) crash",
+      "failure_scenario": "User runs: osslsigncode sign -pkcs11module /path/to/pkcs11.so -key 'pkcs11:token=t;object=key' -pkcs11cert 'pkcs11:token=t;object=cert' on OpenSSL 3.0. Provider loads successfully but cert URI fails. certfile is NULL, certs stack is empty → read_pkcs7_certfile(options) called → BIO_new_file(NULL, \"rb\") → segfault",
+      "finding_id": "mf-06ac1321356989b98613"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4910,
+      "summary": "Validation allows -provider alone without -pkcs11module on OpenSSL 3.0+, but read_crypto_params only loads provider inside the p11module block, leading to crash on NULL certfile",
+      "failure_scenario": "User runs: osslsigncode sign -provider /path/to/pkcs11prov.so -in file.exe -out signed.exe on OpenSSL 3.0+. Validation passes (provider is a valid sign parameter). In read_crypto_params, p11module is NULL so provider is never loaded; no key, no certs, certfile is NULL → read_pkcs7_certfile crashes",
+      "finding_id": "mf-c1a99912a72effc535b3"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4222,
+      "summary": "sk_X509_new_null returns not checked for NULL; on OOM, subsequent sk_X509_push/sk_X509_num on NULL stack segfaults",
+      "failure_scenario": "System under memory pressure → sk_X509_new_null() returns NULL for options->certs → later load_objects_from_store calls sk_X509_push(NULL, ...) or sk_X509_num(NULL) at line 4271 → segfault",
+      "finding_id": "mf-3a12513910a3c4282203"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4353,
+      "summary": "Infinite loop in load_objects_from_store when OSSL_STORE_load returns NULL due to non-EOF error (OSSL_STORE_eof returns 0 for errors, continue re-enters loop)",
+      "failure_scenario": "Corrupt PKCS#12 file → OSSL_STORE_load returns NULL (error, not EOF) → OSSL_STORE_eof returns 0 → loop continues → OSSL_STORE_load returns NULL again → infinite loop, hang",
+      "finding_id": "mf-8b529d19c4fd57fab1de"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4367,
+      "summary": "Resource leak: OSSL_STORE_INFO_get1_CERT/get1_CRL increments refcount but sk_X509_push return value unchecked; on push failure (OOM) the cert/CRL is leaked",
+      "failure_scenario": "Low memory → sk_X509_push fails (returns 0) → cert already had refcount incremented by get1_CERT → object leaked (refcount never decremented). Same pattern at lines 4371 and 4178",
+      "finding_id": "mf-aca4b9dc508a414eb4ff"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4042,
+      "summary": "Missing NULL check for p7->d.sign before accessing p7->d.sign->cert in read_pkcs7_certfile; non-signed-data PKCS7 causes segfault",
+      "failure_scenario": "User passes a PKCS7 EnvelopedData file as -certs → d2i_PKCS7_bio succeeds with non-NULL p7 → p7->d.sign is NULL (data is in p7->d.enveloped) → p7->d.sign->cert derefs NULL → segfault",
+      "finding_id": "mf-350e692462b3b348b405"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4212,
+      "summary": "PVK key format support silently removed: comment claims PVK is supported but all PVK-specific code (find_pvk_key, read_pvk_key, b2i_PVK_bio, magic-byte detection) was deleted; OpenSSL STORE API does not support PVK format",
+      "failure_scenario": "User with Microsoft PVK private key and .spc certificate file → load_objects_from_store fails to load the PVK key (unsupported format) → read_der_keyfile also fails → read_crypto_params returns 0 → signing fails with no actionable error message",
+      "finding_id": "mf-96ad52f304c3ec4152da"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4449,
+      "summary": "providers_cleanup calls UI_destroy_method on the UI method but does not reset the static ui_method pointer to NULL; if ui_osslsigncode is called again it returns a destroyed object",
+      "failure_scenario": "providers_cleanup() called at exit (line 5215). If code is later refactored to clean up and re-initialize providers in the same process, ui_osslsigncode() returns a destroyed UI_METHOD → use-after-free or crash in subsequent OSSL_STORE_open",
+      "finding_id": "mf-8619c2034e25da3134b6"
+    },
+    {
+      "file": "osslsigncode.c",
+      "line": 4363,
+      "summary": "OSSL_STORE_INFO_get1_PKEY overwrites *pkey without freeing previous value if store returns multiple keys",
+      "failure_scenario": "PKCS#12 or other store containing two private keys → first key loaded via get1_PKEY and stored in *pkey → second key loaded via get1_PKEY and overwrites *pkey → first key's refcount never decremented → memory leak",
+      "finding_id": "mf-18613ec02f20185465a7"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User types their 12-word guess in the previous dialog with a double space or a trailing space (e.g. \"word1  word2 ... word12 \"): split(\" \") returns 13 words, so the new default initialvalue is 13. If the user accepts the shown default, num_inserts becomes 1 and every candidate generated has 13 words, while the real mnemonic has 12 — the true mnemonic is excluded from the search space and recovery silently fails (for BlockChainPasswordV2 an accepted inflated default can also hit the 'length % 3 != 0' exit at line 1066). Tab-separated guesses undercount with the same consequence. The later parse at line 875 uses split(), so the dialog default can disagree with the count actually used.",
+      "file": "btcrecover/btcrseed.py",
+      "line": 857,
+      "summary": "The new dialog default counts words with split(\" \"), which overcounts runs of whitespace, so accepting the default sets expected_len wrong and the correct-length mnemonic is never tried."
+    },
+    {
+      "failure_scenario": "For any version-5 mnemonic, decode_v3456_word_list executes line 1048 first: bytes_to_int(str_bytes[:4], 4) calls the single-argument bytes_to_int defined at btcrseed.py:160, raising 'TypeError: bytes_to_int() takes 1 positional argument but 2 were given', which _verify_checksum catches (line 998) and turns into 'return False' — the new password_bytes = str_bytes[4:] at line 1049 never runs. Even if that TypeError were fixed, _verify_checksum's unconditional 'if obj[\"guid\"]:' at line 992 raises KeyError for v5 objects (no 'guid' key is ever set for v5), again swallowed to return False. The change therefore cannot fix v5 password extraction; the added v5 code is unreachable and the fix is incomplete (the change should have also made line 992 guid-optional and corrected the bytes_to_int call).",
+      "file": "btcrecover/btcrseed.py",
+      "line": 1049,
+      "summary": "The new v5 password-slicing line is unreachable dead code: the preceding bytes_to_int(str_bytes[:4], 4) call raises TypeError because the module-level bytes_to_int takes one argument, so v5 recovery still always fails and this half of the fix has no effect."
+    }
+  ],
+  "level": null
+}

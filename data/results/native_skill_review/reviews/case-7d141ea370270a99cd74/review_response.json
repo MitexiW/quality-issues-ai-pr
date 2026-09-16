@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Input print(\"{}\\x61\".format(data)): the literal \\x61 decodes to 'a', so the map rewrites every 'a' in the converted f\"{data}a\" to f\"{d\\x61t\\x61}\\x61\" — invalid Python, so api.py's final ast.parse fails and the ENTIRE file's conversion is skipped (this file converted fine before the change). Worse, print(\"{}\\n\\x6e\".format(x)) yields f\"{x}\\\\x6e\\x6e\", which parses fine (ast.parse passes, statement count unchanged) but evaluates to backslash+'x6e'+'n' instead of newline+'n' — a silent behavior change written to disk. Similar: \"a{}\\x7b\".format(x) turns the f-string's own braces into \\x7b escapes, changing the produced string; \"{}\\x66\".format(x) replaces the 'f' prefix itself.",
+      "file": "src/flynt/code_editor.py",
+      "line": 170,
+      "summary": "apply_unicode_escape_map substitutes mapped characters across the ENTIRE converted f-string source — delimiters, {expression} braces, identifiers, and the \\n/\\t/\\\\ escape text that fixup_transformed generates — so any \\xNN/\\u/\\U/\\N{} escape that decodes to an ASCII syntax character (letters, digits, quotes, braces, backslash, n, t) corrupts the output."
+    },
+    {
+      "failure_scenario": "Input print(\"{}\".format(s.replace(\"x\", \"\\x61\"))): the \\x61 inside the format argument produces map entry a → \\x61; the converted f-string f\"{s.replace('x', 'a')}\" is rewritten to f\"{s.repl\\x61ce('x', '\\x61')}\" — a SyntaxError, so the whole file's conversion is silently dropped (status 'failed', file unmodified). Phantom entries: \"a\\\\u00B0{}\".format(x) matches \\u00B0 at the second backslash of the escaped-backslash pair even though the string's value contains no degree sign, and \"%s\" % (A + \"\\x41\") maps 'A' from the operand.",
+      "file": "src/flynt/utils/utils.py",
+      "line": 175,
+      "summary": "unicode_escape_map builds the mapping from the whole chunk text (body = literal[idx+len(quote):-len(quote)]), which retains the closing quote and the entire .format(...) argument list / % operand, so escapes inside arguments — or a \\\\u00B0-style escaped backslash — become mapping entries that get substituted into the converted expression code."
+    },
+    {
+      "failure_scenario": "Non-behavioral: the function duplicates unicode_escape_re.search logic with no caller, so it adds an unused public API that must be maintained and can drift out of sync with unicode_escape_map's actual escape handling (e.g. if the regex is extended, this function's semantics change with no consumer to exercise them).",
+      "file": "src/flynt/utils/utils.py",
+      "line": 195,
+      "summary": "contains_unicode_escape is dead code: exported by this change but never referenced anywhere in src/ or test/ (grep confirms zero callers)."
+    },
+    {
+      "failure_scenario": "Non-behavioral: every breakage mode above (\\xNN ASCII escapes, quote/brace/backslash escapes, escapes in .format arguments, phantom mappings from \\\\ escapes) passes CI unnoticed because no test asserts the output for them; the new unit test drives CodeEditor.edit() directly, which bypasses api.py's whole-file ast.parse validation, so corrupted output like f\"{d\\x61t\\x61}\\x61\" would be returned and could be asserted without any error being raised.",
+      "file": "test/test_code_editor.py",
+      "line": 56,
+      "summary": "The added tests cover only the collision-free \\u00B0 case (unit test) and, in the integration pair, an escaped-backslash case whose string VALUE contains no escape at all (samples_in/unicode_escape.py contains '\\\\u00B0' — two backslashes — so the feature never engages); none of the mechanism's failure modes are exercised."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/llms/base_llm.py",
+      "line": 76,
+      "summary": "BaseLLM is missing supports_function_calling() method that 6 call sites require",
+      "failure_scenario": "User creates class MyLLM(BaseLLM) implementing only call(). When tool_usage.py:342 calls llm.supports_function_calling(), AttributeError crashes agent execution because BaseLLM defines neither an abstract nor default implementation of this method, despite callers in tool_usage.py, converter.py, and task_evaluator.py unconditionally calling it.",
+      "finding_id": "mf-1584bc29182327047e25"
+    },
+    {
+      "file": "src/crewai/llms/third_party/ai_suite.py",
+      "line": 19,
+      "summary": "AISuiteLLM.call() does not convert string messages to list format, violating the BaseLLM interface contract",
+      "failure_scenario": "A caller passes a string (e.g., call('Hello world')) to AISuiteLLM.call(). The string is forwarded as-is in the API request's 'messages' field. The OpenAI-compatible API expects a list of message dicts and rejects with HTTP 400: 'messages must be an array'.",
+      "finding_id": "mf-759134fc4a45bd54da11"
+    },
+    {
+      "file": "src/crewai/llms/third_party/ai_suite.py",
+      "line": 19,
+      "summary": "AISuiteLLM.call() has no error handling, timeout, or exception wrapping",
+      "failure_scenario": "The API call in AISuiteLLM.call() has no try/except, no timeout parameter, and no error wrapping. A network timeout or HTTP error (401, 429, 5xx) propagates as a raw exception (e.g., requests.Timeout, httpx.HTTPStatusError) through the agent execution loop, crashing the crew with an unexpected exception type that the framework's error-handling code is not designed to catch.",
+      "finding_id": "mf-002c45b89e03ae42a5e5"
+    },
+    {
+      "file": "src/crewai/llms/third_party/ai_suite.py",
+      "line": 9,
+      "summary": "AISuiteLLM accepts **kwargs but passes them to BaseLLM.__init__() which has no **kwargs parameter",
+      "failure_scenario": "User instantiates AISuiteLLM(model='gpt-4', extra_param=True). The extra_param goes into kwargs, then super().__init__(model, temperature, extra_param=True) is called. BaseLLM.__init__ accepts only model and temperature, so TypeError is raised: '__init__() got an unexpected keyword argument extra_param'.",
+      "finding_id": "mf-e003c0e0b7ea76d693db"
+    },
+    {
+      "file": "src/crewai/llm.py",
+      "line": 222,
+      "summary": "LLM.__init__() does not call super().__init__(), violating the BaseLLM inheritance contract",
+      "failure_scenario": "If BaseLLM.__init__() is extended in the future with additional initialization logic (validation, defaults, telemetry), LLM instances will silently skip it because LLM.__init__() sets model/temperature/stop directly without calling super().__init__(). Contrast with AISuiteLLM and the test CustomLLM classes which all properly call super().__init__().",
+      "finding_id": "mf-bef4d058fb04982516ae"
+    },
+    {
+      "file": "src/crewai/crew.py",
+      "line": 163,
+      "summary": "Crew.function_calling_llm field type not updated from InstanceOf[LLM] to InstanceOf[BaseLLM], inconsistent with other LLM fields",
+      "failure_scenario": "manager_llm, planning_llm, and chat_llm on Crew were all updated to BaseLLM, and Agent.function_calling_llm was updated to BaseLLM. But Crew.function_calling_llm still declares InstanceOf[LLM]. Static type checkers reject custom BaseLLM instances for this field while accepting them for every other LLM field. Functionally works only because Any in the Union catches the value, but creates maintenance confusion.",
+      "finding_id": "mf-458ef4d7b219eb87de09"
+    },
+    {
+      "file": "src/crewai/crew.py",
+      "line": 9,
+      "summary": "Imported TypeVar is never used in crew.py",
+      "failure_scenario": "The diff added TypeVar to the typing imports (line 9) but no code in the file uses it. This is dead code that triggers linter warnings and confuses readers about whether a generic type was intended for one of the changed methods.",
+      "finding_id": "mf-20743a909b0aead2fdda"
+    },
+    {
+      "file": "src/crewai/crew.py",
+      "line": 11,
+      "summary": "Imported LangchainBaseTool is never used in crew.py",
+      "failure_scenario": "The diff added `from langchain_core.tools import BaseTool as LangchainBaseTool` (line 11) but no code references LangchainBaseTool. Dead import adds an unnecessary dependency and linter noise.",
+      "finding_id": "mf-848ccbd52eba84289d44"
+    },
+    {
+      "file": "src/crewai/llms/base_llm.py",
+      "line": 2,
+      "summary": "Imported Callable from typing is never used in base_llm.py",
+      "failure_scenario": "Callable is imported alongside Any, Dict, List, Optional, Union but never referenced in the file body — unused import.",
+      "finding_id": "mf-0a7299df8d10cd259ec9"
+    }
+  ]
+}

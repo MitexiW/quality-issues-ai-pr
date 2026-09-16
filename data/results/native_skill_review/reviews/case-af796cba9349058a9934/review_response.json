@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A visitor with no session opens /home directly (shared link) or presses Back after the new 退出登录 button cleared their token: the mount effect writes token='test-token' and userEmail='test@example.com'. Every API call (e.g. getAdapters/getBots on /home/bots) then sends 'Authorization: Bearer test-token'; the server's JWT verification raises and returns 401, so the HttpClient interceptor removes the token and hard-redirects to /login — the visitor bounces /home↔/login with the bogus credential re-planted on every /home mount, and any client-side code that trusts token presence (or a future route guard) treats them as the fake user 'test@example.com'. Logout is also undone: Back to /home re-runs the effect and resurrects a token.",
+      "file": "web/src/app/home/components/home-sidebar/HomeSidebar.tsx",
+      "line": 33,
+      "summary": "Production code plants hardcoded test credentials (token='test-token', userEmail='test@example.com') into localStorage for every unauthenticated visitor to /home, a leftover debug backdoor."
+    },
+    {
+      "failure_scenario": "A user clicks 帮助文档; the opened docs page retains window.opener. If docs.langbot.app is ever compromised or serves injected content, that page can execute window.opener.location = '<phishing-url>' to navigate the user's authenticated LangBot tab to an attacker-controlled login clone. The adjacent HomeTitleBar.tsx already opens the same docs URL with rel=\"noopener noreferrer\", so the sidebar link is the only one leaving opener exposed.",
+      "file": "web/src/app/home/components/home-sidebar/HomeSidebar.tsx",
+      "line": 139,
+      "summary": "window.open('https://docs.langbot.app', '_blank') without 'noopener' grants the opened page window.opener access to the LangBot app tab (tabnabbing), contradicting the repo's own convention of rel=\"noopener noreferrer\" for this same docs link in HomeTitleBar.tsx."
+    },
+    {
+      "failure_scenario": "The bottom container now holds two live SidebarChild elements stacked in a flex column. With no gap on .sidebarBottomContainer and no margins on .sidebarChildContainer (the removed margin was the only source of spacing for these items — menu items were compensated by the new .sidebarItemsContainer gap, bottom items were not), the 帮助文档 and 退出登录 buttons touch/overlap, unlike every other sidebar item which has 0.8rem separation.",
+      "file": "web/src/app/home/components/home-sidebar/HomeSidebar.module.css",
+      "line": 98,
+      "summary": "The two newly added bottom items (帮助文档 and 退出登录) render flush against each other with zero spacing because the diff removed the per-child 'margin: 0.8rem 0' from .sidebarChildContainer and added the compensating 'gap: 0.8rem' only to .sidebarItemsContainer, while .sidebarBottomContainer has no gap property."
+    },
+    {
+      "failure_scenario": "A repo-wide grep shows 'userEmail' has only set/remove sites (login page, sidebar backdoor, logout) and zero consumers. The persisted value can silently diverge from the real session: any unauthenticated visitor who touched /home has 'test@example.com' stored by the sidebar backdoor, and after 退出登录 removes it, re-visiting /home re-inserts the fake value — so a future consumer (e.g. an account/profile display) would render a fabricated identity for logged-out or newly logged-in users, and the write/remove pair has to be kept in sync across three sites for state nothing uses.",
+      "file": "web/src/app/login/page.tsx",
+      "line": 85,
+      "summary": "The change adds a localStorage 'userEmail' write that no code in the repository ever reads, dead session state maintained inconsistently by two components."
+    }
+  ],
+  "level": null
+}

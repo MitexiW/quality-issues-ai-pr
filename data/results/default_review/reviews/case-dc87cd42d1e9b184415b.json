@@ -1,0 +1,109 @@
+{
+  "findings": [
+    {
+      "file": "metaflow/plugins/datatools/s3/s3op.py",
+      "line": 384,
+      "summary": "Removed queue.cancel_join_thread() before exiting on worker failure, reintroducing the documented multiprocessing-Queue deadlock: if a worker process dies with buffered queue items, the parent hangs forever during interpreter shutdown.",
+      "failure_scenario": "Any S3 get/put where a worker process exits nonzero (now much more likely since normalize_client_error no longer maps 'InternalError', 'NoSuchBucket', or unknown botocore codes to transient — the worker does `else: raise` and sys.exits) -> parent start_workers calls exit() -> interpreter shutdown joins the Queue feeder thread that can never flush its buffered items -> the whole S3 operation and the user's flow hang indefinitely.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0001"
+    },
+    {
+      "file": "metaflow/metaflow_version.py",
+      "line": 30,
+      "summary": "Bare check_output()/CalledProcessError names used without importing them — only `import subprocess` exists in the module, so find_git_on_windows() raises NameError.",
+      "failure_scenario": "On Windows (`os.name == 'nt'`), `GIT_COMMAND = find_git_on_windows()` runs at import time (line 61) -> importing metaflow or running `metaflow version` crashes with NameError: name 'check_output' is not defined; base code used subprocess.check_output/subprocess.CalledProcessError.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0002"
+    },
+    {
+      "file": "metaflow/user_configs/config_options.py",
+      "line": 370,
+      "summary": "ConfigValue(None) is now constructed for configs whose parsed value is JSON null (guard `if read_value is not None else None` removed here, in cli.py:498 and config_decorators.py:203), but the reverted ConfigValue stores data as-is and len()/to_dict()/__getitem__/`in` all crash on None.",
+      "failure_scenario": "`python flow.py run --config-value cfg=null` (or a parser/default returning None) -> to_return['cfg'] = ConfigValue(None) -> _process_config_decorators stores it via param._store_value -> _set_constants evaluates `param._computed_value or ...` which calls ConfigValue.__len__ -> len(None) -> TypeError; any later `self.cfg` access raises TypeError('NoneType' object is not subscriptable) instead of giving the user None.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0003"
+    },
+    {
+      "file": "metaflow/plugins/metadata_providers/service.py",
+      "line": 361,
+      "summary": "filter_tasks_by_metadata lost its tuple unpacking (`resp, _ = cls._request(...)` became `resp = cls._request(...)`, which returns (body, True)) and lost the re-raise of non-404 errors, so callers get a tuple instead of the pathspec list and non-404 failures hit an UnboundLocalError.",
+      "failure_scenario": "client/core.py:1213 iterates the returned value and does `Task(pathspec=task_pathspec)` per element -> first element is the whole list (AttributeError on pathspec.split), second is True; with the service metadata provider `Run[...].foreach_tasks()`/parent_tasks breaks. If the service returns 500, the except block swallows the error and `return resp` raises UnboundLocalError instead of propagating the real failure.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0004"
+    },
+    {
+      "file": "metaflow/plugins/pypi/conda_environment.py",
+      "line": 209,
+      "summary": "The rewritten init_environment submits conda create, pypi create and cache tasks to the executor but never calls .result() on them (the base explicitly drained conda_create_futures/pypi_create_futures/cache_futures to raise exceptions), so failures are silently swallowed by ThreadPoolExecutor shutdown.",
+      "failure_scenario": "micromamba create fails for a conda-only step (disk full, corrupt package, solver artifact) -> no exception propagates -> init_environment logs 'Virtual environment(s) bootstrapped!' -> the step then runs in a missing/corrupt environment and fails much later with a confusing error instead of aborting at bootstrap.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0005"
+    },
+    {
+      "file": "metaflow/user_configs/config_parameters.py",
+      "line": 178,
+      "summary": "DelayEvaluator.__getitem__/__getattr__ now mutate the shared _access list and return self instead of returning a copy (the copy logic with its explanatory comment was deleted), and __call__ overwrites self._config_expr, so reusing one evaluator accumulates keys.",
+      "failure_scenario": "`d = config_expr('cfg'); @environment(vars={'a': d.x, 'b': d.y})` -> both attributes share one _access list ['x','y'] -> 'a' evaluates `cfg.x.y` (KeyError/AttributeError) instead of `cfg.x`; evaluating the same evaluator twice yields `cfg.x.x` on the second call. The base code's comment documents this exact supported pattern ('foo = delay_evaluator[\"blah\"]; bar = delay_evaluator[\"baz\"]').",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0006"
+    },
+    {
+      "file": "metaflow/runner/metaflow_runner.py",
+      "line": 289,
+      "summary": "Runner (and Deployer/DeployerImpl) no longer absolutize flow_file (os.path.abspath removed) and no longer wrap command construction in with_dir(self.cwd), but the subprocess is launched with cwd=self.cwd, so a relative flow_file resolves against the wrong directory.",
+      "failure_scenario": "Runner(flow_file='flows/myflow.py', cwd='/tmp/work') (the exact use case the cwd parameter exists for) -> _API_NAME keeps the relative path -> subprocess runs `python flows/myflow.py run` in /tmp/work -> FileNotFoundError: can't open file 'flows/myflow.py'. Base converted flow_file to an absolute path in __init__ so it worked.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0007"
+    },
+    {
+      "file": "metaflow/plugins/argo/argo_workflows_deployer_objects.py",
+      "line": 29,
+      "summary": "generate_fake_flow_file_contents uses the parameter's CLI name as the Python variable name (`{param_name} = Parameter('{param_name}', ...)`) after python_var_name was removed from the parameter dict in _process_parameters, producing invalid Python for non-identifier parameter names.",
+      "failure_scenario": "Triggering/deploying via Argo a flow with `Parameter('model-path')` (dashes are legal and common) -> the generated fake flow file contains `model-path = Parameter('model-path', ...)` -> SyntaxError when the trigger executes it -> the Argo deploy/trigger fails; the base used param_details['python_var_name'] which emits the valid class attribute name.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0008"
+    },
+    {
+      "file": "metaflow/user_configs/config_parameters.py",
+      "line": 265,
+      "summary": "config_expr() no longer captures the caller's globals (inspect.currentframe().f_back.f_globals removed) and eval() runs against the config_parameters module globals, breaking expressions that reference user-module names — a documented feature of the base implementation.",
+      "failure_scenario": "`@environment(vars={'x': config_expr('my_helper()')})` where my_helper is defined in the user's flow file -> eval raises NameError -> wrapped as MetaflowException \"Config 'my_helper' not found in the flow\"; the base explicitly passed saved_globals=parent_globals so user functions in expressions worked.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0009"
+    },
+    {
+      "file": "metaflow/flowspec.py",
+      "line": 226,
+      "summary": "The `_configs_processed` one-shot guard was deleted from _process_config_decorators, so the method (which mutates the class, re-runs custom flow/step decorator evaluate() and re-calls param.init()) now executes fully on every API invocation instead of once per flow class.",
+      "failure_scenario": "Runner.run() followed by Runner.resume() (or Deployer create then trigger) on the same flow -> CustomFlowDecorator.evaluate and DeployTimeField defaults run twice -> duplicated side effects (one-time token/credential generation, external writes); the base guard's comment states configs must not be processed multiple times for the Runner/Deployer.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0010"
+    },
+    {
+      "file": "metaflow/plugins/argo/argo_workflows.py",
+      "line": 1591,
+      "summary": "JSON parameters are wrapped in literal single quotes in the generated step command (`--%s='{{workflow.parameters.%s}}'`) and the event sensor template lost its `| squote` shell-escaping, so JSON values containing single quotes break the shell command.",
+      "failure_scenario": "Argo Workflows step with a JSON parameter whose value contains an apostrophe (e.g. event payload or default `{\"text\": \"it's here\"}`) -> Argo substitutes the raw JSON into the quoted template -> the shell sees `--json-param='{\"text\": \"it's here\"}'` and terminates the quoting early -> malformed command, step fails; the base's `squote` filter produced properly shell-escaped values.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0011"
+    },
+    {
+      "file": "metaflow/cmd/develop/stub_generator.py",
+      "line": 1191,
+      "summary": "String default values in generated stubs are emitted as \"'\" + default_value + \"'\" instead of repr(default_value), so quotes/backslashes in defaults are not escaped and produce invalid .pyi files.",
+      "failure_scenario": "Flow with `Parameter('x', default=\"it's\")` (or a string containing a double quote/backslash) -> `metaflow stubs gen` emits `x: str = 'it's'` -> the generated stub file is a syntax error, breaking mypy/pyright/IDE support; base used repr() for proper escaping.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0012"
+    },
+    {
+      "file": "metaflow/plugins/argo/argo_workflows_deployer_objects.py",
+      "line": 276,
+      "summary": "json.loads() default changed from the string \"{}\" to the dict literal {}, so a workflow template missing the metaflow/parameters annotation raises TypeError instead of yielding empty parameters.",
+      "failure_scenario": "Reading an existing Argo workflow template created by an older Metaflow client (or manually) that lacks the `metaflow/parameters` annotation -> json.loads({}) -> TypeError: the JSON object must be str, bytes or bytearray, not dict -> _get_parameters crashes instead of returning {}.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0013"
+    },
+    {
+      "file": "metaflow/plugins/kubernetes/kubernetes_jobsets.py",
+      "line": 319,
+      "summary": "RunningJobSet.kill() lost its `if not (self.is_running or self.is_waiting): return` guard, so killing an already-finished jobset now proceeds to fetch a non-existent control pod and fails instead of being a no-op.",
+      "failure_scenario": "User runs `metaflow kubernetes kill` (or a second kill / kill after completion) on a jobset already in a terminal state -> _fetch_pod() returns {} -> control_pod['metadata']['name'] raises KeyError -> fallback delete of the jobset raises ApiException 404 -> kill command errors out instead of silently returning like the base.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0014"
+    },
+    {
+      "file": "test/unit/test_config_value.py",
+      "line": 1,
+      "summary": "The PR deletes the test files covering the exact behaviors it reverts (test/unit/test_config_value.py, test/test_config/config_corner_cases.py, test/data/s3/test_s3.py, test/data/s3/test_s3op.py), removing the safety net for the regressions above.",
+      "failure_scenario": "The deleted ConfigValue tests covered immutability/equality/to_dict/copy semantics and None-value handling that this diff reverts, and the deleted s3op/s3 tests covered the retry classification and worker-failure paths that the diff also reverts — none of the reverted code paths (findings 1, 3, 6) are exercised by CI anymore, so future regressions in them ship undetected.",
+      "finding_id": "case-dc87cd42d1e9b184415b-f0015"
+    }
+  ]
+}

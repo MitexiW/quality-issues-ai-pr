@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user enables unconstrained_number on an existing destination (the exact backwards-compatibility scenario the spec description invites: \"disabled by default for backwards compatibility, but is recommended to enable\") and syncs 10325.876543219876543 into a stream whose final table was created with default NUMBER(38,9) columns: JdbcDestinationHandler.existingSchemaMatchesStreamConfig compares intended \"numeric\" against the actual TYPE_NAME \"numeric\", finds no mismatch, no soft reset runs, and the value is stored rounded to 9 decimal places (10325.876543220) with no error or warning. The option only takes effect for tables/columns created after enabling it, and nothing in the diff (code or docs) documents this limitation.",
+      "file": "airbyte-integrations/connectors/destination-postgres/src/main/kotlin/io/airbyte/integrations/destination/postgres/PostgresDestination.kt",
+      "line": 146,
+      "summary": "Enabling unconstrained_number is silently ineffective on existing tables: the option only changes new-table DDL via PostgresSqlGenerator.toDialectType, while schema-mismatch detection is unaware of it — PostgresDestinationHandler.toJdbcTypeName(NUMBER) always returns \"numeric\" and is compared against the JDBC metadata type name, which Postgres reports as \"numeric\" for both numeric(38,9) and unconstrained decimal columns, so toggling the option never triggers the soft reset that would re-create existing columns."
+    },
+    {
+      "failure_scenario": "With the default ObjectMapper configuration (no USE_BIG_DECIMAL_FOR_FLOATS), Jsons.deserialize turns 10325.876543219876543 into a DoubleNode whose toString is 10325.876543219876; insertRecords writes that truncated text into _airbyte_data, the DECIMAL column receives 12 fractional digits, and LegacyRecordDiffer compares BigDecimal.valueOf of the same double on both sides — so the test passes even though the precision claim is unverified, and it would still pass if the option mapped NUMBER columns to double precision instead of unconstrained decimal (e.g. a regression changing SQLDataType.DECIMAL to SQLDataType.DOUBLE). The test verifies only that the value survives >9 decimal places, not the DECIMAL DDL or precision beyond double.",
+      "file": "airbyte-integrations/connectors/destination-postgres/src/test-integration/kotlin/io/airbyte/integrations/destination/postgres/typing_deduping/PostgresSqlGeneratorIntegrationTest.kt",
+      "line": 193,
+      "summary": "The new precision test parses its 18-significant-digit input literal with Jsons.deserialize, which (unlike Jsons.deserializeExact, used elsewhere in the test harness precisely to avoid this) reads JSON floats as doubles, so the value is truncated to ~15 significant digits before it ever reaches the database and the test never exercises the sub-double precision the feature claims to add."
+    }
+  ],
+  "level": null
+}

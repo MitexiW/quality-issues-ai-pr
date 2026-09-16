@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A project that already contains a CSV document (saved JSON has original_file.mime_type = \"text/csv\") is opened after this change: Project.documents() -> Document.all_children_of_parent_path -> load_from_file -> Document.model_validate runs FileInfo.validate_mime_type (extraction.py:299-307), which now raises ValueError(\"MIME type is not supported: text/csv ...\"). The ValidationError propagates out of get_documents (document_api.py:250-255), so GET /api/projects/{id}/documents fails (422 via the custom ValidationError handler) and the library UI shows zero documents; get_document/delete_document/extract/run_extractor_config all load via from_id_and_parent_path (basemodel.py:543-564) and fail the same way, so the stored CSV document cannot even be viewed or deleted through the app anymore.",
+      "file": "libs/core/kiln_ai/datamodel/extraction.py",
+      "line": 55,
+      "summary": "Removing \"text/csv\" from SUPPORTED_MIME_TYPES invalidates documents already persisted with that mime type, so loading them raises and breaks the whole project document listing, not just CSV uploads."
+    },
+    {
+      "failure_scenario": "get_kind_from_mime_type(\"text/csv\") (extraction.py:407-411) now returns None and FileInfo rejects the mime type, but GeminiExtractor._get_kind_from_mime_type(\"text/csv\") (gemini_extractor.py:98-102) still returns Kind.DOCUMENT and _extract (line 104) happily sends the CSV to Gemini. A consumer of the published kiln-ai library calling GeminiExtractor.extract(path, \"text/csv\") — exactly the case the deleted paid test test_extract_csv covered — still gets a successful extraction, and the csv entry removed from test_get_kind_from_mime_type's parametrize list means no test pins either behavior; the repository now has two contradictory MIME-type registries.",
+      "file": "libs/core/kiln_ai/adapters/extractors/gemini_extractor.py",
+      "line": 27,
+      "summary": "The CSV removal is incomplete: the Gemini extractor still lists \"text/csv\" in MIME_TYPES_SUPPORTED, so it continues to classify and extract CSV documents while the datamodel/API/UI now declare CSV unsupported; the test edits hide this divergence instead of removing the support."
+    },
+    {
+      "failure_scenario": "create_document (document_api.py:208-222) calls guess_mime_type(file.filename) and raises 422 before touching the uploaded bytes, so test_content is never used. The test still fails to even start if the CSV asset is renamed/removed or the fixture changes; the neighboring test_create_document_content_type_detection shows the simpler form (pass b\"test content\", drop the mock_file_factory dependency and the anyio import) that exercises the identical 422 path.",
+      "file": "libs/server/kiln_server/test_document_api.py",
+      "line": 565,
+      "summary": "The new rejection test unnecessarily reads the CSV fixture through anyio and depends on tests/assets/document_people.csv, even though the endpoint derives the mime type only from the filename and never inspects the request body before rejecting it."
+    }
+  ],
+  "level": null
+}

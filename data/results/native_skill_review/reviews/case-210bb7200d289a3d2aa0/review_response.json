@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A Flow subclass that overrides `__init__` without calling `super().__init__()` (or whose `state` property returns None) calls a @persist-decorated method: `getattr(flow_instance, 'state', None)` yields None (AttributeError is suppressed by the getattr default), line 93 raises ValueError, line 124 immediately catches it and re-raises `ValueError(\"Flow state must have an 'id' field for persistence\")`. The developer is sent looking for a missing id when the flow has no state at all; `LOG_MESSAGES['state_missing']` only fires for an AttributeError that the getattr default already swallows, and the old message's method name context is gone.",
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 124,
+      "summary": "The outer `except (TypeError, ValueError)` catches the `ValueError(\"Flow instance has no state\")` that line 93 raises inside the same try, so a stateless flow is always reported as a missing-id problem and the `state_missing` branch is effectively unreachable."
+    },
+    {
+      "failure_scenario": "`@persist(SQLiteFlowPersistence())` applied to a class with a @start method `begin`: `class_sync_wrapper`/`class_async_wrapper` are defined inside `for name, method in target.__dict__.items():` and reference the `method` cell; after the loop at line 193 (`for name, method in class_methods.items()`), that same cell holds the last wrapper, so `flow.begin()` executes `method(self, ...)` = the wrapper again until RecursionError. The documented class-level persistence path (docs/concepts/flows.mdx:335) never runs the user's method, while method-level @persist is unaffected.",
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 170,
+      "summary": "Class-level @persist wrappers close over the loop variable `method`, which the second loop at line 193 rebinds to a wrapper function, so every wrapped method calls itself recursively instead of the flow method."
+    },
+    {
+      "failure_scenario": "`flow = MyFlow(persistence=SQLiteFlowPersistence(), id=\"brand-new-id\")` where no stored state exists: `load_state` returns None, state is created, and `return` at line 507 exits before lines 528-542 register methods (and before `flow_creation_span`). Calling `flow.kickoff()` then reaches `_execute_start_method` -> `self._methods[start_method_name]` and raises `KeyError: 'begin'` for every @start method. The new log line added at line 500 sits in exactly this branch, so the diff touches the path but does not fix it.",
+      "file": "src/crewai/flow/flow.py",
+      "line": 507,
+      "summary": "The early `return` in the persistence/kwargs-id branch of `__init__` skips the method-registration loop, leaving `self._methods` empty and making `kickoff()` fail with KeyError."
+    },
+    {
+      "failure_scenario": "With a Pydantic/FlowState state, `flow = MyFlow(); flow.kickoff({\"id\": \"chosen-id\"})` prints \"Flow started with ID: <random uuid from __init__>\" at line 765, then `_initialize_state` merges the inputs over the current state (`new_state = {**current_state, **inputs}` at line 704) and sets `state.id = \"chosen-id\"`. The log therefore reports an ID that `flow.flow_id`/`flow.state.id` no longer returns for the rest of the run. (Dict states are unaffected because `_initialize_state` restores the original id.)",
+      "file": "src/crewai/flow/flow.py",
+      "line": 765,
+      "summary": "`kickoff` logs `self.flow_id` before `_initialize_state(inputs)` is applied, so an `id` passed through kickoff inputs is not the ID that gets logged."
+    },
+    {
+      "failure_scenario": "Persistence returns a row without an 'id' field (corrupt/legacy DB): line 734 prints/logs \"Restoring flow state from memory for ID: None\" (bold yellow, so it looks like real progress) and only then does line 735-736 raise `ValueError(\"Stored state must have an 'id' field\")`. The log asserts a bogus ID and makes it look like restoration was attempted for a real flow.",
+      "file": "src/crewai/flow/flow.py",
+      "line": 734,
+      "summary": "`_restore_state` logs the restore event before validating `stored_id`, so an invalid stored record produces a log claiming an ID of None before the error is raised."
+    },
+    {
+      "failure_scenario": "With the default `SQLiteFlowPersistence`, every persisted method now prints \"Saving flow state to memory for ID: ...\" (line 105) and every restore path prints \"Loading flow state from memory for UUID/ID: ...\" (flow.py lines 493 and 500), while the state is actually read from and written to the SQLite database. An operator debugging persistence by following the logs is pointed at in-memory state that does not exist; the message is wrong for the only shipped backend.",
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 48,
+      "summary": "The new log messages say state is saved/loaded \"from memory\" even though @persist writes to the configured persistence backend (SQLite by default), which misdescribes where the data lives."
+    },
+    {
+      "failure_scenario": "A caller follows the \"Raises: ... AttributeError: If flow instance lacks required state attributes\" contract and wraps a persisted method in `except AttributeError`; when the state attribute is actually missing, the handler at line 119 converts it to `ValueError(LOG_MESSAGES['state_missing'])`, so the caller's handler never runs and the flow aborts. The same docstring block is the only place this contract is stated, so it is a directly misleading interface promise.",
+      "file": "src/crewai/flow/persistence/decorators.py",
+      "line": 75,
+      "summary": "The new docstring documents `AttributeError` as a raised contract of `persist_state`, but the code catches AttributeError and converts it to ValueError, so the documented exception can never escape."
+    }
+  ],
+  "level": null
+}

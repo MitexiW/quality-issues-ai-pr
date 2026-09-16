@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "agentops/client/api/versions/v3.py",
+      "line": 56,
+      "summary": "Outer `except Exception` in fetch_auth_token swallows all ApiServerException raises (non-200 status, missing token, JSON processing failure) and silently returns None instead",
+      "failure_scenario": "Server returns HTTP 401 → `raise ApiServerException('Authentication failed: 401')` executes inside the outer try → caught by `except Exception as e:` on line 56 → logged → returns None. Callers of `agentops.init()` (including ~20 examples and the langchain integration) receive None instead of an exception, proceed with an uninitialized client, and all subsequent tracing calls silently no-op.",
+      "finding_id": "mf-fd8d14671d6a22b31a8f"
+    },
+    {
+      "file": "agentops/legacy/__init__.py",
+      "line": 174,
+      "summary": "_set_span_attributes replaced the dual guard `not attributes or not hasattr(span, 'set_attribute')` with only `span is None`, removing the hasattr safety check",
+      "failure_scenario": "A mock span or proxy object that is not None but lacks a `set_attribute` method is passed via Session.end_session() or end_session() → line 178 `span.set_attribute(...)` raises `AttributeError`, bypassing the guarded paths and potentially crashing the caller's teardown logic.",
+      "finding_id": "mf-08781748c34aae32fbab"
+    },
+    {
+      "file": "agentops/client/api/versions/v3.py",
+      "line": 29,
+      "summary": "Return type annotation `-> AuthTokenResponse` is now inaccurate; fetch_auth_token returns None on every error path, violating the declared return type",
+      "failure_scenario": "Static type checkers (mypy/pyright) report no issues with callers accessing `response['token']` after `fetch_auth_token()`, but at runtime `response` is None → `TypeError: 'NoneType' object is not subscriptable` at any call site that follows the type annotation.",
+      "finding_id": "mf-4ea11328dad67a86c546"
+    },
+    {
+      "file": "agentops/legacy/__init__.py",
+      "line": 139,
+      "summary": "Dummy session construction `Session(None, None); _current_session = dummy; return dummy` appears identically in both the try block (lines 141-143) and except block (lines 147-149), copy-paste duplication",
+      "failure_scenario": "A future maintainer updates the dummy-session logic in one block but forgets the other → the two code paths diverge (e.g., one logs a warning and the other does not, or one sets _current_session and the other does not), producing different behavior depending on whether the initialization failed via return-None vs exception.",
+      "finding_id": "mf-7217a8ea5fa33ba03cf3"
+    },
+    {
+      "file": "agentops/legacy/__init__.py",
+      "line": 276,
+      "summary": "Two adjacent `if session_or_status.span is not None:` blocks (lines 276, 278) test the same condition redundantly; the second block could use `else` or the two guarded calls could share a single `if`",
+      "failure_scenario": "If a refactor adds early-return logic or extra mutations inside the first block, the span could be consumed/modified before the second block executes, causing _finalize_span and _flush_span_processors to silently skip while _set_span_attributes already ran — a half-finalized session. With a single guard this mistake would be structurally prevented.",
+      "finding_id": "mf-d7c634fbaf18a6db274a"
+    }
+  ]
+}

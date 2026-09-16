@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 55,
+      "summary": "CancelButton is a no-op during loading because onCancel is never passed by any caller",
+      "failure_scenario": "User sends a message → ChatInput enters loading state (isLoading=true) → CancelButton renders in active red 'canCancel' style → user clicks CancelButton expecting to abort the operation → handleSubmit fires, sees isLoading=true, calls onCancel?.() which is undefined → nothing happens, loading continues, user is confused.",
+      "finding_id": "mf-65beb655469e8243f6d4"
+    },
+    {
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 66,
+      "summary": "Hardcoded '24px' textarea height reset will diverge from CSS min-height if the stylesheet changes",
+      "failure_scenario": "A future CSS change updates min-height in ChatInput.module.css from 24px to e.g. 28px for a new design system spacing token. After sending a message, the textarea resets to 24px (the hardcoded JS value) instead of 28px, producing a jarring height jump on the next keystroke as handleChange recalculates scrollHeight. This is fragile coupling between JS and CSS.",
+      "finding_id": "mf-8441e47aa859c8ad4b84"
+    },
+    {
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.tsx",
+      "line": 41,
+      "summary": "Duplicate textarea auto-resize logic between useEffect (lines 29-36) and handleChange (lines 41-47)",
+      "failure_scenario": "The identical 5-line resize snippet appears in two places. If the resize logic needs a fix (e.g. adding max-height clamping or scroll-padding), one site will inevitably be missed, creating inconsistent behavior between initial render and subsequent typing.",
+      "finding_id": "mf-82c02522713c787fd17a"
+    },
+    {
+      "file": "frontend/apps/app/components/ChatInput/ChatInput.module.css",
+      "line": 21,
+      "summary": "Hardcoded hex colors (#459a72, #9c5b5a, and their rgba glow counterparts) bypass the project's CSS custom-property design system",
+      "failure_scenario": "The design system defines --primary-accent (#1ded83) and --danger-high-contrast-text (#f75049) matching the glow colors. The hardcoded border colors #459a72 and #9c5b5a are darker custom shades with no design-token equivalent. If theming, dark/light mode, or color palette updates occur, these hardcoded values will not participate, making the ChatInput borders visually inconsistent with the rest of the UI.",
+      "finding_id": "mf-94809f6cd73a80ec4ea7"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "apps/api/src/scraper/WebScraper/crawler.ts",
+      "line": 461,
+      "summary": "Subdomain allowance feature is completely broken: the allowSubdomains check at lines 461-467 is unreachable dead code because every code path in the preceding if/else block (lines 415-459) returns, making allowSubdomains always ignored regardless of configuration",
+      "failure_scenario": "Configure a crawl with allowSubdomains=true for example.com. When crawling discovers blog.example.com/page, isInternalLink returns false (different hostnames), the external block runs, and since allowExternalContentLinks defaults to false, the link is denied as EXTERNAL_LINK at line 458 — execution never reaches the subdomain check at line 461 that would have allowed it. Users depending on subdomain crawling will silently miss all subdomain content.",
+      "finding_id": "mf-45ed5424676439c2af64"
+    },
+    {
+      "file": "apps/api/src/scraper/WebScraper/crawler.ts",
+      "line": 145,
+      "summary": "Missing denialReasons entries for URL parse errors in filterLinks: two return-false paths (lines 145-152 and 202-208) don't call denialReasons.set(), leaving the denial reasons Map incomplete for parse-failed URLs",
+      "failure_scenario": "filterLinks is called with a URL that causes new URL(link.trim(), this.baseUrl) to throw at line 144. The URL is denied (return false at line 151) but denialReasons never records it. At queue-worker.ts line 1450, denialReasons.get(url) returns undefined for such a URL, and the consumer falls back to a generic message like 'Source URL is not allowed by crawl configuration' rather than the accurate DenialReason.URL_PARSE_ERROR, producing misleading error messages.",
+      "finding_id": "mf-f53c31d862635d71767e"
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # Data dictionary
 
+The current default RQ3 dataset is `data/results/default_review/`: 267 valid
+responses and 1,106 final human labels. See [DEFAULT_REVIEW.md](DEFAULT_REVIEW.md).
+Dated default-review directories below retain historical outputs and audits.
+
 All released result paths are under `data/results/`.
 
 | Directory | Role |

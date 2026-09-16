@@ -115,8 +115,12 @@ def main() -> None:
     rows = read_rows(source)
     if len(rows) != 571 or len({row["reference_id"] for row in rows}) != 571:
         raise SystemExit("released joined reference frame must contain 571 unique references")
-    raw = [row for row in rows if truthy(row["quality_primary_reference"])]
-    confirmed = [row for row in raw if truthy(row["validated_issue_reference"])]
+    primary = [row for row in rows if truthy(row["quality_primary_reference"])]
+    confirmed = [row for row in primary if truthy(row["validated_issue_reference"])]
+    # New human matching covers confirmed broad references, not the full raw set.
+    # Keep the raw-reference sensitivity tied to its original reviewed outputs.
+    raw = [{**row, "semantic_recovered": row.get("original_semantic_recovered", row["semantic_recovered"])}
+           for row in primary]
     if len(raw) != 420 or len(confirmed) != 114:
         raise SystemExit("unexpected RQ3 reference counts")
 
@@ -150,8 +154,6 @@ def main() -> None:
             },
         }
 
-    if sum(int(row["recovered_n"]) for row in metric_rows if row["layer"] == "human_confirmed_primary") != 20:
-        raise SystemExit("unexpected confirmed-reference recovery count")
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     fields = (
@@ -171,7 +173,8 @@ def main() -> None:
         "reference_n": len(rows),
         "raw_quality_reference_n": len(raw),
         "human_confirmed_quality_reference_n": len(confirmed),
-        "human_confirmed_recovered_n": 20,
+        "human_confirmed_recovered_n": sum(truthy(row['semantic_recovered']) for row in confirmed),
+        "raw_reference_scope": "Original run; additional findings were assessed only against confirmed broad references.",
         "bootstrap_draws": args.bootstrap_draws,
         "seed": args.seed,
         "summaries": summaries,
@@ -179,7 +182,7 @@ def main() -> None:
     (output / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print("RQ3 public re-score complete: confirmed=114 recovered=20")
+    print(f"RQ3 public re-score complete: confirmed={len(confirmed)} recovered={summary['human_confirmed_recovered_n']}")
 
 
 if __name__ == "__main__":

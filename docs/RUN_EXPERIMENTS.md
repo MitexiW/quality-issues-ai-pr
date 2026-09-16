@@ -36,7 +36,7 @@ python scripts/verify_artifact.py
 This is a file-integrity check, not an experiment. It verifies every
 inventoried SHA-256 hash and the headline invariants: 7,124 final alert
 decisions, 2,322 confirmed issues, 5,404 PRs, 412 RQ1 mechanism clusters
-covering all 775 confirmed AI Quality alerts, and 20/114 RQ3
+covering all 775 confirmed AI Quality alerts, and 21/114 RQ3
 Quality-reference recoveries. It also checks the sanitized CodeQL job
 manifests, the complete 267-case RQ3 frame, and the author review of all 1,016
 RQ3 finding--reference relation decisions.
@@ -154,15 +154,18 @@ python scripts/analysis/fit_rq2_models.py \
 
 ```bash
 python scripts/analysis/recompute_public_rq3_metrics.py \
-  --joined-references data/results/final_human_confirmed_rq3_20260817_v1/reference_adjudication_join_public.csv \
+  --joined-references data/results/default_review/reference_inputs.csv \
   --output-dir outputs/rq3-metrics \
   --bootstrap-draws 50000 \
   --seed 20260623
 ```
 
 This command re-scores the frozen review/reference relations and makes no API
-or model call. It reproduces 20 recoveries among 114 human-confirmed Quality
-references. The released relation table records each same-root-cause decision,
+or model call. It reproduces 21 recoveries among 114 human-confirmed Quality
+references. To regenerate its input from all 1,106 human labels first, run
+`python scripts/analyze_default_review.py` and use
+`outputs/default-review/reference_inputs.csv` as `--joined-references`.
+The historical relation table records each same-root-cause decision,
 its rationale, and whether the initial decision came from a deterministic rule
 or LLM-assisted semantic adjudication. The separate
 `data/results/rq3_semantic_human_review_v1/author_relation_review.csv` records
@@ -170,7 +173,8 @@ one author's manual confirmation of all 1,016 decisions. It deliberately keeps
 the initial provenance unchanged (776 LLM-assisted and 240 deterministic),
 while recording the author-confirmed final relations separately: 45
 `same_issue`, 187 `related_distinct`, 544 `no_match`, and 240 `no_reference`.
-This audit layer does not change the final RQ3 result of 20/114.
+This historical audit predates the 15 reruns. The current combined result is
+21/114; the original result was 20/114. See [DEFAULT_REVIEW.md](DEFAULT_REVIEW.md).
 
 ### Statistical figures
 

@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "For any execution part containing a shaped ALLOCATE (e.g. `allocate(a(n))`), `shape.children` yields `Allocate_Shape_Spec` objects (see ast_components.py:283-287, where the shape-spec visitor unpacks (lower, upper) from exactly these nodes); `_inject_knowns` falls through to its final `else: raise NotImplementedError`. The Execution_Part loop of `_track_local_consts` (line ~2337) catches NotImplementedError and executes `plus, minus = {}, set()`, so constants known before the allocate (e.g. `n = 4`) are no longer propagated to later statements — a regression versus the previous `(Allocate_Stmt, Deallocate_Stmt): pass` branch, which retained them — while the newly added allocation-bound injection does nothing.",
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 2487,
+      "summary": "The new Allocate_Stmt branch calls `_inject_knowns` on fparser `Allocate_Shape_Spec` nodes (the shape list's children), which that function does not handle and raises NotImplementedError for, so the intended injection never runs and the exception silently wipes the tracked local constants."
+    },
+    {
+      "failure_scenario": "For an SDFG whose generated init code dereferences an array/struct argument — exactly the init code this PR's `add_deferred_shape_assigns_for_structs` emits (`sdfg.append_init_code(f\"{newsize} = {name}->{size.name}\")`, fortran_parser.py:180/211) — `csdfg.initialize(cfg=cfg, c=c)` constructs `initargs` from `_free_symbols` only (in the new un-skipped test there are no free symbols at all), so `__dace_init` is invoked with no/§ mispositioned arguments while the C signature (framecode.py:250, `sdfg.signature(arglist=self.arglist)`) expects `(cfg, c)`; the init code then dereferences a bogus pointer and segfaults. `__call__` works only because of the changed line, and `initargtuple` is now computed and unused in `__call__`.",
+      "file": "dace/codegen/compiled_sdfg.py",
+      "line": 409,
+      "summary": "`__call__` now passes the full argument tuple to `__dace_init_*`, but `initialize()` (line 359-360) still passes the symbols-only tuple from `_construct_args`, so the two initialization paths hand different argument lists to the same generated init function and one of them is wrong."
+    },
+    {
+      "failure_scenario": "Two .ti entries with the same type/component but different scopes and values, e.g. `{... \"root\": \"m.config_type\", \"component\": \"nlev\", \"scope\": \"mod_a\", \"value\": \"4\"}` and the same with `\"scope\": \"mod_b\", \"value\": \"8\"`, now hit `assert inj_map[key].value == x.value` and raise `AssertionError: Inconsistent values in constant injections...`, aborting `ecrad_config_injection_list()`/`find_all_config_injections` and every SDFG build that loads those files, instead of yielding both scope-restricted injections. Values are compared as raw JSON strings, so semantically equal spellings (\"0\" vs \"0.0\") also trip it.",
+      "file": "dace/frontend/fortran/config_propagation_data.py",
+      "line": 51,
+      "summary": "The new deduplication key `(root, comp)` ignores `scope_spec`, which is part of a ConstInjection's identity, so injections that differ only in scope are conflated and can abort loading with an assertion."
+    },
+    {
+      "failure_scenario": "`_instance_injection_applies_to_instance` (ast_desugaring.py:3283-3296) explicitly matches component paths by length and prefix (`len(comp_spec) != len(item.component_spec)` / `comp_spec[:-1] != item.component_spec[:-1]`), so a .ti entry of type ConstInstanceInjection with a dotted component (e.g. \"component\": \"cfg.a\") previously matched and its value was propagated. After this change it is skipped at load time with only a stderr message, so that constant is no longer injected anywhere and the generated SDFG silently differs.",
+      "file": "dace/frontend/fortran/config_propagation_data.py",
+      "line": 46,
+      "summary": "The new `len(component_spec) > 1` guard silently drops multi-level component specs for ConstInstanceInjection as well, although the instance-matching code supports them."
+    },
+    {
+      "failure_scenario": "`find_type_of_entity` returns `('CHARACTER',)` for `character`/`character(len=n)` entities (ast_desugaring.py:775-795). When such an entity is an allocatable component with a `:` shape and matching `__f2dace_SA_/_SOA_` injections, the injection path calls `typ.to_decl(name)` (line 3479) and the declaration is regenerated as `type(CHARACTER), dimension(3)` instead of `CHARACTER, dimension(3)`; `Type_Declaration_Stmt(nudecl)` then fails to parse / invalid Fortran is produced. Before the change the identity fallback emitted a valid `CHARACTER`.",
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 126,
+      "summary": "Changing the TYPE_MAP fallback from the identity to `f\"type({typ})\"` wraps every intrinsic type name that is not in TYPE_MAP — notably CHARACTER — into an invalid declaration."
+    },
+    {
+      "failure_scenario": "For a named interface, `identifier_specs` maps its spec to the Interface_Stmt itself, so the loop condition `isinstance(v, Interface_Stmt)` subtracts it; for an anonymous interface block, the key is the spec of the contained Function_Stmt/Subroutine_Stmt, whose `v.parent.parent` is the Interface_Block, so it is subtracted too. The set is therefore empty and uncalled interface blocks are never removed by `remove_self(alias_map[ui].parent)` — the pipeline still relies on other passes and can end in `RuntimeError: Could not remove all the interfaces from AST` (fortran_parser.py:2844-2846). If a spec ever were missing from `alias_map`, `assert ui in alias_map` aborts the frontend instead.",
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 1422,
+      "summary": "`unused_ifaces` is seeded with every interface spec and then has every interface that appears in `alias_map` subtracted, which is all of them, so the removal loop at line 1510 can never execute."
+    },
+    {
+      "failure_scenario": "`create_singular_sdfg_from_string(..., config_injections=[ConstTypeInjection(None, ('lib','config'), ('cfg','field'), '3')])` (the public API used by tests and by external users; the .ti format itself allows dotted components) now aborts the frontend with `AssertionError: Unimplemented: type injection must have just one-level of component for now...`, whereas before the change it printed the same message to stderr and simply skipped that injection (as the new loader-level filter in config_propagation_data.py does for file-loaded ones).",
+      "file": "dace/frontend/fortran/ast_desugaring.py",
+      "line": 3340,
+      "summary": "`_type_injection_applies_to_component` now asserts single-level component specs, turning previously-tolerated input into a hard failure for callers that pass injections programmatically rather than through the filtering loader."
+    }
+  ],
+  "level": null
+}

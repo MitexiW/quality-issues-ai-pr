@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "On bridgeless unload/reload, ReactInstanceWin::Destroy() (ReactInstanceWin.cpp:1094-1103) runs a runOnQueueSync lambda on the JS thread that calls quitSynchronous(); quit() sees isOnThread() and calls thread_.detach(). The Destroying thread then wakes from the runSync promise, returns, and drops the local jsMessageThread shared_ptr — the last owner, since the lambda already nulled m_jsiRuntimeHolder and m_bridgelessReactInstance — freeing TaskDispatchThread's queueLock_/queue_/running_ while the detached JS thread is still between 'task.fn()' return and loop() exit, calling lock.lock() and reading queue_/running_ on freed memory: intermittent heap corruption/crash on app close or instance reload.",
+      "file": "vnext/Microsoft.ReactNative/Fabric/platform/react/threading/TaskDispatchThread.cpp",
+      "line": 92,
+      "summary": "quit() detaches the loop thread when called from the JS thread itself, and Destroy() then releases the last MessageQueueThreadImpl reference, so the detached thread keeps executing loop() against freed TaskDispatchThread members."
+    },
+    {
+      "failure_scenario": "A Cxx module declaring REACT_INIT(Initialize) with the new void Initialize(ReactContext const&, jsi::Runtime&) signature (dispatched by RegisterInitMethod's ArgCount==2 branch in NativeModules.h:1093-1101) and registered via AddModule/NativeModulesProvider::GetModules (NativeModulesProvider.cpp:35) never has Initialize called: the delegate is stored in m_jsiinitializers but MakeCxxModule only loops over m_initializers (IReactModuleBuilder.cpp:159-161). The module runs uninitialized — e.g., a BlobModule-style module never installs its JS global (__blobCollectorProvider), so its JS-visible setup silently disappears. The ReactModuleBuilderMock test harness skips m_jsiinitializers too, so unit tests cannot catch it.",
+      "file": "vnext/Microsoft.ReactNative/IReactModuleBuilder.cpp",
+      "line": 159,
+      "summary": "ReactModuleBuilder::MakeCxxModule invokes only m_initializers, so the new two-argument REACT_INIT JSI initializers registered via AddJsiInitializer are silently never run for legacy (non-TurboModule) Cxx modules."
+    },
+    {
+      "failure_scenario": "Old-architecture instance with UseWebDebugger (IReactContext.idl documents JSRuntime()/JsiRuntime() as null when JS runs in the browser): creating a TurboModule with a two-arg initializer (the only in-tree one is BlobModule, BlobModule.cpp:38) calls GetOrCreateContextRuntime(context, nullptr) -> TryGetOrCreateContextRuntime returns nullptr -> VerifyElseCrashSz('JSI runtime is not available') in JsiApiContext.cpp:90 -> process crash on module creation. Before this change, BlobTurboModule::Initialize used ExecuteJsi, whose null-runtime path silently skipped the block.",
+      "file": "vnext/Microsoft.ReactNative/TurboModulesProvider.cpp",
+      "line": 46,
+      "summary": "TurboModuleBuilder::AddJsiInitializer passes GetInner().JsiRuntime() straight into GetOrCreateContextRuntime, which VerifyElseCrashes on a null runtime handle, whereas the replaced ExecuteJsi-based code silently skipped initialization when no JSI runtime existed."
+    },
+    {
+      "failure_scenario": "Thread T calls MessageQueueThreadImpl::runOnQueueSync and passes the isRunning() check; concurrently Destroy's JS-thread lambda runs quitSynchronous(), setting running_=false; T then reaches runAsync (line 61-64), which early-returns without queueing the task, so the wrapper lambda's promise.set_value() never executes and promise.get_future().wait() (line 79) blocks T forever. The same silent-drop makes MessageQueueThreadImpl::runOnQueueSync a no-op once the thread is stopped, so a Destroy that interleaves with a prior quit (or any cleanup relying on that lambda, including m_whenDestroyed.SetValue()) deadlocks — hang on unload/reload.",
+      "file": "vnext/Microsoft.ReactNative/Fabric/platform/react/threading/TaskDispatchThread.cpp",
+      "line": 79,
+      "summary": "TaskDispatchThread::runSync blocks forever if runAsync silently drops the task, because runAsync early-returns when running_ is false and the promise is never set."
+    }
+  ],
+  "level": null
+}

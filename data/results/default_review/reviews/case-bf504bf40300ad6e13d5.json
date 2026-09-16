@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "airbyte-integrations/connectors/source-railz/manifest.yaml",
+      "line": 1029,
+      "summary": "Wrong stream_interval key: 'start_date' should be 'start_time'; accessing a non-existent key will break the record filter",
+      "failure_scenario": "The CDK's DatetimeBasedCursor provides stream_interval with keys 'start_time' and 'end_time' (confirmed by the schema documentation example at declarative_component_schema.py:772 and every other connector in this repo using stream_interval in record filters, e.g., source-xero, source-sentry, source-zendesk-support). Accessing stream_interval['start_date'] returns Undefined/None, causing the Jinja2 comparison to silently pass all records (if Undefined is treated as less-than-everything) or raise an UndefinedError at runtime, breaking every incremental stream in the connector.",
+      "finding_id": "mf-df92e079267ba44a31f0"
+    },
+    {
+      "file": "airbyte-integrations/connectors/source-railz/manifest.yaml",
+      "line": 1029,
+      "summary": "Removal of per-service stream_state cursor dedup causes duplicate records on interrupted/resumed incremental syncs",
+      "failure_scenario": "The old record filter tracked stream_state at business.service granularity: `stream_state.get(businessName, {}).get(serviceName)`. This allowed skipping already-synced records for individual services within a SubstreamPartitionRouter context where many services share the same stream but have records at different cursor positions. With the new filter's removal of this tracking, if a sync is interrupted mid-interval and resumed, the DatetimeBasedCursor replays the full interval window and the record filter no longer excludes previously synced records for individual services, emitting duplicate records to the destination.",
+      "finding_id": "mf-bef1ddadeca1c2d6c267"
+    },
+    {
+      "file": "airbyte-integrations/connectors/source-railz/components.py",
+      "line": 66,
+      "summary": "lifetime.seconds returns seconds-component only (0-86399), not total seconds; should use total_seconds() (pre-existing, now exercised by corrected test)",
+      "failure_scenario": "In check_token(), the comparison `now - self._timestamp >= lifetime.seconds` uses `lifetime.seconds`. For datetime.timedelta objects, `.seconds` excludes any day component. For isodate Duration objects parsed from non-second ISO 8601 strings (e.g., 'PT1H' which stores hours=1 internally), `.seconds` may return 0 depending on the isodate version, making the token refresh logic think the token never expires (never refreshing) or always expires (refreshing on every call). While this is pre-existing in unchanged code, the test diff fixes the broken mock patching (old test patched `requests.get` instead of `requests.Session.get`), meaning this code path is now actually exercised by tests.",
+      "finding_id": "mf-8c0a97fcd0754f6483b7"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/__init__.py",
+      "line": 146,
+      "summary": "__getattr__ does not cache lazy-imported classes in the module namespace, causing the full import to re-execute on every single attribute access",
+      "failure_scenario": "Any code that accesses azure.ai.evaluation.AIAgentConverter or SKAgentConverter more than once (e.g., in a loop, or from multiple call sites in the same process) re-runs __import__, getattr, and _patch_all.append on every access. The _patch_all list grows without bound on repeated access. Even with dependencies installed, every attribute lookup is a fresh import — classes are never cached in the module globals.",
+      "finding_id": "mf-7479285c606be50e461c"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/__init__.py",
+      "line": 10,
+      "summary": "Changing from print+continue to raise ImportError in the except block silently alters import behavior — plain import of the red_team module now requires Pyrit installed",
+      "failure_scenario": "Previously, import azure.ai.evaluation.red_team would succeed without Pyrit (printing an info message and loading the module without the red-team classes). Now the same import raises ImportError. Code that does import azure.ai.evaluation.red_team and then conditionally checks for available classes (hasattr pattern) will see an ImportError instead of a loaded module.",
+      "finding_id": "mf-5d9620da06d67955163e"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/tests/unittests/test_lazy_imports.py",
+      "line": 35,
+      "summary": "Tests re-implement _create_lazy_import locally instead of importing the real module — the actual __init__.py lazy-import mechanism is never exercised",
+      "failure_scenario": "The core bug (__getattr__ not caching) would never be caught by these tests because they test a local copy of the pattern, not the real module. A developer relying on these tests alone would ship the caching defect. The test_no_messages_during_module_import test only asserts that dict assignment does not print, which is vacuously true.",
+      "finding_id": "mf-222da9e5612d4010d870"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/__init__.py",
+      "line": 76,
+      "summary": "_patch_all.append(class_name) inside lazy_import is dead code — __all__ is already fully computed at module load time before any __getattr__ call can fire",
+      "failure_scenario": "At module load (line 143), __all__.extend runs against _patch_all which is still empty. When __getattr__ later triggers lazy_import and appends to _patch_all, nobody reads it. The append is harmless but misleading — it suggests the list is still live when it is not.",
+      "finding_id": "mf-d53cc2c549c0aea178a5"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/__init__.py",
+      "line": 78,
+      "summary": "ImportError re-raise in lazy_import discards the original exception chain by omitting 'from e', losing root-cause context for debugging",
+      "failure_scenario": "If the underlying import fails for a non-obvious reason (e.g., a transitive dependency version conflict inside _ai_services.py), the original ImportError with its traceback is silently replaced by a generic message. The developer sees only 'Could not import AIAgentConverter. Please install azure-ai-projects' even though azure-ai-projects IS installed but has an internal conflict.",
+      "finding_id": "mf-dafb2406160a2de223e7"
+    }
+  ]
+}

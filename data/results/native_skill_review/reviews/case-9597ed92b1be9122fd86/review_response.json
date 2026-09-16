@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Production (`reflex run` / `run_uvicorn_backend`) invokes `App.__call__`, which mounts `_api` into the cached FastAPI app (when the deprecated `app.api` was accessed) and then applies `api_transformer` (e.g. an auth middleware or custom routes). The dev-mode AppHarness (line 329, changed by this diff) passes `_api` directly to uvicorn, so a test app that sets `api_transformer` to add auth middleware runs without it (requests that return 401 in production pass in tests), and custom routes registered via the deprecated `app.api` (which were served before this PR because the harness served the same object) now return 404 in harness tests.",
+      "file": "reflex/testing.py",
+      "line": 329,
+      "summary": "AppHarness._start_backend serves the raw private `_api` instead of calling `self.app_instance()`, so `api_transformer` and the deprecated `App.api` FastAPI-compat mount are silently skipped in tests, diverging from what production serves."
+    },
+    {
+      "failure_scenario": "POST /_upload with a multipart form lacking a `files` field (empty upload, wrong field name, or a file-less upload event) makes `files.getlist(\"files\")` return `[]` and raises `UploadValueError(\"No files were uploaded.\")`; no exception handler for UploadValueError is registered anywhere (grep confirms no `add_exception_handler` in reflex), so Starlette's ServerErrorMiddleware returns 500 with a traceback. Non-multipart content types (JSON/urlencoded) now produce an empty FormData and hit the same 500, and a text value in `files` hits the new `isinstance(file, StarletteUploadFile)` check (line 1896) -> also 500. Before this diff, FastAPI validated `files: list[UploadFile]` and returned 422 with a descriptive body for all of these cases.",
+      "file": "reflex/app.py",
+      "line": 1842,
+      "summary": "The rewritten upload endpoint raises unhandled UploadValueError (-> HTTP 500) when the `files` field is missing, empty, or malformed, replacing FastAPI's 422 validation response."
+    },
+    {
+      "failure_scenario": "`starlette.types` already defines these five names with identical definitions (`Scope = MutableMapping[str, Any]`, etc.); re-defining them in reflex.utils.types creates a second copy of the ASGI typing surface that can drift from Starlette's canonical types (e.g. if starlette refines Scope/Message), silently weakening type checking at the app.py/HeaderMiddleware call sites that now consume the local copies. Cost is duplicated definitions to maintain, not a runtime failure.",
+      "file": "reflex/utils/types.py",
+      "line": 78,
+      "summary": "The new ASGI type aliases (Scope, Message, Receive, Send, ASGIApp) duplicate the exact definitions starlette.types already exports instead of importing them."
+    }
+  ],
+  "level": null
+}

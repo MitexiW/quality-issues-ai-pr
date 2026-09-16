@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "index.ts",
+      "line": 222,
+      "summary": "Clipboard is not restored when the main AppleScript throws; no try/finally protects the restore call",
+      "failure_scenario": "User has important text in clipboard. They call askChatGPT('some prompt'). The AppleScript times out after 120 seconds (or throws for any other reason). The clipboard was set to 'some prompt' by the script. The error is caught and rethrown at line 252, but the clipboard restore at line 225 never executes. User permanently loses their original clipboard content.",
+      "finding_id": "mf-61f0b69bae3107365b37"
+    },
+    {
+      "file": "index.ts",
+      "line": 93,
+      "summary": "encodeForAppleScript escapes only double quotes, not backslashes, causing malformed AppleScript on backslash-containing clipboard or prompt text",
+      "failure_scenario": "User's clipboard contains 'C:\\Users\\name'. encodeForAppleScript returns it unchanged. The clipboard-restore AppleScript becomes 'set the clipboard to \"C:\\Users\\name\"'. In AppleScript, \\\" at the end creates an escaped-quote inside the string, leaving no closing delimiter. The AppleScript call fails with a syntax error, and the clipboard is not restored.",
+      "finding_id": "mf-dae795233cd9bdeb4ca2"
+    },
+    {
+      "file": "index.ts",
+      "line": 263,
+      "summary": "getConversations no longer calls checkChatGPTAccess, so ChatGPT is not auto-launched if not running",
+      "failure_scenario": "User asks Claude to list ChatGPT conversations, but ChatGPT app is closed. The original code would call checkChatGPTAccess which tries to activate/launch ChatGPT (via 'tell application \"ChatGPT\" to activate'). The new getConversations runs its own AppleScript that checks process existence, returns 'ChatGPT is not running', and throws without attempting to launch. The user gets an error instead of ChatGPT being auto-launched.",
+      "finding_id": "mf-d57060b91d512b47c35b"
+    },
+    {
+      "file": "index.ts",
+      "line": 229,
+      "summary": "Global regex replacement of 'Regenerate' and 'Continue generating' strips these substrings from valid ChatGPT responses",
+      "failure_scenario": "ChatGPT produces a response like 'You should regenerate the API key and continue generating the report.' After post-processing, this becomes 'You should  the API key and  the report.' -- meaningful content is silently removed from the response returned to Claude.",
+      "finding_id": "mf-e54f60ae15aeaff78bd4"
+    }
+  ]
+}

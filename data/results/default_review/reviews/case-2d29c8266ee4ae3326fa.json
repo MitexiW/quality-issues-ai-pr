@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "keep/providers/smtp_provider/smtp_provider.py",
+      "line": 161,
+      "summary": "Falsy string check on `body` (and `html` at line 159) treats empty string `\"\"` as not-provided, raising ValueError for a valid empty-body email",
+      "failure_scenario": "A workflow YAML passes `body: \"\"` (empty body, e.g. subject-only notification). The `elif body:` check treats `\"\"` as falsy, falls through to the `else` branch, and raises `ValueError(\"Either 'body' or 'html' must be provided\")` -- crashing the workflow even though a body was explicitly supplied. Fix: use `if html is not None` / `elif body is not None`.",
+      "finding_id": "mf-ee7558d569faf7b8730c"
+    },
+    {
+      "file": "keep/api/routes/settings.py",
+      "line": 202,
+      "summary": "User-controlled SMTP settings (`settings.host`, `settings.port`) interpolated into HTML test email body via `.format()` without any HTML escaping",
+      "failure_scenario": "An admin sets the SMTP host to `smtp.example.com\"><script>alert(1)</script>` or any string containing angle brackets. The `.format()` call embeds this raw value into the HTML email body, producing malformed or injected markup in the test email delivered to the admin's inbox.",
+      "finding_id": "mf-790979632e281052fd98"
+    },
+    {
+      "file": "keep/providers/smtp_provider/smtp_provider.py",
+      "line": 180,
+      "summary": "Falsy check on `body` and `html` in `_notify` return dict omits keys when value is empty string, causing inconsistent return shape",
+      "failure_scenario": "A workflow sends an HTML-only email (no `body`). `_notify` returns `{\"from\": ..., \"to\": ..., \"subject\": ...}` without a `body` key. If a downstream workflow action or template references `{{ steps.send.results.body }}`, it gets nothing (or an error if the engine strictly dereferences missing keys) -- whereas callers that previously always received a `body` key (from the old code that unconditionally included it) are now broken when HTML is used instead of plain text.",
+      "finding_id": "mf-069ae915857800fb7d56"
+    }
+  ]
+}

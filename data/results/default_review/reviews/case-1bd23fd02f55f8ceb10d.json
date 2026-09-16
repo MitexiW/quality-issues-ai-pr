@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/bespokelabs/curator/request_processor/openai_request_mixin.py",
+      "line": 48,
+      "summary": "Removal of _unpack() from create_api_specific_request_online breaks multimodal batch processing -- OpenAIBatchRequestProcessor now sends raw _MultiModalPrompt Pydantic objects in messages instead of unpacked chat-format content blocks.",
+      "failure_scenario": "User runs a batch job with multimodal prompts (e.g., returning text and Image(content=...) from prompt()). The batch processor calls create_api_specific_request_online, which now uses generic_request.messages directly without unpacking. The _MultiModalPrompt instance in message content is not JSON-serializable, causing TypeError at json.dumps() when building the batch file. Even if serialization were handled, the OpenAI API would receive a model dict with texts/images/files keys instead of expected chat content blocks, resulting in an API error.",
+      "finding_id": "mf-67e6747d81fb5df13084"
+    },
+    {
+      "file": "src/bespokelabs/curator/request_processor/online/base_online_request_processor.py",
+      "line": 119,
+      "summary": "Missing try/except for pydantic.ValidationError in _unpack_multimodal -- when is_multimodal_prompt is None (user returns list of pre-formatted messages), the method tries model_validate on potentially plain-string content without the safety net from the old OpenAIRequestMixin._unpack().",
+      "failure_scenario": "User prompt() returns a list of message dicts with plain-text content, e.g. [{\"role\": \"user\", \"content\": \"hello\"}]. prompt_formatter.py sets is_multimodal_prompt=None. In _unpack_multimodal, is_multimodal_prompt is False check is skipped, and _MultiModalPrompt.model_validate(\"hello\") raises pydantic.ValidationError which propagates unhandled through process_requests_from_file, crashing the entire request processing pipeline.",
+      "finding_id": "mf-fa3babf9e8aa3e7d31df"
+    },
+    {
+      "file": "src/bespokelabs/curator/types/prompt.py",
+      "line": 71,
+      "summary": "File.__post_init__ is dead code -- Pydantic v2 BaseModel does not call __post_init__ (a dataclasses hook); the Pydantic equivalent is model_post_init. MIME type auto-detection from URL never runs, so File.mime_type stays None when not explicitly provided.",
+      "failure_scenario": "User creates curator.types.File(url='https://example.com/doc.pdf') without mime_type. The __post_init__ calling mimetypes.guess_type() is never invoked. file.mime_type remains None. Downstream consumers expecting a MIME type get None, potentially causing issues in future code paths.",
+      "finding_id": "mf-d3dd325833944081821c"
+    },
+    {
+      "file": "src/bespokelabs/curator/request_processor/online/litellm_online_request_processor.py",
+      "line": 125,
+      "summary": "ValueError message broken by comma between two f-strings -- raise ValueError(f\"...\", f\"...\") passes two separate string args instead of one concatenated message, producing a confusing tuple-like error representation.",
+      "failure_scenario": "A multimodal image upload exceeds 20MB via LiteLLM OpenAI provider. file_upload_limit_check raises ValueError with two args, producing an error that displays as a tuple instead of a single readable sentence.",
+      "finding_id": "mf-6256b92f2425153918a7"
+    },
+    {
+      "file": "src/bespokelabs/curator/request_processor/online/openai_online_request_processor.py",
+      "line": 188,
+      "summary": "_multimodal_prompt_supported narrowed from always True to checking only model name prefixes in a hardcoded set of three models -- compatible OpenAI-provider models with vision not in the set are incorrectly rejected.",
+      "failure_scenario": "User configures an OpenAI-compatible endpoint with a vision-capable deployment name that does not start with gpt-4o, gpt-4o-mini, or gpt-4o-vision (e.g., a custom deployment or a future gpt-5o model). _multimodal_prompt_supported returns False, and _unpack_multimodal raises TypeError preventing any multimodal requests.",
+      "finding_id": "mf-fe9a4e536880eb08dd99"
+    }
+  ]
+}

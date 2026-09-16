@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "apps/dashboard/src/@/components/ui/sidebar.tsx",
+      "line": 430,
+      "summary": "SidebarProvider writes sidebar_state cookie on every toggle but never reads it back on mount; sidebar always resets to expanded (defaultOpen=true) on any full page navigation",
+      "failure_scenario": "User collapses the sidebar, then navigates from one project to another (or from project to account page). The SidebarProvider re-mounts, `_open` is initialized to `defaultOpen=true`, and the sidebar reopens. The cookie intended to persist state across sessions is never consumed.",
+      "finding_id": "mf-64e3e324fd248eee188b"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/blocks/SidebarLayout.tsx",
+      "line": 136,
+      "summary": "Separator element in sidebarLinks.map() lacks a `key` prop, causing React reconciliation warnings",
+      "failure_scenario": "The ProjectSidebarLayout passes footerSidebarLinks containing a {separator:true} item. When RenderSidebarGroup maps over this array, the separator returns `<SidebarSeparator className='my-1' />` with no key. React logs a warning. If separators were ever reordered, DOM state (focus, animations) could become mismatched.",
+      "finding_id": "mf-d30b828ec18b73bc5b6e"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/ui/sidebar.tsx",
+      "line": 1001,
+      "summary": "SidebarMenuSkeleton uses Math.random() inside useMemo during render, causing SSR hydration mismatch",
+      "failure_scenario": "Server renders skeleton with random width '67%', client hydrates with random width '82%'. React logs a hydration mismatch error and may re-render the component, causing a visible layout flicker. The component is currently unused but exported from the module.",
+      "finding_id": "mf-14612235aa80e0ffd289"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/blocks/Sidebar.tsx",
+      "line": 67,
+      "summary": "Separator element in RenderSidebarLinks lacks a `key` prop, same defect as in RenderSidebarGroup",
+      "failure_scenario": "If any consumer of RenderSidebarLinks (mobile sidebar, contract page layouts) adds a separator to its links array, React will warn about missing keys.",
+      "finding_id": "mf-ae71c7795a30ecbc03e4"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/ui/NavLink.tsx",
+      "line": 34,
+      "summary": "prefetch={false} added globally to all NavLink instances, disabling Next.js link prefetching for every sidebar navigation link",
+      "failure_scenario": "Users hover over sidebar links or scroll them into viewport; Next.js no longer prefetches the target page's JS and data. On click, the user experiences a full network round-trip delay instead of an instant client-side transition. Affects all consumers: CustomSidebar, FullWidthSidebarLayout, and the nebula app's ChatSidebarLink.",
+      "finding_id": "mf-91f1eb68b259f1557735"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/blocks/SidebarLayout.tsx",
+      "line": 253,
+      "summary": "RenderSidebarGroup does not render an external-link icon for links with http-prefixed hrefs, unlike the old RenderSidebarLinks which renders ExternalLinkIcon",
+      "failure_scenario": "In the new project sidebar, 'Documentation' and 'Playground' links (hrefs: https://portal.thirdweb.com, https://playground.thirdweb.com/...) appear identical to internal links. The old sidebar always showed an ExternalLinkIcon next to external links. Users cannot visually distinguish internal from external navigation targets in the new sidebar.",
+      "finding_id": "mf-44864ff9d31737d56f1e"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/ui/sidebar.tsx",
+      "line": 430,
+      "summary": "Cookie set without SameSite or Secure attributes; sidebar_state cookie is sent on cross-site requests where it should not be",
+      "failure_scenario": "On a cross-origin request to the application, the sidebar_state cookie is attached to the request. While the value ('true'/'false') is non-sensitive, the lack of SameSite=Lax means CSRF-style side effects could be possible in some configurations.",
+      "finding_id": "mf-d6b6af0695ccc75a1216"
+    },
+    {
+      "file": "apps/dashboard/src/@/components/blocks/SidebarLayout.tsx",
+      "line": 92,
+      "summary": "MobileSidebarTrigger creates a new array reference [...contentSidebarLinks, ...(footerSidebarLinks || [])] on every render, defeating the useMemo inside useActiveSidebarLink",
+      "failure_scenario": "On every re-render of FullWidthSidebarLayout, useActiveSidebarLink receives a new array reference, causing its internal useMemo to re-run and re-scan all links even when neither contentSidebarLinks nor footerSidebarLinks have changed.",
+      "finding_id": "mf-c88b56bf8f2b44c511b7"
+    }
+  ]
+}

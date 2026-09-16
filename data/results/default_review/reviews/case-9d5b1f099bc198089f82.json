@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "agentops/client/client.py",
+      "line": 18,
+      "summary": "_end_active_session atexit handler unconditionally ends the session, ignoring the skip_auto_end_session config option (env AGENTOPS_SKIP_AUTO_END_SESSION) which documents 'Whether to skip automatically ending sessions on program exit'",
+      "failure_scenario": "User sets skip_auto_end_session=True or AGENTOPS_SKIP_AUTO_END_SESSION=true, expecting managed session lifecycle; process exits, _end_active_session fires anyway, prematurely ending and flushing the session span",
+      "finding_id": "mf-ea2f399ca99a22b3d644"
+    },
+    {
+      "file": "agentops/sdk/decorators/utility.py",
+      "line": 188,
+      "summary": "Omitting context parameter on tracer.start_span() for SESSION spans does NOT create a root span; OpenTelemetry's Tracer.start_span() defaults context=None to context_api.get_current() internally, matching old behavior exactly",
+      "failure_scenario": "An agent span is active when start_session() is called; the session span's start_span() internally resolves to get_current() and parents under the agent span instead of becoming a root, breaking the intended trace hierarchy",
+      "finding_id": "mf-0d591972e9d2300c6865"
+    },
+    {
+      "file": "agentops/client/client.py",
+      "line": 88,
+      "summary": "Module-level _atexit_registered flag is never reset; after os.fork(), child processes inherit the flag as True but atexit handlers don't survive fork, so no handler is registered and child sessions leak unreported",
+      "failure_scenario": "Parent process initializes AgentOps; multiprocessing fork creates worker; worker calls start_session() but atexit registration is skipped; worker exits without ending the session; span data is lost",
+      "finding_id": "mf-9a6a021e945d0c5cc441"
+    },
+    {
+      "file": "agentops/legacy/__init__.py",
+      "line": 142,
+      "summary": "Setting _active_session in start_session() is wrapped in try/except that passes silently; if the import or assignment fails, _current_session is set but _active_session is not, so the atexit handler has no reference to end the session",
+      "failure_scenario": "import agentops.client.client raises unexpectedly inside start_session; _active_session stays None/None; _current_session is set to a valid session; process exits; _end_active_session handler sees _active_session is None and does nothing; session span leaks",
+      "finding_id": "mf-e3369ab1c3cd8dc07132"
+    },
+    {
+      "file": "agentops/legacy/__init__.py",
+      "line": 244,
+      "summary": "Error recovery fallback in end_session() calls span.end() directly instead of _finalize_span(), skipping context token detach and tracer_provider.force_flush()",
+      "failure_scenario": "_set_span_attributes succeeds but _finalize_span raises (e.g., broken connection); fallback ends the span directly; context_api.detach(token) is never called, leaking the context token for the thread's lifetime; spans already buffered are not force-flushed",
+      "finding_id": "mf-253489f1820a137d4941"
+    },
+    {
+      "file": "agentops/legacy/__init__.py",
+      "line": 239,
+      "summary": "_finalize_span() internally calls tracer_provider.force_flush(), yet _flush_span_processors() (which also calls force_flush()) is still invoked immediately after, causing a redundant double flush on every session end",
+      "failure_scenario": "Every end_session call triggers two force_flush() calls on the tracer provider; doubled network I/O during session teardown with no benefit",
+      "finding_id": "mf-b7a8d7074f4bca6d2e37"
+    },
+    {
+      "file": "agentops/sdk/core.py",
+      "line": 95,
+      "summary": "context_api.get_current() is called and its return value discarded; in the OpenTelemetry Python SDK this has no observable side effect (the context module is already initialized at import time)",
+      "failure_scenario": "No runtime impact; the call is dead code that confuses readers expecting it to initialize something",
+      "finding_id": "mf-38d4d53ea88f319af77c"
+    }
+  ]
+}

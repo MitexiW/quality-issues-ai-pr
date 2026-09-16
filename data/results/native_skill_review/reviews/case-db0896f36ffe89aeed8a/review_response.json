@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Tags are only edited through ManageUserTagsDialogFragment (an AlertDialog shown over this screen) and UserDialogFragment.showTagDialog, which calls Utils.setUserTag. AlertDialogs are overlay windows that do not pause or resume the host activity, so when the user opens Settings, taps \"Manage user tags\", saves a tag for a user, and taps Done, SettingsFragment.onResume() is not called. The summary set once in onCreatePreferences (line 94) still shows the old count (e.g. empty or \"2 users with tags\" after a deletion) until an unrelated pause/resume (backgrounding, rotation, navigating to About and back).",
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 319,
+      "summary": "The subtitle refresh is hooked to onResume(), which never fires when the user actually changes tags via the manage-tags dialog, so the count goes stale immediately after editing tags."
+    },
+    {
+      "failure_scenario": "User has exactly one tagged user; updateUserTagsSubtitle() sets the preference summary to \"1 users with tags\" instead of \"1 user with tags\". The same pattern in this file (\"Cleared \" + oldCount + (oldCount == 1 ? \" entry\" : \" entries\") at line 257) shows the codebase handles singular/plural; this addition does not.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 350,
+      "summary": "The summary string is not pluralized, showing grammatically incorrect \"1 users with tags\" when exactly one user has a tag."
+    },
+    {
+      "failure_scenario": "Utils.getUserTags() synchronously reads the tags SharedPreferences string and parses the full JSON map on the main thread; with a large tag map this parse runs on every settings resume (rotation, returning from About, backgrounding/foregrounding), adding UI-thread jank. Meanwhile the one event that does change the data (dismissing the tag dialog) does not trigger it, so the expensive recompute happens on transitions that cannot change the count.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 348,
+      "summary": "onResume() re-reads SharedPreferences and re-parses the entire user-tags JSON on the UI thread on every resume transition, even though no transition that fires onResume can change the tag data."
+    }
+  ],
+  "level": null
+}

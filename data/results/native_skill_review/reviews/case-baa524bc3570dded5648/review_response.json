@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A maintainer or user reading the DYNAMIC_ENUM strategy's Javadoc is told 'If {@code o} implements ReadMarshallable...' but the method signature has no parameter named o (it is now target), so the doc misleads anyone trying to understand or extend the deserialization path; javadoc regeneration also carries this dangling reference into the published API docs",
+      "file": "src/main/java/net/openhft/chronicle/wire/SerializationStrategies.java",
+      "line": 213,
+      "summary": "DYNAMIC_ENUM.readUsing Javadoc still references parameter '{@code o}', which was renamed to 'target', leaving the published API doc pointing at a nonexistent parameter"
+    },
+    {
+      "failure_scenario": "The DEMARSHALLABLE strategy's Javadoc states 'If {@code using} is a DemarshallableWrapper...' but the renamed method no longer has a 'using' parameter (now 'target'); the stale name misdescribes the dispatch logic for the published API documentation and any reader cross-referencing the signature",
+      "file": "src/main/java/net/openhft/chronicle/wire/SerializationStrategies.java",
+      "line": 326,
+      "summary": "DEMARSHALLABLE.readUsing Javadoc still references parameter '{@code using}', which was renamed to 'target', leaving a stale reference to a renamed parameter"
+    }
+  ],
+  "level": null
+}

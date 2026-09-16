@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "An agent calls a tool whose arguments contain an API key and the LLM emits malformed JSON (e.g. missing closing brace or prose mixed into the JSON, which json5 also fails on); repair_json fixes it and `Printer.print` — which has no verbose guard (`else: print(content)`) — writes 'Repaired JSON: {\"api_key\": \"sk-...\", ...}' to stdout even with agent.verbose=False, leaking the credential into logs; the 'Failed to repair JSON' print at line 454 is likewise ungated.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 447,
+      "summary": "The JSON-repair path prints the full raw tool input to the console unconditionally, bypassing the `agent.verbose` gate used by every other print in the file, exposing tool arguments (frequently secrets) even when verbosity is off."
+    },
+    {
+      "failure_scenario": "tool_input = \"{'ids': {1, 2, 3}}\" passes validation and reaches `_use`; for a CrewStructuredTool declaring `ids: List[int]`, tool.invoke raises a pydantic ValidationError that is caught and retried up to `_max_parsing_attempts` (3) times before surfacing a generic 'tool_usage_exception' that blames the tool, whereas the old code rejected the input immediately with 'Invalid tool input JSON: ...'. A set value also makes the cache key f\"{tool}-{input}\" depend on PYTHONHASHSEED, so cache lookups miss across process restarts.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 430,
+      "summary": "ast.literal_eval now admits non-JSON Python values (set, tuple, frozenset, complex, bytes) into tool arguments, breaking the old invariant that validated arguments are JSON-serializable."
+    },
+    {
+      "failure_scenario": "tool_input = '{\"confidence\": NaN}' validates to {'confidence': nan}; a tool that json.dumps its arguments (json.dumps default allow_nan=True) emits 'NaN', which is invalid JSON rejected by strict downstream consumers (JS JSON.parse, Go, external APIs), or the nan value corrupts comparisons/cache keys; previously this input was rejected at parse time before any tool ran.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 438,
+      "summary": "json5.loads accepts NaN and Infinity literals that strict JSON rejects, so arguments containing float('nan')/inf now pass validation and flow into tools and downstream serialization."
+    },
+    {
+      "failure_scenario": "When action.tool_input is None, `_original_tool_calling` returns ToolCalling(arguments={}) and `_use` runs tool.invoke(input={}) because `if calling.arguments:` is falsy; a structured tool with required fields raises ValidationError and is re-invoked up to 3 times (real side effects) before a generic error, where the old code returned an immediate tool_arguments_error without invoking the tool. Two consecutive None-input calls to the same tool also compare equal ({} == {}) in _check_tool_repeated_usage, so the second is refused as 'repeated usage' without executing.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 412,
+      "summary": "A None tool input now silently returns {} instead of failing validation like every other invalid input (empty string raises), so a missing tool_input proceeds to execute the tool with empty arguments."
+    },
+    {
+      "failure_scenario": "The old code raised Exception(f\"Invalid tool input JSON: {e}\") with the JSONDecodeError detail, which reached users via tool_usage_error.format(error=e); the new code raises only the generic 'Tool input must be a valid dictionary in JSON or Python literal format', so when an LLM emits a malformed tool call the agent/user sees no indication of what was wrong, making LLM format debugging harder.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 457,
+      "summary": "The raised validation error no longer includes the underlying parse failure, so the user-facing error loses all diagnostic detail about why the input was rejected."
+    },
+    {
+      "failure_scenario": "Pytest collects only the module-level binding from line 471; any fix or assertion added to the first copy at line 236 silently never executes, giving false confidence of test coverage and duplicated maintenance burden.",
+      "file": "tests/tools/test_tool_usage.py",
+      "line": 471,
+      "summary": "test_validate_tool_input_none_input is defined twice (lines 236 and 471); the second definition shadows the first, so the first test body is dead code that never runs."
+    },
+    {
+      "failure_scenario": "A large malformed tool input (e.g. hundreds of KB of code content) is fully lexed/parsed roughly 13 times per tool call before failing, wasting CPU on the error path; repair_json's recursive descent is particularly expensive on big strings, and the duplicated repair logic with parser.py's _safe_repair_json adds latency to every failure.",
+      "file": "src/crewai/tools/tool_usage.py",
+      "line": 446,
+      "summary": "Malformed tool inputs are now re-parsed up to four full times per validation attempt (json.loads, ast.literal_eval, json5.loads, repair_json+json.loads), multiplied by up to three `_tool_calling` retries, on top of the repair_json pass already performed in parser._safe_repair_json."
+    }
+  ],
+  "level": null
+}

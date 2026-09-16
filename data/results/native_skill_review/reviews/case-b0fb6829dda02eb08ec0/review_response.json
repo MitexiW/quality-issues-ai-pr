@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A block with expected_format={'key1': ...} whose LLM returns wrong-format JSON on every attempt: each attempt still merges input/output token counts (the unchanged merge right after self.llm_call at ~line 894), but the new llm_call_count/llm_retry_count merges only run in the success branches, so after the loop exhausts and raises RuntimeError, the executor persists (manager.py execute_node finally does `execution_stats += node_block.execution_stats` and on_node_execution saves stats even with error set) a node-execution stats record showing e.g. input_token_count = sum of 3 API calls' prompt tokens while llm_call_count = 0 and llm_retry_count = 0 — a run that made 3 API calls and 2 retries is recorded as having made zero calls. The baseline finally clause recorded non-zero (albeit inflated) call/retry counts on the failure path, so this is a regression introduced by this diff for failed-run usage and retry metrics.",
+      "file": "autogpt_platform/backend/backend/blocks/llm.py",
+      "line": 971,
+      "summary": "Removing the finally-clause merge_stats means executions of AIStructuredResponseGeneratorBlock that exhaust all retries and raise RuntimeError now persist stats with merged token counts but llm_call_count and llm_retry_count left at 0, losing call/retry accounting for failed runs."
+    },
+    {
+      "failure_scenario": "A maintainer changing retry-stat accounting reads the comment as the intended semantics (only the successful attempt is counted) and 'corrects' either the production merge at llm.py lines 923-930/933-940 or the assertion to match the comment, breaking the total-call-count semantics that the test was written to verify. This is a maintainability defect in the changed code: the comment describes a rule the code and its own assertion do not follow.",
+      "file": "autogpt_platform/backend/backend/blocks/test/test_llm.py",
+      "line": 183,
+      "summary": "Misleading comment in test_stats_accumulation_with_retries states llm_call_count 'shows 1 for the final successful attempt', contradicting both the implementation (retry_count + 1) and the assertion on line 186 that expects 2, documenting behavior that does not exist."
+    }
+  ],
+  "level": null
+}

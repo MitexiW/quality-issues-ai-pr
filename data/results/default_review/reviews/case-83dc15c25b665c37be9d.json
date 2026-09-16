@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/libslic3r/OverhangDetector.hpp",
+      "line": 8,
+      "summary": "The diff removes `#include <clipper/clipper_z.hpp>` but the header still declares `using ZPoint = ClipperLib_Z::IntPoint;`, `ZPath`, `ZPaths` (lines 8-10) and functions taking `ClipperLib_Z::ClipType` (lines 40, 44), so the header no longer compiles standalone.",
+      "failure_scenario": "ClipperUtils.hpp (still included) only pulls in plain `clipper.hpp`, which defines `ClipperLib` unless compiled through `clipper_z.hpp` with `CLIPPERLIB_USE_XYZ`; no other header in the chain (ExtrusionEntityCollection.hpp etc.) provides `ClipperLib_Z`. Any build with `-DSLIC3R_PCH=0` (documented option, CMakeLists.txt:31; PCH is also skipped when `SLIC3R_SYNTAXONLY` is set per src/libslic3r/CMakeLists.txt:610) fails to compile both consumers of this header — OverhangDetector.cpp and PerimeterGenerator.cpp — with \"'ClipperLib_Z' has not been declared\". Only the force-included pchheader.hpp (line 113) hides this in the default PCH build.",
+      "finding_id": "case-83dc15c25b665c37be9d-f0001"
+    },
+    {
+      "file": "src/libslic3r/GCode/TimelapsePosPicker.cpp",
+      "line": 1,
+      "summary": "The diff removes `#include \"ClipperUtils.hpp\"` while the file still calls functions declared only there: diff_ex, diff, intersection_ex, union_ex, union_, offset, intersection_pl.",
+      "failure_scenario": "TimelapsePosPicker.cpp calls diff_ex (lines 102, 474, 477, 574), intersection_ex (107, 570), union_ex (154, 474, 493), union_ (164, 564, 566), offset (260), intersection_pl (406). I grepped the whole codebase: only BridgeDetector.hpp, OverhangDetector.hpp and pchheader.hpp include ClipperUtils.hpp, and none of them is in this TU's include chain (TimelapsePosPicker.hpp -> Print.hpp -> PrintBase.hpp/ExtrusionEntityCollection.hpp; Layer.hpp). A build with `-DSLIC3R_PCH=0` fails with \"diff_ex was not declared in this scope\"; the default build only compiles because the PCH force-includes ClipperUtils.hpp.",
+      "finding_id": "case-83dc15c25b665c37be9d-f0002"
+    },
+    {
+      "file": "src/libslic3r/PrintApply.cpp",
+      "line": 1,
+      "summary": "The diff removes `#include \"ClipperUtils.hpp\"` while the file still calls `Slic3r::diff` (line 313) and `Slic3r::intersection` (line 317), which are declared only in ClipperUtils.hpp.",
+      "failure_scenario": "PrintApply.cpp's remaining includes are Model.hpp, Print.hpp, <cfloat>, boost/log/trivial.hpp; Print.hpp's chain (PrintBase.hpp, Flow.hpp, ExtrusionEntityCollection.hpp, ...) includes no header that includes ClipperUtils.hpp. A build with `-DSLIC3R_PCH=0` fails with \"diff was not declared in this scope\" in custom_per_printz_gcodes_tool_changes_differ / printbed validation code (line 313); only the PCH force-include hides it in the default build.",
+      "finding_id": "case-83dc15c25b665c37be9d-f0003"
+    },
+    {
+      "file": "src/slic3r/GUI/PrePrintChecker.cpp",
+      "line": 182,
+      "summary": "The diff removes `#include <set>` while `PrinterMsgPanel::SetLabelList` still uses `std::set<wxString> unique_texts;` (line 182), leaving the TU dependent on incidental transitive includes.",
+      "failure_scenario": "The file's remaining includes (PrePrintChecker.hpp -> <wx/wx.h>, Widgets/Label.hpp; GUI_Utils.hpp; I18N.hpp -> <wx/intl.h>) contain no direct <set> include; it only compiles today via the GUI pchheader.hpp (line 54, <set>) or whatever boost/log or wx headers happen to pull in. A build with `-DSLIC3R_PCH=0` (src/slic3r/CMakeLists.txt:650 skips PCH) on a toolchain whose wxWidgets headers don't transitively include <set> fails with \"no member named 'set' in namespace 'std'\".",
+      "finding_id": "case-83dc15c25b665c37be9d-f0004"
+    },
+    {
+      "file": "resources/profiles/BBL/machine/Bambu Lab X1 Carbon 0.4 nozzle.json",
+      "line": 39,
+      "summary": "The diff changes the gcode comment \"for prev firmware\" to the misspelled \"for prev firware\" in machine_end_gcode/time_lapse_gcode of nine shipped printer profiles (A1, A1 mini, P1P, P1S, X1, X1 Carbon, X1E, fdm_bbl_3dp_001_common, fdm_bbl_3dp_002_common).",
+      "failure_scenario": "Every generated print's end/timelapse gcode for these printers now carries the misspelled comment (the `-`/`+` pairs in the diff all show firmware -> firware). The text sits inside `;` comments so there is no functional printing impact, but it is a diff-introduced regression in the shipped profiles (cosmetic, lowest severity).",
+      "finding_id": "case-83dc15c25b665c37be9d-f0005"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The diff removed `export const tokenTracker = new TokenTracker()` from token-tracker.ts but never updated src/tools/dedup.ts. `npm run build` (tsc) and `npm run dev`/`npm run serve` (ts-node type-checks by default) all fail with TS2305: Module '\"../utils/token-tracker\"' has no exported member 'tokenTracker' before the app starts. Under a transpile-only runtime, the agent crashes with TypeError 'Cannot read properties of undefined (reading trackUsage)' as soon as a reflect action calls dedupQueries (agent.ts:447) or a search dedup runs (agent.ts:481), killing the whole request.",
+      "file": "src/tools/dedup.ts",
+      "line": 122,
+      "summary": "dedup.ts still imports and calls the `tokenTracker` singleton that this change deleted from src/utils/token-tracker.ts, so the project no longer compiles and crashes when this path runs."
+    },
+    {
+      "failure_scenario": "Same removed export as above: `npm run build`/`dev`/`serve` fail with TS2305 for this file. In a transpile-only environment, whenever the evaluator rejects an answer to the original question, agent.ts:409 calls analyzeSteps, which executes `tokenTracker.trackUsage('error-analyzer', tokens)` on an undefined import and throws TypeError; the error propagates out of getResponse and the request terminates with an 'error' event instead of completing the retry loop.",
+      "file": "src/tools/error-analyzer.ts",
+      "line": 128,
+      "summary": "error-analyzer.ts still imports and calls the removed `tokenTracker` singleton export, breaking compilation and crashing the bad-answer analysis path at runtime."
+    },
+    {
+      "failure_scenario": "A client opens GET /api/v1/stream/:requestId after POST /api/v1/query. Every actionTracker.trackAction call happens inside getResponse (agent.ts:251 and agent.ts:276), before `context.actionTracker.on('action', emitProgress)` runs at server.ts:85, and nothing calls trackAction afterwards, so emitProgress is never invoked. Previously the console.log override emitted live `type:'progress'` events with step and budget info; now the stream receives only the final `answer` (or `error`) event, so clients lose all intermediate step/budget progress updates.",
+      "file": "src/server.ts",
+      "line": 85,
+      "summary": "The 'action' progress listener is registered only after `await getResponse()` finishes, so emitProgress never fires and the SSE stream receives no progress events during execution."
+    },
+    {
+      "failure_scenario": "Running `npm run dev -- \"<question>\"` completes a run that consumed e.g. 120k tokens; main() destructures only `result` and then calls `new TokenTracker().printSummary()` on a tracker with no usages, printing `{ total: 0, breakdown: {} }` instead of the actual usage accumulated in the discarded `context.tokenTracker` (the previous code printed the shared singleton that had all usage).",
+      "file": "src/agent.ts",
+      "line": 662,
+      "summary": "main() drops the returned context and prints the token summary from a brand-new empty TokenTracker, so the CLI always reports zero token usage."
+    },
+    {
+      "failure_scenario": "With tokenBudget=5000, agent/evaluator/read usage reaches 4900; the search branch then calls rewriteQuery(thisStep) which consumes 3000 more tokens, but query-rewriter.ts:118 writes them to a discarded tracker. `context.tokenTracker.getTotalUsage() < tokenBudget` (agent.ts:271) still sees 4900 < 5000, so the loop keeps running and the run overshoots its budget; the final breakdown also omits the 'query-rewriter' category even though evaluateAnswer and readUrl were updated to pass the tracker.",
+      "file": "src/agent.ts",
+      "line": 476,
+      "summary": "rewriteQuery is called without passing context.tokenTracker, so query-rewriter tokens go into a throwaway `new TokenTracker()` and never count toward the loop's token-budget check or the summary."
+    },
+    {
+      "failure_scenario": "ActionTracker's initial state (action-tracker.ts:12) is `{action:'answer', answer:'', references:[], thoughts:''}`, and agent.ts:276 calls trackAction before the current step is parsed, so state.thisStep is always one step behind and never the final answer. Any consumer of the emitted state (e.g. once the listener-ordering defect is fixed) receives a progress event whose `data.action === 'answer'` with an empty answer; the old code guarded with `thisStep?.action && thisStep?.thoughts` and sent the log-message string instead, so a client that renders `data.action === 'answer'` as the result would display an empty or stale answer.",
+      "file": "src/server.ts",
+      "line": 65,
+      "summary": "createProgressEmitter unconditionally spreads state.thisStep into progress data, but the tracker is seeded with a fabricated empty-answer stub and only ever holds the previous iteration's step, so progress payloads carry fake/stale answer data."
+    }
+  ],
+  "level": null
+}

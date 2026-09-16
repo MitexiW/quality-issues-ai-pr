@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User selects a subscriber via SubscriberAutocomplete; handleSubscriberSelect stores the complete ISubscriberResponseDto (packages/shared/src/dto/subscriber/subscriber.dto.ts includes _organizationId, _environmentId, channels with credentials like deviceTokens/webhookUrl, deleted, createdAt, __v). handleCopyCurl/handleOpenInPostman pass that object into generateCurlCommand/Postman body, and currentFormData.to reaches TestWorkflowInstructions' createCurlSnippet/createNodeJsSnippet etc. (test-workflow-drawer.tsx:244, 286, 416). The clipboard artifacts then disclose internal org/environment identifiers and channel credentials, and re-running the copied cURL/Postman request in another environment sends response-shaped fields (_integrationId inside channels, _environmentId of the source env) that do not match the CreateSubscriberRequestDto/ChannelCredentialsDto request shape. Previously 'to' was createMockObjectFromSchema(testData?.to ?? {}), which contained only schema-derived mock fields. The 'as Record<string, string>' cast at line 416 hides that to contains objects/arrays/booleans.",
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 197,
+      "summary": "The full subscriber response DTO (including _id, _organizationId, _environmentId, and channel credentials) is now used verbatim as the trigger 'to' and embedded in the copied cURL, Postman collection, and integration code snippets, replacing the schema-derived mock that previously held only subscriberId/email-style fields."
+    },
+    {
+      "failure_scenario": "On mount, useFetchSubscriber(currentUser._id) resolves and the effect replaces subscriberData with only {subscriberId, firstName, lastName, email, phone, avatar, locale}; the same happens after every refetch (e.g., SubscriberDrawer close calls refetchSubscriber, or selecting a subscriber in the autocomplete triggers a new fetch whose result overwrites the selected full DTO). The subscriber panel rows 'subscriber.timezone' and 'subscriber.data' (test-workflow-content.tsx:213-214) then always render 'null' even when the subscriber has values, and the trigger 'to' plus copied cURL/Postman/snippets omit the subscriber's data and timezone, so workflow templates using {{subscriber.data.*}} or timezone-dependent content lose the values the pre-change code included.",
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 124,
+      "summary": "The subscriber-initialization effect no longer copies 'data' and 'timezone' from fetchedSubscriberData, so every fetch response overwrites subscriberData with a copy that silently drops the subscriber's custom data and timezone (the pre-change code mapped both fields)."
+    },
+    {
+      "failure_scenario": "When the drawer opens, subscriberData is null while useFetchSubscriber is loading; the initialization effect deliberately waits for !isLoadingSubscriber before applying the currentUser fallback. A user who immediately clicks 'Test workflow' (onSubmit guard at line 187) or 'Copy cURL'/'Copy Postman Collection' (guards at lines 235/268) gets an error telling them to select a subscriber even though the drawer auto-populates one moments later and the user never needed a subscriber for these actions before (the old code used the form's schema-derived 'to'). If the auth context has not resolved currentUser yet, all three actions fail until a subscriber is manually searched and selected.",
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 235,
+      "summary": "Test workflow, Copy cURL, and Copy Postman are now blocked with a misleading 'Workflow information or subscriber is missing' error whenever subscriberData is null, which includes the initial fetch window before the currentUser fallback is applied."
+    },
+    {
+      "failure_scenario": "TestWorkflowDrawerPage (apps/dashboard/src/pages/test-workflow-drawer-page.tsx:23) still runs useFetchWorkflowTestData and StepEditorLayout (step-editor-layout.tsx:121-126) still passes testData, but after this change nothing in TestWorkflowDrawer reads it: the old consumers (createMockObjectFromSchema(testData?.to ?? {}) for 'to' and buildDynamicFormSchema({ to: testData?.to ?? {} }) validation of required to-fields/subscriberId format) were both removed. The workflow's to-schema is now never validated in this drawer, and the page performs a network fetch whose result is silently discarded; the prop and the WorkflowTestDataResponseDto import are stale wiring that should be removed at both call sites.",
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 84,
+      "summary": "The testData prop was removed from the destructure but remains declared in TestWorkflowDrawerProps and is still fetched and passed by both callers, leaving a dead prop and a wasted test-data network request."
+    },
+    {
+      "failure_scenario": "test-workflow-drawer.tsx:56-58 declares payload as 'any' (the parsed JSON output) while test-workflow-content.tsx:17-19 declares payload as 'string' (the raw input) for the same react-hook-form instance via useFormContext. The content component does JSON.parse(payload || '{}') under the string assumption; if a future edit aligns content to the drawer's 'any' declaration, a parsed object would be passed to JSON.parse, throw, and silently render an empty object in the EditableJsonViewer. Additionally the transform body at lines 43-54 is a verbatim copy of the payload half of buildDynamicFormSchema in ../schema.ts (still used by test-workflow-tabs.tsx), so JSON-payload validation logic now exists in two places and changes to one copy will not propagate to the other.",
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 56,
+      "summary": "The shared TestWorkflowFormType/buildDynamicFormSchema from '../schema' was replaced by a copy-pasted payload-only zod schema plus two conflicting local TestWorkflowFormType declarations that disagree about the payload field's type."
+    }
+  ],
+  "level": null
+}

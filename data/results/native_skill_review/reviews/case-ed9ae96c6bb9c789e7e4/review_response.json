@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "ccv_cnnp_reshape(0, DIM_ALLOC(-1, -1, 4), DIM_ALLOC(), DIM_ALLOC(), 0) compiled against a 24-element input: the loop resolves only index 1, leaving dim = (-1, 6, 4). In debug builds the dimension-count assert at line 603 aborts with a misleading message (the wrapped negative count is huge); in NDEBUG builds the unresolved -1 is memcpy'd into params.dim (line 608) and ccv_nnc_tensor_get_stride computes negative strides, so the compiled graph contains a tensor symbol with a negative dimension, producing garbage strides and out-of-bounds memory access at run time. The feature should reject more than one -1 (as PyTorch/ONNX semantics do) instead of last-wins resolution.",
+      "file": "lib/nnc/ccv_cnnp_model_addons.c",
+      "line": 587,
+      "summary": "Multiple -1 dims are silently accepted: each -1 overwrites auto_idx, so only the last -1 is resolved and the earlier one remains in the output shape."
+    },
+    {
+      "failure_scenario": "ccv_cnnp_reshape(0, DIM_ALLOC(-1, 3), DIM_ALLOC(), DIM_ALLOC(), 0) on a 10-element input: 10 % 3 != 0, so a debug build aborts at line 592, but an NDEBUG build computes dim[0] = 10 / 3 = 3 and the output tensor is declared (3, 3) = 9 elements over a 10-element buffer — silently wrong shape and mis-mapped data. Similarly DIM_ALLOC(4, -1) on a 2-element input infers dim[1] = 0 under NDEBUG, creating a degenerate output tensor. The asserted value feeds a subsequent computation (integer division), so assert-only validation is insufficient; the check needs a non-assert rejection path.",
+      "file": "lib/nnc/ccv_cnnp_model_addons.c",
+      "line": 592,
+      "summary": "Divisibility of the input element count by the fixed dims is enforced only via assert, so with asserts compiled out (NDEBUG, e.g. CMake Release builds) the inferred dim silently truncates instead of erroring."
+    },
+    {
+      "failure_scenario": "The test suite passes while ccv_cnnp_reshape still aborts in debug builds and constructs invalid tensor shapes (unresolved negative dims, truncated or zero inferred dims) in NDEBUG builds for multiple -1 dims or non-divisible input counts, letting the defects above ship undetected.",
+      "file": "test/unit/nnc/dynamic.graph.tests.c",
+      "line": 1162,
+      "summary": "The new test covers only the single -1, exactly-divisible happy path; the failure modes of the new inference code (multiple -1, non-divisible input count) have no coverage."
+    }
+  ],
+  "level": null
+}

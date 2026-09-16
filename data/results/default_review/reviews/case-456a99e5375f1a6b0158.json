@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "static/gsApp/views/onDemandBudgets/onDemandBudgetEditModal.tsx",
+      "line": 198,
+      "summary": "Dead code: renderInputFields method and its 4 associated styled components (InputFields, Currency, OnDemandInput, DetailTitle) plus the Input import are defined but never called. The modal's render() delegates to <OnDemandBudgetEdit> which has its own renderInputFields with dynamic per-category rendering.",
+      "failure_scenario": "The method and 100+ lines of code are unreachable. The budget edit modal renders through OnDemandBudgetEdit (line 326), making this orphaned code a maintenance liability and leaving the Input import as an unnecessary dependency.",
+      "finding_id": "mf-96ad6557369b816e46cc"
+    },
+    {
+      "file": "static/gsApp/views/onDemandBudgets/onDemandBudgetEditModal.tsx",
+      "line": 40,
+      "summary": "Duplicate cent/dollar conversion functions coerceValue/parseInputValue copied identically from onDemandBudgetEdit.tsx. These functions are already duplicated across 5+ files in the codebase.",
+      "failure_scenario": "A bug fix or behavior change to the conversion logic (e.g., handling decimals instead of parseInt truncation) would need to be replicated across all copies. The modal independently defines parseInputValue using parseInt (line 45), which silently drops decimal fractions if a desktop user types '42.50' in the type='text' input.",
+      "finding_id": "mf-5dbd2048004ec5dd37c5"
+    },
+    {
+      "file": "static/gsApp/views/onDemandBudgets/utils.tsx",
+      "line": 46,
+      "summary": "parseOnDemandBudgets uses for...in to iterate over the budgets object, iterating inherited enumerable properties in addition to own properties. The sibling function convertOnDemandBudget (line 272) correctly uses Object.entries instead.",
+      "failure_scenario": "If any enumerable property exists on Object.prototype (from a polyfill or library), the loop would process it as a budget category, creating unexpected keys like 'toStringBudget' on the returned object. This malformed object would then be sent to the API on save via normalizeOnDemandBudget.",
+      "finding_id": "mf-d564aed821e207e7f1ef"
+    },
+    {
+      "file": ".envrc",
+      "line": 124,
+      "summary": "Removed fallback for mktemp failure. Old version had 'mktemp /tmp/sentry.envrc.$$.out || mktemp /tmp/sentry.envrc.XXXXXXXX.out' but new version has only the primary mktemp call with no fallback.",
+      "failure_scenario": "If /tmp is full or unwritable, the old code would try a second mktemp pattern as a fallback. The new code fails immediately, causing error-reporting log capture to be silently broken for that direnv session.",
+      "finding_id": "mf-3a28dc39254b4d79d510"
+    },
+    {
+      "file": "src/sentry/migrations/0936_prompts_activity_index.py",
+      "line": 1,
+      "summary": "Removed migration 0936 that added a composite index on (feature, organization_id, project_id) for PromptsActivity, and simultaneously removed the equivalent inline Meta indexes from the model. Queries in seer_setup.py filter on exactly these three fields and would benefit from this index.",
+      "failure_scenario": "Calls to get_seer_user_acknowledgement() and get_seer_org_acknowledgement() filter PromptsActivity by (feature, organization_id, project_id) with no existing composite index. At scale, this results in sequential scans instead of index scans. Additionally, a future makemigrations would generate a DROP INDEX migration since the Meta definition was removed.",
+      "finding_id": "mf-25e1d02bf1ec2062b373"
+    }
+  ]
+}

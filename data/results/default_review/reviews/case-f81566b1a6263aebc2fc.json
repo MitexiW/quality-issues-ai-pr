@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/sentry/integrations/source_code_management/tasks.py",
+      "line": 346,
+      "summary": "Dead logging code: `file_extension == [\"php\"]` compares a string to a list, always False",
+      "failure_scenario": "`file_extension` is a string like `\"php\"`, so `file_extension == [\"php\"]` is always `False`. The PHP extension-specific logging block at line 346-356 never executes, silently losing observability for PHP file processing. The same bug exists at line 358 for `== [\"rb\"]`. Compare with the correct patterns at line 322 (`== \"py\"`) and line 334 (`in [\"js\", \"jsx\"]`). Pre-existing in the touched function, not introduced by this diff.",
+      "finding_id": "mf-8cc2305a4595efb7a81e"
+    },
+    {
+      "file": "src/sentry/integrations/source_code_management/tasks.py",
+      "line": 358,
+      "summary": "Dead logging code: `file_extension == [\"rb\"]` compares a string to a list, always False",
+      "failure_scenario": "Same bug as line 346 but for the Ruby extension block. `file_extension == [\"rb\"]` is always `False` because `file_extension` is a string. The Ruby-specific logging never fires.",
+      "finding_id": "mf-a39f8b2df762d0d5a9b5"
+    },
+    {
+      "file": "src/sentry/integrations/github/integration.py",
+      "line": 528,
+      "summary": "Unhandled Organization.DoesNotExist from new get_from_cache call; previously no org dependency existed",
+      "failure_scenario": "The new `Organization.objects.get_from_cache(id=repo.organization_id)` call can raise `Organization.DoesNotExist` if the org was deleted between task dispatch and execution. The old code never touched the org in `safe_for_comment`, so this exception path is a regression. The calling code at line 583 (`get_pr_files_safe_for_comment`) and the task at `tasks.py:277` do not catch this exception, so it propagates to the Celery worker as an unhandled failure.",
+      "finding_id": "mf-f649089dd5bcec77b9cd"
+    },
+    {
+      "file": "src/sentry/integrations/gitlab/integration.py",
+      "line": 348,
+      "summary": "Unhandled Organization.DoesNotExist from new get_from_cache call; same regression as github integration",
+      "failure_scenario": "Identical issue to github `safe_for_comment` — the new `Organization.objects.get_from_cache(id=repo.organization_id)` at line 348 introduces a previously nonexistent `Organization.DoesNotExist` exception path that propagates unhandled through `get_pr_files_safe_for_comment` (line 402) to the task caller.",
+      "finding_id": "mf-e8f9cdecec33f520bbab"
+    },
+    {
+      "file": "src/sentry/integrations/source_code_management/language_parsers.py",
+      "line": 288,
+      "summary": "CSharpParser method_declaration_regex cannot match generic method declarations directly; depends on local_function_regex fallback via backtracking",
+      "failure_scenario": "A C# method like `public void GetItems<T>(int id)` is not matched by `method_declaration_regex` because it expects `\\(` immediately after the function name (line 288), but generic type parameters `<T>` appear between. The regex only works because `local_function_regex` (line 308) happens to match it as a fallback after the lazy `[^=]*?` backtracks past the modifiers. If the regex list order or patterns were changed, generic C# methods could silently stop being detected.",
+      "finding_id": "mf-2583b6801488bcd56e31"
+    }
+  ]
+}

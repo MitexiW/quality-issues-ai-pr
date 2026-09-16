@@ -1,0 +1,7 @@
+group,quality_category,pr_with_category_n,all_pr_n,pr_prevalence_percent,share_of_pr_category_occurrences_percent
+ai,correctness_reliability,54,3087,1.749271137026239,19.494584837545126
+ai,maintainability,219,3087,7.094266277939747,79.06137184115524
+ai,performance_efficiency,4,3087,0.12957563977972142,1.444043321299639
+human,correctness_reliability,62,2317,2.6758739749676304,20.327868852459016
+human,maintainability,237,2317,10.228744065602072,77.70491803278688
+human,performance_efficiency,6,2317,0.2589555459646094,1.9672131147540983

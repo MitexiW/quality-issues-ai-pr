@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "bidWon() builds the report as btoa(JSON.stringify(data)) and appends '&payload=' + JSON.stringify(report) without encodeURIComponent (the old GET path used encodeURIComponent(JSON.stringify(report))). Base64 of any realistic payload (~300+ chars) contains '+' with ~99% probability; servers decode '+' in a query string as a space, so the payload arrives mangled and the server cannot decode the report. Every BID_WON report from this adapter is effectively corrupted, breaking Intent IQ win-report analytics.",
+      "file": "modules/intentIqAnalyticsAdapter.js",
+      "line": 319,
+      "summary": "The win-report payload is no longer URL-encoded, so the raw base64 (containing '+', '/', '=', '\"', '[', ']') is placed directly in the query string and gets corrupted in transit."
+    },
+    {
+      "failure_scenario": "The success handler was changed to write firstPartyData.cttl (line 428-430) instead of partnerData.cttl, and partnerData.date (line 419) is now a dead write since the expiry check reads firstPartyData. But line 397 still appends '&cttl=' + partnerData.cttl. After a user's first request under the new code, partnerData.cttl is undefined, so the cttl echo that the old code always sent to ProfilesEngineServlet (so the server could see the client's current TTL) silently disappears from all subsequent VR requests - a protocol regression for any server-side logic that relied on the echoed cttl.",
+      "file": "modules/intentIqIdSystem.js",
+      "line": 397,
+      "summary": "The VR request still echoes partnerData.cttl, but the response handler now stores cttl only in firstPartyData, so the '&cttl=' parameter is never sent again for data written by the new code."
+    },
+    {
+      "failure_scenario": "The old polyfill was '(target && target.includes(elem)) || false', so includes(slot.getTargeting(key), adId) returned false when getTargeting(key) was null/undefined (GPT returns null for keys without a value, e.g. cleared or empty targeting). The new code calls .includes() directly on the return value; if GPT returns null, the TypeError propagates out of find() and getDfpElementId(), aborting resizeRemoteCreative() so the remote creative's resize event fails to locate its element and no resize happens.",
+      "file": "src/secureCreatives.js",
+      "line": 177,
+      "summary": "Replacing the null-guarding includes() polyfill with slot.getTargeting(key).includes(adId) can throw a TypeError when GPT returns null/undefined for a targeting key."
+    },
+    {
+      "failure_scenario": "libraries/analyticsAdapter/AnalyticsAdapter.js line 42 destructures only '{ url, analyticsType, global, handler }'; passing defaultUrl leaves url undefined, so getUrl() now returns undefined (it previously returned the default report URL) and the factory's internal endpoint ajax (_callEndpoint) would POST to undefined if it were ever invoked. Every other analytics adapter in the repo passes adapter({url: ...}); the report path currently works only because this adapter overrides track() and builds its own URL, making this a latent contract mismatch introduced by the change.",
+      "file": "modules/intentIqAnalyticsAdapter.js",
+      "line": 62,
+      "summary": "adapter() is invoked with {defaultUrl: ...} but the analytics adapter factory only destructures {url}, so the adapter's url is undefined."
+    }
+  ],
+  "level": null
+}

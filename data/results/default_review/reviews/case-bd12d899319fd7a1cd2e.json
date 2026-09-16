@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/components/composer/ApplyView.tsx",
+      "line": 241,
+      "summary": "Accept/Reject floating button bar lost `-translate-x-1/2` centering transform during bulk `tw-` prefix migration",
+      "failure_scenario": "The fixed-position button bar uses `left-1/2` (line 241) to position at horizontal center, but the `-translate-x-1/2` transform that pulls it back by half its own width was dropped (the old code had `-translate-x-1/2` after `left-1/2`). The bar now renders offset to the right by half its width instead of being centered at the bottom of the ApplyView. Observed on any composer window where Accept/Reject buttons appear.",
+      "finding_id": "mf-5db3004ed6c126931e34"
+    },
+    {
+      "file": "src/components/composer/ApplyView.tsx",
+      "line": 310,
+      "summary": "Diff change block container lost `flex` layout class during prefix migration, breaking inline diff display layout",
+      "failure_scenario": "The container div for each change line within a diff block (line 310) had `flex relative border-l-3` in the old code. The `tw-` migration dropped `flex` entirely (now only `tw-relative`). Individual change lines (`added`/`removed` spans) were laid out as flex children; they now default to block layout. This affects the visual alignment of the `+`/`-` diff display in the composer ApplyView when reviewing code changes.",
+      "finding_id": "mf-fcb467f50ecea0bb0a8a"
+    },
+    {
+      "file": "src/components/chat-components/ProjectList.tsx",
+      "line": 49,
+      "summary": "ProjectItem hover state lost valid background highlight (`hover:bg-interactive-accent/5`) and border opacity modifier (`/30`) during prefix migration",
+      "failure_scenario": "The old ProjectItem className (line 49) included `hover:border-interactive-accent/30 hover:bg-interactive-accent/5 hover:shadow-[...]`. The `tw-` migration replaced this with `hover:tw-border-interactive-accent hover:tw-text-accent hover:tw-shadow-[...]`. Two valid effects were lost: (1) `hover:bg-interactive-accent/5` (a subtle 5% accent background highlight) was completely dropped; (2) `hover:border-interactive-accent/30` lost its `/30` opacity modifier, changing the hover border from 30% to 100% opacity accent color. A new `hover:tw-text-accent` effect was added instead. This changes the visual hover feedback on project cards.",
+      "finding_id": "mf-4be826c53bdd16846712"
+    }
+  ]
+}

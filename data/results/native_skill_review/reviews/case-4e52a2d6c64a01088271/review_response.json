@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`setConfig({userSync: {enforceStorageType: true, userIds: [{name: 'xId', storage: {type: 'html5&cookie', name: 'x'}}]}})` — a valid config per modules/userId/spec.ts:50 and the module's own parser `getConfiguredStorageTypes` (index.ts:907-909). `setDataInLocalStorage` (storageType 'html5') and `setCookie` (storageType 'cookie') both compare unequal to the raw `'html5&cookie'` string, so the rule returns `{allow: false}` for both; `localStorageIsEnabled()`/`cookiesAreEnabled()` then report false, `enabledStorageTypes` ends up empty, and the submodule is filtered out of `initSubmodules` — no ID is ever stored or passed to bidders. With `enforceStorageType` unset, the same mismatch spams `logWarn` on every storage read/write (`setStoredValue` writes each enabled type, index.ts:178).",
+      "file": "modules/userId/index.ts",
+      "line": 1167,
+      "summary": "The rule compares the activity's single storage type against the raw config string `storage.type`, so valid combined-type configs like `'html5&cookie'` (or `'html5 & cookie'`) never match and every storage operation is falsely warned about or denied."
+    },
+    {
+      "failure_scenario": "Publisher sets `{enforceStorageType: true, userIds: [{name: 'm', storage: {type: 'html5', name: 's'}}]}`, then calls `pbjs.resetUserIds()` (index.ts:1233-1236) during an opt-out flow, then reconfigures with `enforceStorageType: false`. `resetUserIds` re-invokes `init(config)`, which creates a fresh `unregisterEnforceStorageTypeRule` local — the deny-rule from the previous closure stays in the rule registry (registered earlier at priority 10, so it runs first in `isActivityAllowed`). Subsequent cookie writes by module 'm' return `{allow: false}` from the stale rule before the new warn-only rule ever runs, so storage remains denied even though the current config explicitly disabled enforcement; each further `init()` call accumulates another stale rule.",
+      "file": "modules/userId/index.ts",
+      "line": 1207,
+      "summary": "The registered activity rule leaks across `init()` calls because `unregisterEnforceStorageTypeRule` is a local of each `init()` invocation and the unregister call sits inside the `if (userSync.userIds)` branch, so rules registered by a previous `init()` generation are never removed and keep enforcing stale config."
+    },
+    {
+      "failure_scenario": "Publisher updates config to `{enforceStorageType: true, userIds: []}` (or entries that all fail `getValidSubmoduleConfigs` validation): `updateSubmodules` no-ops, `submodules` still holds the previous containers, and the rule is registered over those stale configs — storage writes for modules no longer configured keep being warned/denied per the old config. Conversely, a userId submodule registered via `attachIdSystem` after the userSync config was set is absent from the snapshot, so its storage access is silently exempt from enforcement and from the warning.",
+      "file": "modules/userId/index.ts",
+      "line": 1208,
+      "summary": "The rule is built from a one-time snapshot of `submodules` taken at config-set time, which diverges from the live submodule list: `updateSubmodules` early-returns without clearing `submodules` when the new config yields no valid entries (index.ts:1069-1072), and later `attachIdSystem` calls (index.ts:1131) replace `submodules` without re-registering the rule."
+    },
+    {
+      "failure_scenario": "`setConfig({userSync: {enforceStorageType: true, userIds: [{name: '<alias>', storage: {type: 'html5', name: 's'}}]}})` where the submodule declares `aliasName: '<alias>'` (supported by modules/userId/spec.ts:135; `generateSubmoduleContainers` matches `[name, aliasName]` at index.ts:1034-1036 and `updateIdPriority` maps aliases at index.ts:1095). The rule's `find` compares the activity's `<alias>` componentName against the canonical container name, finds nothing, and returns without warning or denying — the submodule silently bypasses storage-type enforcement that identically-configured canonical names receive.",
+      "file": "modules/userId/index.ts",
+      "line": 1163,
+      "summary": "Name matching ignores `aliasName`: containers store the canonical `submodule.name` (index.ts:1046-1049) while the storage activity's componentName is the configured name (index.ts:1052), which the module framework elsewhere accepts as an alias, so alias-configured submodules never match the rule and enforcement silently no-ops."
+    },
+    {
+      "failure_scenario": "After 'should warn and allow userId module to store data for enforceStorageType unset' runs, `cookieName=value` remains in the document jar (the teardown is a no-op). Any other test in this 3345-line spec that asserts on `document.cookie` contents, counts, or absence of cookies can fail or flake depending on execution order, because the new tests leak global browser state instead of restoring it.",
+      "file": "test/spec/modules/userId_spec.js",
+      "line": 3319,
+      "summary": "The new describe's `afterEach` cleanup `document.cookie = ''` does not remove any cookies: `setCookie` writes with `path=/`, and assigning an empty string never deletes existing cookies, so the `cookieName` cookie written by the first test persists after the suite."
+    }
+  ],
+  "level": null
+}

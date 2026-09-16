@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "clint, the repo's other docstring linter, explicitly skips underscore-prefixed functions (dev/clint/src/clint/linter.py `_param_mismatch`: 'TODO: Remove this guard clause to enforce the docstring param checks for all functions'), so ruff's D417 was the sole check covering the ~40 private helpers this diff touches (e.g. `_load_pyfunc` in mlflow/pytorch/__init__.py, `_run_server` in mlflow/server/__init__.py, `_get_experiment`/`_get_run` in mlflow/store/tracking/sqlalchemy_store.py). Concrete evidence that D417 was actively enforcing there: tests/store/artifact/test_cli.py `_run_download_artifact_command(args)` documents a `command` parameter that does not exist in its signature, a mismatch only D417 could flag. After this change, any new or modified private function can merge with undocumented or wrong-named parameters and pass CI silently, progressively degrading the docstrings that generate the published API reference.",
+      "file": "pyproject.toml",
+      "line": 185,
+      "summary": "Removing D417 (undocumented-param) from the ruff select list disables the only lint enforcement that function parameters are documented in docstrings for private (_-prefixed) functions"
+    }
+  ],
+  "level": null
+}

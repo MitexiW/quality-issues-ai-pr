@@ -1,0 +1,109 @@
+{
+  "findings": [
+    {
+      "file": "crewai_tools/tools/code_interpreter_tool/code_interpreter_tool.py",
+      "line": 111,
+      "summary": "Shell command injection: changed from list-based exec_run(['python3', '-c', code]) to string-based exec_run(f'python3 -c \"{code}\"') — double quotes in Python code escape shell quoting, breaking syntax for any code using string literals and enabling injection of arbitrary shell commands inside the Docker container",
+      "failure_scenario": "code = 'print(\"hello world\")' produces the shell command python3 -c \"print(\"hello world\")\" which has unmatched quotes — shell syntax error. Worse, code containing '\"; malicious_cmd; echo \"' executes arbitrary commands inside the container.",
+      "finding_id": "mf-4524e2b2719d9c2a10c9"
+    },
+    {
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 13,
+      "summary": "AttributeError: uses datetime.now() on the datetime module (imported via 'import datetime') but now() is a classmethod on datetime.datetime — will raise AttributeError: module 'datetime' has no attribute 'now'",
+      "failure_scenario": "Any call to _save_results_to_file() (when save_file=True) crashes with AttributeError. The old code correctly used datetime.datetime.now().",
+      "finding_id": "mf-850e5af82ac5dbc7a1de"
+    },
+    {
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 65,
+      "summary": "Missing raise_for_status() — HTTP errors (4xx, 5xx) are not detected; response.json() is called on error responses, which may not contain valid JSON or may contain an error dict that silently falls through logic",
+      "failure_scenario": "Serper API returns 401 Unauthorized — response.json() returns {'error': 'Unauthorized'}, code checks 'if \"organic\" in results' (false), falls to 'else: return results', returning the error dict to the caller who expects search results.",
+      "finding_id": "mf-aa26695be72605877670"
+    },
+    {
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 65,
+      "summary": "Missing timeout parameter on requests.request() — network calls may hang indefinitely; old code had timeout=10",
+      "failure_scenario": "Serper API becomes unresponsive — request blocks forever with no timeout, hanging the calling agent indefinitely.",
+      "finding_id": "mf-65210896f885100489cd"
+    },
+    {
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 61,
+      "summary": "Bare os.environ['SERPER_API_KEY'] access raises unhelpful KeyError without a descriptive error message if the environment variable is not set",
+      "failure_scenario": "User deploys without setting SERPER_API_KEY environment variable — uncaught KeyError crashes with cryptic traceback instead of clear 'Missing API key' message.",
+      "finding_id": "mf-08fec9d05ecf0e3d2d59"
+    },
+    {
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 70,
+      "summary": "Inconsistent return type: returns formatted string when organic results exist but raw dict otherwise — callers cannot rely on the type of _run()'s return value",
+      "failure_scenario": "Search yields no organic results (empty results page) — code falls to 'else: return results' returning a raw dict, while callers expecting the formatted search string get a dict and may crash when calling string methods on it.",
+      "finding_id": "mf-ef772fcf55183045162e"
+    },
+    {
+      "file": "crewai_tools/tools/code_interpreter_tool/code_interpreter_tool.py",
+      "line": 82,
+      "summary": "Command injection in library installation: changed from exec_run(['pip', 'install', library]) to exec_run(f'pip install {library}') — shell metacharacters in library names (from agent/LLM input) allow command injection inside the Docker container",
+      "failure_scenario": "LLM generates or adversary provides library name containing shell metacharacters like 'requests; cat /etc/passwd; echo' — shell executes pip install requests; cat /etc/passwd; echo inside the container, leaking sensitive data.",
+      "finding_id": "mf-cd9fa25cbd53e74f778e"
+    },
+    {
+      "file": "crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 46,
+      "summary": "Removed URL validation (_validate_url method deleted) — URLs are passed to Spider API without any format or security checks, including javascript: and data: scheme URLs",
+      "failure_scenario": "URL 'javascript:alert(1)' or 'file:///etc/passwd' is passed unchecked to spider.scrape_url() — Spider client may behave unexpectedly or crash.",
+      "finding_id": "mf-61f5d2a5d0a58d1ee061"
+    },
+    {
+      "file": "crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 40,
+      "summary": "Removed all error handling (try/except for ValueError, ImportError, ConnectionError, Exception) — errors during spider operations now propagate uncaught with no graceful message",
+      "failure_scenario": "Network timeout during spider.scrape_url() — ConnectionError propagates to crewAI framework with no user-friendly error message, potentially crashing the entire agent workflow.",
+      "finding_id": "mf-9d5d440716ba4d2b9d32"
+    },
+    {
+      "file": "crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 52,
+      "summary": "return_format unconditionally overwritten to 'markdown' regardless of user-specified params — users cannot request other formats (text, html, raw) even though the README documents them as supported",
+      "failure_scenario": "User passes params={'return_format': 'text'} — code at line 53 silently overwrites to 'markdown', producing markdown output instead of expected plain text. Any value in params['return_format'] is discarded.",
+      "finding_id": "mf-320645582e794f8085d0"
+    },
+    {
+      "file": "crewai_tools/tools/llamaindex_tool/llamaindex_tool.py",
+      "line": 21,
+      "summary": "Removed result_as_answer conditional — _run previously checked self.result_as_answer and returned tool(...).content for callers that wanted text output; now always returns raw ToolOutput object, a silent breaking change",
+      "failure_scenario": "Existing code with LlamaIndexTool(result_as_answer=True, llama_index_tool=tool) — _run now returns a ToolOutput object instead of a string, and the LLM receives <llama_index.core.tools.types.ToolOutput object at 0x...> instead of the expected text content.",
+      "finding_id": "mf-4f7ccd05ecd30b178908"
+    },
+    {
+      "file": "crewai_tools/tools/selenium_scraping_tool/selenium_scraping_tool.py",
+      "line": 131,
+      "summary": "Inconsistent URL validation: schema validator (lines 27-47) checks whitespace, length, and uses urlparse, while _create_driver (lines 131-136) only checks emptiness and scheme prefix — different validation layers enforce different rules depending on whether website_url was preset in __init__",
+      "failure_scenario": "Tool initialized with website_url preset (args_schema replaced with FixedSeleniumScrapingToolSchema, no validator): URL 'https://example.com ' (trailing space) passes _create_driver but would have been rejected by the schema validator. When used without preset, the schema validator catches it but the _create_driver redundant check does not detect it.",
+      "finding_id": "mf-5b3b0b529fee1c5fcf5e"
+    },
+    {
+      "file": "crewai_tools/__init__.py",
+      "line": 46,
+      "summary": "SerpApiGoogleSearchTool and SerpApiGoogleShoppingTool removed from package exports with no deprecation warning — any code importing these symbols gets an immediate ImportError",
+      "failure_scenario": "Existing code with 'from crewai_tools import SerpApiGoogleSearchTool' — ImportError crashes the application at startup with no migration path.",
+      "finding_id": "mf-eeb42993b5a48ae84ada"
+    },
+    {
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 40,
+      "summary": "Removed search_type='news' support and entire news-processing pipeline — users of the news search feature silently fall back to regular web search with no error or warning",
+      "failure_scenario": "User with search_type='news' in kwargs — the new code ignores search_type entirely, always hitting the /search endpoint. News-specific results are lost and user gets generic web results instead of news articles.",
+      "finding_id": "mf-cdacaba4317c6157a0b5"
+    },
+    {
+      "file": "tests/tools/test_code_interpreter_tool.py",
+      "line": 33,
+      "summary": "Removed test 'test_run_code_in_docker_with_script' that executed multi-line Python code with quotes — this exact test would have caught the command injection regression at line 111 of code_interpreter_tool.py",
+      "failure_scenario": "The removed test used multi-line code with print() calls containing double-quoted strings. Under the new f'python3 -c \"{code}\"' pattern, this test would break with a shell syntax error, immediately flagging the injection vulnerability. Its removal allows the regression to ship undetected.",
+      "finding_id": "mf-e99a013df430cef8d6cf"
+    }
+  ]
+}

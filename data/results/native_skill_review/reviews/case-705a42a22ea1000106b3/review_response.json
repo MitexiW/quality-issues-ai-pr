@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user runs 'crewai create crew my_project' (which generates crew.py defining 'class MyCrew()' decorated with @CrewBase and a @crew method, per src/crewai/cli/templates/crew/crew.py) and then runs 'crewai reset-memories -a'. get_crew() walks to crew.py, execs it, and checks dir(module) (Agent, Crew, Process, Task, decorators, the MyCrew class) — none is an instance of Crew, so no match. The loop breaks, get_crew() returns None, and reset_memories_command raises ValueError('No crew found.'), so the CLI prints 'An unexpected error occurred: No crew found.' The previous code (callable(attr) and hasattr(attr, 'crew') -> attr().crew()) successfully instantiated the template class and returned its crew.",
+      "file": "src/crewai/cli/utils.py",
+      "line": 276,
+      "summary": "get_crew() now only recognizes module-level Crew instances, so it can no longer discover crews defined with the standard @CrewBase class + @crew method pattern that 'crewai create crew' generates, breaking 'crewai reset-memories' for template-based projects."
+    },
+    {
+      "failure_scenario": "A user follows the new docs section and calls my_crew.reset_memories(command_type='entities'). Crew.reset_memories (src/crewai/crew.py:1250-1257) checks command_type against VALID_TYPES = {'long', 'short', 'entity', 'knowledge', 'kickoff_outputs', 'all'} and raises ValueError: Invalid command type. The CLI flag is --entities but internally maps to command_type='entity' (reset_memories_command.py:49-51); the documented Python API value is wrong.",
+      "file": "docs/concepts/memory.mdx",
+      "line": 558,
+      "summary": "The new 'Resetting Memory Options' table documents 'entities' as a valid command_type, but Crew.reset_memories only accepts the singular 'entity', so users copying the documented value get a ValueError."
+    },
+    {
+      "failure_scenario": "A caller invokes get_crew(crew_path='src/crew.py') on a project whose crew lives in a subdirectory. os.walk('.') returns files as bare names ('crew.py'), so the string 'src/crew.py' is never in files, the loop finds nothing, and get_crew() returns None (or raises SystemExit with require=True) even though the file exists — the immediately following os.path.join(root, crew_path) shows the function is expected to handle paths. Previously the filename was hard-coded, so this path-qualified-input failure mode is introduced by parameterizing the check.",
+      "file": "src/crewai/cli/utils.py",
+      "line": 260,
+      "summary": "The new membership check 'crew_path in files' can never match when crew_path contains a directory component, because os.walk yields bare filenames, so any caller passing e.g. 'src/crew.py' silently gets None instead of the crew."
+    },
+    {
+      "failure_scenario": "The docs now render 'Reset KNOWLEDEGE storage' for the -kn/--knowledge flag in the memory concepts page, a visible typo in shipped user documentation with no functional consequence.",
+      "file": "docs/concepts/memory.mdx",
+      "line": 523,
+      "summary": "The newly added CLI options row misspells 'KNOWLEDGE' as 'KNOWLEDEGE' in the user-facing reset-memories documentation table."
+    }
+  ],
+  "level": null
+}

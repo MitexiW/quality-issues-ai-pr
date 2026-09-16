@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user opens the 'More options' menu on a grid or list item; while it is open, any ContentExplorer state update re-renders the parent (e.g. an async thumbnail-generation completion calls updateItemInCollection -> setState, or a sort/refresh resolves), creating a fresh OptionsDropdownMenu function identity. React treats it as a different component type, unmounts the open DropdownMenu.Root and mounts a new closed one, so the menu vanishes mid-interaction. In grid view the GridList.Actions render-prop re-renders on every onOpenChange notification, which can close the menu immediately after it opens. The old code rendered <DropdownMenu.Root> inline (stable type) and did not have this problem; the newly commented-out visual stories (with added hover workarounds) are consistent with the menu not staying open.",
+      "file": "src/elements/common/item/ItemOptions.tsx",
+      "line": 84,
+      "summary": "OptionsDropdownMenu is defined inside ItemOptions' render, so every re-render creates a new component type and React unmounts/remounts the whole DropdownMenu subtree, closing any open menu and dropping focus."
+    },
+    {
+      "failure_scenario": "Before the change, the old list bound onRowClick to onItemSelect, so clicking a row called ContentExplorer.select -> updateCollection, marking the item selected and invoking the consumer's onSelect prop, and the row got the bce-item-row-selected class. Now Row.onAction only calls onItemClick (folders navigate immediately, files preview), and the item's selected flag is never consumed for styling. Consumers relying on the documented onSelect prop to track user selection get no callbacks, and keyboard users lose the visible selected-row indicator; the deleted ContentExplorer.int.cy.js tests ('Should be able to select a row', 'Should change selected rows') covered exactly this behavior.",
+      "file": "src/elements/common/item-list/ItemList.tsx",
+      "line": 98,
+      "summary": "The new ItemList (and ItemGrid) never invoke onItemSelect, so ContentExplorer's public onSelect callback never fires on item clicks and the selected-row highlight (bce-item-row-selected via the item's selected flag) is gone from list view."
+    },
+    {
+      "failure_scenario": "A keyboard user opens the Delete/Rename/Share dialog from a row; on close, closeModals() queries `.bce-item-row-${focusedRow}` which no longer exists in the DOM, so focus() falls back to focusing the .be-app-element container instead of the previously focused row. Likewise finishNavigation() after navigating into a folder can no longer focus the first row. Keyboard focus is left on the container, breaking the previous 'focus returns to the list' behavior introduced by the list migration.",
+      "file": "src/elements/content-explorer/ContentExplorer.tsx",
+      "line": 1358,
+      "summary": "Focus restoration still targets the removed row class: finishNavigation() and closeModals() call focus(this.rootElement, '.bce-item-row') / `.bce-item-row-${focusedRow}`, but the new blueprint Table rows only have className 'be-ItemList-item' and id={item.id}, so the selectors match nothing."
+    },
+    {
+      "failure_scenario": "In the old list, focusing a row and pressing 's' opened the share dialog, 'r' the rename dialog, 'x' selected, Delete opened delete confirmation (KeyBinder.js cases ArrowDown/ArrowUp/Enter/Delete/X/D/S/R). The new blueprint Table Row only supports Enter/Space via onAction; all the other shortcuts are gone with no replacement, so keyboard-only users lose those operations in ContentExplorer's list view.",
+      "file": "src/elements/common/item-list/ItemList.tsx",
+      "line": 85,
+      "summary": "The list migration dropped the KeyBinder wrapper, removing the row-level keyboard shortcuts (X select, D download, S share, R rename, Delete delete, and explicit arrow navigation) that the old ItemList provided."
+    },
+    {
+      "failure_scenario": "In Recents view, clicking the NAME or SIZE column header calls onSortChange -> ContentExplorer.sort. The Recents API (api/Recents.js) takes no sort parameters, so the click either no-ops (currentCollection has no id) or triggers a pointless refetch via refreshCollection -> showRecents that returns items in server order; meanwhile the header shows a sort indicator that does not reflect the data. The old list explicitly disabled sorting outside the folder view; the new constants lose that view-awareness.",
+      "file": "src/elements/common/item-list/constants.ts",
+      "line": 3,
+      "summary": "Sorting is hard-coded on (allowsSorting: true) for the name/date/size columns regardless of view, dropping the old list's `hasSort = view === VIEW_FOLDER` / disableSort logic, so sort controls are active in Recents view where sorting is not supported."
+    },
+    {
+      "failure_scenario": "The commented-out blocks include newly added userEvent.hover(...) workarounds before clicking 'More options', indicating the delete/rename/share flows could not be made to pass against the new ItemList; by commenting them out, visual regressions in the more-options menu and its dialogs are no longer caught by the storybook test suite (the replacement e2e only covers list-view Share/Rename, not the grid menu or delete).",
+      "file": "src/elements/content-explorer/stories/tests/ContentExplorer-visual.stories.js",
+      "line": 81,
+      "summary": "Six previously active visual-regression stories (open/close delete confirmation, rename dialog, share dialog, and withMoreOptionsAndShareButton) are commented out rather than fixed, removing visual coverage for those flows."
+    },
+    {
+      "failure_scenario": "Any future test that invokes helpers.getListItemByIndex(0) or helpers.getGridItemByIndex(0) enters infinite recursion (getElementBySelector -> getElementBySelector -> ...) and Cypress fails with 'Maximum call stack size exceeded'. The helpers are currently unused by the tests, so the defect is latent, but the declared helper API is broken as written.",
+      "file": "test/integration/content-explorer/ContentExplorer.e2e.cy.js",
+      "line": 18,
+      "summary": "The e2e helper getElementBySelector(selector) returns this.getElementBySelector(selector).first(), i.e. it calls itself, so any use of it (and of getListItemByIndex/getGridItemByIndex, which delegate to it) throws a stack-overflow RangeError."
+    },
+    {
+      "failure_scenario": "With itemActions=[{ label: 'Export', filter: item => item.extension === 'pdf' }] and a non-pdf file whose permissions enable Delete/Share, the menu renders 'Delete', 'Share', then <DropdownMenu.Separator /> with no custom action after it. hasActions (itemActions.length > 0) was not updated to account for the new filter-based exclusion introduced by this change.",
+      "file": "src/elements/common/item/ItemOptions.tsx",
+      "line": 124,
+      "summary": "The separator condition `hasActions && hasOptions` counts custom actions before filtering, so when every custom action is filtered out by the new filter/type checks a dangling separator is rendered at the end of the menu."
+    },
+    {
+      "failure_scenario": "Nothing imports content-explorer/ItemList anymore (the only references are its own file and its still-running tests CellRenderer.test.tsx/MoreOptions.test.tsx), so the react-virtualized list, its SCSS, and four cell renderers remain in the bundle/tree unused, doubling the maintenance surface and keeping stale .bce-item-row CSS that future changes could accidentally reuse.",
+      "file": "src/elements/content-explorer/ItemList.tsx",
+      "line": 1,
+      "summary": "Content.tsx switched to the new common/item-list component but the old list implementation and its renderers were left behind as dead production code (content-explorer/ItemList.tsx, ItemList.scss, headerCellRenderer, sizeCellRenderer, dateCellRenderer, moreOptionsCellRenderer, MoreOptions, plus their tests)."
+    },
+    {
+      "failure_scenario": "The duplicate block re-runs the same assertions (3 column headers, NAME/UPDATED/ACTIONS) twice with identical props, so any intended second scenario (e.g. medium + small combination, or a different prop set) is not actually tested; coverage for medium-screen behavior is inflated while the intended distinct case is silently missing.",
+      "file": "src/elements/common/item-list/__tests__/ItemList.test.tsx",
+      "line": 50,
+      "summary": "The test 'renders component with correct columns for medium screen devices' is duplicated verbatim (lines 41 and 50); the second copy adds no coverage and was likely intended to assert a different configuration."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "center/deploy_startup/start.sh",
+      "line": 15,
+      "summary": "Undefined CLAMAV_ENABLED variable causes bash syntax error, crashing the container at startup",
+      "failure_scenario": "Build and run the Docker image without explicitly passing `-e CLAMAV_ENABLED=true`. The variable is never defined as ARG or ENV in the Dockerfile (unlike GRAFANA_ENABLED and PUSHGATEWAY_ENABLED which have defaults at lines 11-12 and 19-20). `${CLAMAV_ENABLED}` expands to empty, making the command `if ; then` which is a bash syntax error. The entire start.sh exits with a syntax error and the container fails to start.",
+      "finding_id": "mf-d0f4911ca09d57a24c1d"
+    },
+    {
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 45,
+      "summary": "scan() silently returns when the ScanResult is neither OK nor VirusFound, accepting unscanned files",
+      "failure_scenario": "If the clamav-client library returns a ScanResult subtype other than OK or VirusFound (e.g., a scan-error or parse-failure result from the daemon), the if-else-if chain at lines 46-63 has no else/final branch. Execution falls through and the method returns normally. The controller proceeds to save the file as if it passed a clean scan. No log entry is written and no exception is thrown.",
+      "finding_id": "mf-275b55fc030298c02ab0"
+    },
+    {
+      "file": "center/src/main/java/com/microsoft/hydralab/center/controller/PackageSetController.java",
+      "line": 250,
+      "summary": "uploadAgentPackage endpoint saves JAR files without ClamAV scanning, unlike the other upload endpoints",
+      "failure_scenario": "An admin user uploads a JAR file containing malware via `POST /api/package/addAgentPackage`. The method calls `attachmentService.verifyAndSaveFile` directly without first calling `ClamAVScanner.getInstance().scan()`. Meanwhile, the `add` (line 136) and `addAttachment` (line 429) methods in the same controller were updated to include scanning. The JAR file is saved to disk and stored in the database with no virus check.",
+      "finding_id": "mf-8f28cdd7747c103bd859"
+    },
+    {
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 44,
+      "summary": "Timeout only governs isReachable() pre-check; actual client.scan() call has no timeout, risking thread exhaustion",
+      "failure_scenario": "A user uploads a large file (up to 2GB per StreamMaxLength in clamd.conf). `isReachable(timeout)` returns in 30ms confirming the daemon is alive, but the actual `client.scan(is)` call blocks for 60+ seconds as the daemon processes the file. The HTTP request thread is held for the entire duration. Under concurrent uploads, the Tomcat thread pool can exhaust and the service becomes unresponsive.",
+      "finding_id": "mf-ebd179394a9d763b0ff8"
+    },
+    {
+      "file": "center/src/main/java/com/microsoft/hydralab/center/util/ClamAVScanner.java",
+      "line": 41,
+      "summary": "InputStream parameter is never closed after scanning, risking file descriptor exhaustion",
+      "failure_scenario": "The `scan(String, InputStream)` method passes the InputStream to `client.scan(is)` but never closes it in a finally block or try-with-resources. If `ClamavClient.scan()` does not close the stream (the library does not guarantee it does), each upload leaks a file descriptor. Over hundreds of uploads, the process hits the OS file descriptor limit, and subsequent uploads or file operations fail.",
+      "finding_id": "mf-3153246fdfa6218614e6"
+    }
+  ]
+}

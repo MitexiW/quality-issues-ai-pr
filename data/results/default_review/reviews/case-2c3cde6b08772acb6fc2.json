@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "modules/imgproc/src/opencl/threshold_mask.cl",
+      "line": 28,
+      "summary": "OpenCL mask kernel applies one scalar mask check to kercn vectorized elements, leaking threshold across pixels when kercn > 1",
+      "failure_scenario": "Single-channel 8-bit image (640x480): predictOptimalVectorWidth returns kercn=4. Each work-item reads one mask byte at line 36 and applies it to all 4 elements read as uchar4 at line 35. If mask covers pixel 0 but not pixels 1-3, pixels 1-3 are incorrectly thresholded (or vice versa). The per-work-item mask_index uses gx/CN (integer division), but when T aggregates multiple elements, gx indexes work-items not individual elements. This applies equally to multi-channel images whenever kercn > 1.",
+      "finding_id": "mf-7a9083cafcfb2b010b06"
+    },
+    {
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1241,
+      "summary": "Division by zero in getThreshVal_Otsu when maskCount is 0 (all-zero mask), producing NaN threshold that silently propagates",
+      "failure_scenario": "Call thresholdWithMask(src, dst, allZeroMask, 0, 255, THRESH_BINARY | THRESH_OTSU). maskCount stays at 0 because every mask pixel is zero. scale = 1.0/0 = inf. mu = 0*inf = NaN. h[i]*scale = 0*inf = NaN for every bin. sigma becomes NaN, max_sigma comparison always false, max_val stays at 0 (uninitialized garbage value), returned as the computed threshold. The subsequent threshold operation uses this garbage value.",
+      "finding_id": "mf-6ba7a56af69fae75b11f"
+    },
+    {
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1324,
+      "summary": "getThreshVal_Triangle_8u template<true> has default empty mask argument, enabling a null-pointer dereference at call sites",
+      "failure_scenario": "Future code calls getThreshVal_Triangle_8u<true>(src) omitting the mask argument. The default empty _mask causes useMask=true but pMask comes from _mask.ptr<unsigned char>(i) which returns a null or invalid pointer on an empty Mat. Then pMask[j] at line 1377 dereferences null, causing a segmentation fault.",
+      "finding_id": "mf-f95fe293c28875d078d7"
+    },
+    {
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1793,
+      "summary": "~100 lines of depth-type edge-case logic duplicated identically between cv::threshold (line 1647) and cv::thresholdWithMask (line 1793)",
+      "failure_scenario": "A future bug fix corrects an edge-case in cv::threshold's CV_8U path (e.g., the saturate_cast or setTo logic at line 1665-1668) but the identical code in thresholdWithMask (line 1811-1814) is not updated. The two functions diverge, and thresholdWithMask produces different results than threshold for identical inputs when a trivial all-ones mask is used, breaking the documented equivalence.",
+      "finding_id": "mf-a41d53c7ec14ea1f5033"
+    },
+    {
+      "file": "modules/imgproc/src/thresh.cpp",
+      "line": 1487,
+      "summary": "CALL_HAL hardware acceleration and type-specific SIMD paths (thresh_8u/thresh_16s/thresh_32f/thresh_64f) are entirely skipped when a mask is present, forcing generic scalar loops",
+      "failure_scenario": "User calls thresholdWithMask on a CV_8U image on a machine with Intel IPP. The non-masked path would use IPP or SIMD intrinsics achieving ~10x throughput. The masked path calls threshGenericWithMask (a simple for-loop at line 141-144). On a 4K image this adds hundreds of milliseconds of latency compared to what the non-masked path delivers, surprising users who expect similar performance.",
+      "finding_id": "mf-2ad8877a8aa23d7a4869"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 197,
+      "summary": "ISubscriberResponseDto passed as `to` parameter leaks internal fields (_id, _organizationId, _environmentId, deleted, createdAt, updatedAt, channels, __v, isOnline, lastOnlineAt) into trigger API, cURL commands, Postman collections, and code snippets",
+      "failure_scenario": "User selects a subscriber from the autocomplete dropdown. handleSubscriberSelect (line 171) stores the full ISubscriberResponseDto — including _id, _organizationId, _environmentId, deleted, createdAt, updatedAt, channels, __v, isOnline, and lastOnlineAt — in subscriberData state. User clicks 'Test workflow' before the useEffect refetch completes and strips fields. The triggerWorkflow call on line 197 sends these internal admin fields as the `to` payload to the API. If the API errors on unexpected fields, the trigger fails. Even if the API tolerates them, the same internal fields appear in the cURL command (line 244), Postman collection body (line 286), and code snippet instructions (via currentFormData on line 224, flowing to line 416 then to code-snippets.ts).",
+      "finding_id": "mf-f5cc5858f872be366b8e"
+    },
+    {
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 122,
+      "summary": "useEffect initialization of subscriberData omits `data` and `timezone` from fetchedSubscriberData, and omits `phone`, `avatar`, `locale`, `timezone`, and `data` from the currentUser fallback — subscriber custom data and timezone are lost",
+      "failure_scenario": "A fetched subscriber has data: { preferences: { channel: 'email' } } and timezone: 'America/New_York'. The useEffect on line 122 sets subscriberData without these fields. In test-workflow-content.tsx, renderSubscriberRow at lines 213-214 calls JSON.stringify(subscriberData?.data) which returns undefined (data is missing), and displays subscriber.timezone as undefined. Both render as 'null' in the UI. When falling back to currentUser (line 133), phone, avatar, locale, timezone, and data are also all missing, making the subscriber panel show 'null' for all those fields.",
+      "finding_id": "mf-8a61b43f4edd538c377d"
+    },
+    {
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 153,
+      "summary": "Schema-driven `to` field validation removed by replacing buildDynamicFormSchema (which validated to against workflow's JSON schema: required fields, email format, subscriberId regex) with buildPayloadOnlyFormSchema (payload-only validation)",
+      "failure_scenario": "A workflow's `to` JSON schema defines `subscriberId` (required, must match VALID_ID_REGEX) and `email` (required, must be email format). The user selects a subscriber with subscriberId 'abc' but no email. Previously, buildDynamicFormSchema would have validated the to object and the form would block submission. Now, the trigger proceeds with `to.email` undefined, which may cause the server to fail silently or use a null email.",
+      "finding_id": "mf-c7527305bf43a7131335"
+    },
+    {
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 416,
+      "summary": "Unsafe type assertion `as Record<string, string>` casts Partial<ISubscriberResponseDto> (containing non-string fields: data as object|null, channels as array, isOnline as boolean) to Record<string, string>, suppressing TypeScript errors",
+      "failure_scenario": "currentFormData?.to contains subscriber data with `data: { preferences: {...} }`, `isOnline: true`, and `channels: [...]`. The cast hides the fact that these are not strings. The to object flows into TestWorkflowInstructions (line 148 in test-workflow-instructions.tsx), then into getSnippetForLanguage, and ultimately into code snippet generation functions in code-snippets.ts. The raw subscriber API response object — including nested objects, arrays, and booleans — gets serialized into the user's code snippets.",
+      "finding_id": "mf-b60f4c49ae57fe25d1f0"
+    },
+    {
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 44,
+      "summary": "buildPayloadOnlyFormSchema duplicates the exact z.string().transform(JSON.parse) validation logic from buildDynamicFormSchema in schema.ts lines 82-88; any future change to payload validation must be maintained in two places",
+      "failure_scenario": "A developer adds a payload size limit, escapes special characters, or adds a custom error message in the zod transform inside buildDynamicFormSchema (schema.ts). The duplicate in test-workflow-drawer.tsx is missed. The TestWorkflowDrawer path applies different payload validation rules than the test-workflow-tabs path, leading to inconsistent user experience between the step-editor drawer and the standalone test page.",
+      "finding_id": "mf-f566900eadb98d2612df"
+    },
+    {
+      "file": "apps/dashboard/src/components/workflow-editor/test-workflow/test-workflow-drawer.tsx",
+      "line": 84,
+      "summary": "The `testData` prop is still declared in TestWorkflowDrawerProps (line 38) and passed by both callers (step-editor-layout.tsx line 124 and test-workflow-drawer-page.tsx line 23) but the component no longer destructures or uses it — dead prop causes wasted useFetchWorkflowTestData API calls in callers",
+      "failure_scenario": "Both callers invoke useFetchWorkflowTestData (an API call to fetch workflow test metadata) and pass the result as the testData prop. The component ignores it entirely. The network request, state management, and data fetching are wasted, and the prop interface misleadingly suggests testData is needed for the component to function.",
+      "finding_id": "mf-362c2375bc0f47b3e925"
+    }
+  ]
+}

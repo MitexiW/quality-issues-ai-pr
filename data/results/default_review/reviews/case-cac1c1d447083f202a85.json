@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "ingestr/src/sources.py",
+      "line": 2814,
+      "summary": "end_date is formatted via str() instead of strftime(), producing an incompatible date format for the ISOC Pulse API",
+      "failure_scenario": "User runs `ingestr ingest --source-uri 'isoc-pulse://?token=xxx' --source-table 'https' --interval-end 2023-12-31`. The `interval_end` from main.py is a `datetime` object. `str(datetime(2023,12,31))` produces `'2023-12-31 00:00:00'` (or `'2023-12-31T00:00:00+00:00'` for pendulum), but the API expects `'2023-12-31'` (the format used by start_date via strftime). The API rejects the request or misinterprets the date, causing the ingestion to fail.",
+      "finding_id": "mf-54dcd9552943d1576300"
+    },
+    {
+      "file": "ingestr/src/isoc_pulse/__init__.py",
+      "line": 99,
+      "summary": "https metric path construction always treats opts[-1] as a country code, so 'https:topsites' (global topsites, no country) creates path 'https/country/topsites' with 'topsites' as the country",
+      "failure_scenario": "User runs `ingestr ingest --source-table 'https:topsites'` for global HTTPS topsites data. After colon-splitting, `opts = ['topsites']`. The `https` branch sets `path = 'https/country/topsites'` treating 'topsites' as a country code. The API receives a request to `/api/https/country/topsites` which is not a valid ISO country code, returning a 404 or error. The ipv6 branch correctly handles this pattern by checking `'topsites' in opts` first and not appending `/country/` to the path.",
+      "finding_id": "mf-b01e50f7e255c5531db1"
+    },
+    {
+      "file": "ingestr/src/isoc_pulse/__init__.py",
+      "line": 133,
+      "summary": "Quarter calculation `math.floor(date.month / 4) + 1` is incorrect for months 7, 10, and 11, mapping July to Q2, October/November to Q3",
+      "failure_scenario": "User queries resilience metrics with `--interval-start 2023-07-15` (July). `date.month = 7`, `math.floor(7/4) + 1 = 2` (Q2), but July is in Q3. The API request includes `quarter=2` instead of `quarter=3`, returning Q2 resilience data instead of Q3 data. Similarly, October (month 10) and November (month 11) map to Q3 instead of Q4. The correct formula is `(date.month - 1) // 3 + 1` or `math.ceil(date.month / 3)`.",
+      "finding_id": "mf-e474fd4f7490959e5b57"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "weave/trace/weave_client.py",
+      "line": 827,
+      "summary": "AttributesDict freeze mechanism is bypassable via pop(), clear(), and popitem() because those methods do not route through __delitem__ in CPython",
+      "failure_scenario": "After attributes_dict.freeze() is called, calling attributes_dict.pop('some_key') succeeds silently (removes the key without raising TypeError), because CPython's dict.pop() uses internal C-level deletion that bypasses the Python __delitem__ override. Same applies to .clear() and .popitem(). The frozen invariant is not fully enforced.",
+      "finding_id": "mf-831477ae267362caf7a9"
+    },
+    {
+      "file": "tests/trace/test_client_trace.py",
+      "line": 2736,
+      "summary": "Test test_user_cannot_modify_call_weave_dict incorrectly expects mutation of call.attributes to succeed during op execution; attributes are frozen at create_call time before the function body runs",
+      "failure_scenario": "The test line 'call.attributes[\"test\"] = 123' inside the op function does not wrap in pytest.raises(TypeError), implying mutation is allowed. But attributes_dict.freeze() runs before the function body, so this assignment raises TypeError. The test passes only because _call_sync_func catches the exception and calls finish(exception=TypeError(...)), which records the call as errored — not the intended behavior the test comment ('# allowed in this context') describes. This contradicts test_current_call.py::test_call_attributes_read_only which correctly expects TypeError.",
+      "finding_id": "mf-21b347e03332fd715b40"
+    }
+  ]
+}

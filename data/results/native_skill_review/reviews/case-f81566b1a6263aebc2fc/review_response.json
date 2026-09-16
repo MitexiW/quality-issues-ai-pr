@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "In the test patch, the method declaration is on the line 'public void OldMethod()' which lacks the '@@' hunk-header prefix that all nine CSharpParser regexes require ('^@@.*@@'), so no regex matches it; meanwhile the header line '@@ -152,10 +152,6 @@ [Obsolete(\"Use NewMethod instead\")]' matches method_declaration_regex with fnc='Obsolete' because '[^=]*?' can consume the '['. extract_functions_from_patch therefore returns {'GetPointer','ExternalMethod','Obsolete','PartialMethod','ComplexMethod'} and the equality assertion at line 1046 fails (missing 'OldMethod', extra 'Obsolete'). In production the same root cause reports the attribute name (e.g. 'Obsolete') as the changed function in open-PR-comment issue lookups whenever a C# attribute precedes the method on its own line.",
+      "file": "tests/sentry/integrations/source_code_management/test_language_parsers.py",
+      "line": 1046,
+      "summary": "test_csharp_edge_cases asserts CSharpParser extracts 'OldMethod', but the parser can never produce it and instead produces 'Obsolete', so the new test fails deterministically."
+    },
+    {
+      "failure_scenario": "Repository.organization_id is a plain BoundedBigIntegerField with no DB FK constraint, so a repo can outlive its organization (or hold NULL for legacy rows). For such a repo, get_from_cache (which falls through to self.get(**kwargs) and raises, never returning None) raises Organization.DoesNotExist, which propagates through get_pr_files_safe_for_comment and crashes the open_pr_comment_workflow Celery task; before this change the same PR was processed against the static PATCH_PARSERS without any org access. The codebase's own convention, tasks.py:213-225, wraps this exact lookup in try/except DoesNotExist.",
+      "file": "src/sentry/integrations/github/integration.py",
+      "line": 528,
+      "summary": "safe_for_comment now performs an unguarded Organization.objects.get_from_cache(id=repo.organization_id), adding a new Organization.DoesNotExist crash path to the open-PR-comment workflow where none existed."
+    },
+    {
+      "failure_scenario": "Same as the GitHub case: for a GitLab repo whose organization row was deleted or whose organization_id is NULL, the lookup raises Organization.DoesNotExist out of safe_for_comment (called from get_pr_files_safe_for_comment in the open_pr_comment_workflow task), failing the task where the previous code (PATCH_PARSERS constant) completed without touching the org table.",
+      "file": "src/sentry/integrations/gitlab/integration.py",
+      "line": 348,
+      "summary": "GitLab safe_for_comment has the same new unguarded Organization.objects.get_from_cache(id=repo.organization_id) call, introducing an unhandled Organization.DoesNotExist crash path."
+    },
+    {
+      "failure_scenario": "BETA_PATCH_PARSERS only contains 'cs', which is absent from PATCH_PARSERS, so 'return {k: v for k, v in PATCH_PARSERS.items() if k not in BETA_PATCH_PARSERS}' behaves identically to 'return PATCH_PARSERS' — the claimed filtering does nothing. If a beta parser were later keyed under an existing stable extension (e.g. 'py'), every organization with the flag off would silently lose its stable parser for that language. The simpler equivalent is returning PATCH_PARSERS directly.",
+      "file": "src/sentry/integrations/source_code_management/language_parsers.py",
+      "line": 349,
+      "summary": "The flag-off branch of get_patch_parsers_for_organization filters stable parsers against BETA_PATCH_PARSERS keys that can never overlap today, so the filter is dead logic that hides a latent trap."
+    }
+  ],
+  "level": null
+}

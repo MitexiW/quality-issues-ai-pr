@@ -1,0 +1,74 @@
+{
+  "findings": [
+    {
+      "file": "open_instruct/grpo_fast.py",
+      "line": 687,
+      "summary": "Bare `args` instead of `self.args` in `broadcast_to_vllm` method causes NameError when vLLM prefix caching is enabled",
+      "failure_scenario": "`PolicyTrainerRayProcess.broadcast_to_vllm()` uses `self.args` everywhere (lines 645, 654, 660, 670, 674, 682) but line 687 writes `args.vllm_enable_prefix_caching` without `self.`. No local variable `args` exists in this method. When `args.vllm_enable_prefix_caching=True`, the method reaches line 687 and raises `NameError: name 'args' is not defined`, crashing training mid-step after weights have been broadcast but before the prefix cache is reset.",
+      "finding_id": "mf-9bfc07386e61909c0971"
+    },
+    {
+      "file": "open_instruct/grpo_vllm_thread_ray_gtrl.py",
+      "line": 121,
+      "summary": "Imports non-existent `create_snippet_mask` from `open_instruct.utils`",
+      "failure_scenario": "The import `from open_instruct.utils import ... create_snippet_mask` at line 121 will raise `ImportError: cannot import name 'create_snippet_mask' from 'open_instruct.utils'` because no such function is defined in `utils.py` or anywhere else in the repository. The script will fail to start at all.",
+      "finding_id": "mf-8cb32ceb7f63effff621"
+    },
+    {
+      "file": "open_instruct/grpo_fast.py",
+      "line": 1827,
+      "summary": "Missing else branch in reward scoring: when `only_reward_good_outputs=True` and an output is bad, `scores[i]` retains format reward while good outputs lose it",
+      "failure_scenario": "Set `only_reward_good_outputs=True`. For a bad output (tool not called, timeout, or error): `good_outputs[i]` is False, so the `if good_outputs[i] and args.only_reward_good_outputs` branch is skipped. The `elif not args.only_reward_good_outputs` branch is also skipped because `only_reward_good_outputs` is True. Neither branch executes, so `scores[i]` remains at its pre-existing value (format reward if `apply_r1_style_format_reward` is True, or 0). For a good output: `scores[i] = verifiable_rewards[i]` (format reward is overwritten/discarded). Result: bad outputs keep format rewards while good outputs lose theirs, incentivizing incorrect behavior.",
+      "finding_id": "mf-fe20dd5a297c796d6c62"
+    },
+    {
+      "file": "open_instruct/ppo_fast.py",
+      "line": 1929,
+      "summary": "Same missing else branch in reward scoring as grpo_fast.py (lines 1929-1932)",
+      "failure_scenario": "Identical to the grpo_fast.py bug described above. When `only_reward_good_outputs=True` and an output is bad, neither branch executes and `scores[i]` retains the prior format reward. Good outputs get `scores[i] = verifiable_rewards[i]` with format reward discarded.",
+      "finding_id": "mf-ae2280237f91c88977d2"
+    },
+    {
+      "file": "open_instruct/grpo_fast.py",
+      "line": 1067,
+      "summary": "Eval condition dropped `training_step == num_training_steps` guard, so final evaluation step is skipped unless it aligns with `eval_freq`",
+      "failure_scenario": "Old condition was `(training_step - 1) % eval_freq == 0 or training_step == num_training_steps`. New condition is only `(training_step - 1) % eval_freq == 0`. If `num_training_steps=1000` and `eval_freq=50`, evaluation runs at steps 51, 101, ..., 951. Step 1000 (the last) has `(999) % 50 = 49`, not 0, so no eval generation is triggered. The main thread then blocks for 100 seconds at line 1694 waiting for an eval result that never arrives, and final evaluation metrics are missing.",
+      "finding_id": "mf-6eba6addcfee54c37164"
+    },
+    {
+      "file": "open_instruct/search_utils/massive_ds.py",
+      "line": 53,
+      "summary": "`data.get(\"results\", [])` uses list default instead of dict, causing AttributeError on `.get(\"passages\")` when API returns no results",
+      "failure_scenario": "`data.get(\"results\", []).get(\"passages\", [])[0]` -- if the search API response is valid JSON but lacks a `\"results\"` key, `data.get(\"results\", [])` returns `[]` (a list). Calling `.get(\"passages\", [])` on a list raises `AttributeError: 'list' object has no attribute 'get'`. This exception is NOT caught by `except requests.exceptions.RequestException` and propagates up. The default should be `{}` not `[]`.",
+      "finding_id": "mf-723d66194a71586e1f27"
+    },
+    {
+      "file": "open_instruct/search_utils/s2.py",
+      "line": 50,
+      "summary": "`res` may be undefined when `session.get()` itself raises, causing NameError after except block",
+      "failure_scenario": "`res = session.get(...)` is inside a `try` block. If `session.get()` raises a connection error (DNS failure, timeout), `res` is never assigned. The `except requests.exceptions.RequestException` block prints the error, then execution falls through to `print(\"Failed...\", query, res)` at line 50, which references the undefined `res` and raises `NameError: name 'res' is not defined`.",
+      "finding_id": "mf-1980e304bc0390fd1dd3"
+    },
+    {
+      "file": "open_instruct/search_utils/you.py",
+      "line": 30,
+      "summary": "`data` may be undefined when `session.get()` itself raises, causing NameError after except block",
+      "failure_scenario": "`response = session.get(...)` is inside a `try` block. If the request fails at connection level, `data = response.json()` (line 26) never executes, so `data` is never assigned. The `except` block prints the error, then execution falls through to `if \"error_code\" in data:` at line 30, which references the undefined `data` and raises `NameError: name 'data' is not defined`.",
+      "finding_id": "mf-724f01f1004a423a7cbc"
+    },
+    {
+      "file": "open_instruct/rl_utils2.py",
+      "line": 197,
+      "summary": "`test_pack_sequences()` calls `pack_sequences()` without the newly required `masks` argument",
+      "failure_scenario": "`pack_sequences` signature changed from `(queries, responses, pack_length, pad_token_id)` to `(queries, responses, masks, pack_length, pad_token_id)` with `masks` as a required positional argument. `test_pack_sequences()` at line 196 still calls `pack_sequences(queries=queries, responses=responses, pack_length=pack_length, pad_token_id=pad_token_id)` missing `masks`, raising `TypeError: pack_sequences() missing 1 required positional argument: 'masks'`.",
+      "finding_id": "mf-926ad0f49cbd67e4efc6"
+    },
+    {
+      "file": "open_instruct/rl_utils2.py",
+      "line": 412,
+      "summary": "`test_pack_sequences_logits()` calls `pack_sequences()` without the newly required `masks` argument",
+      "failure_scenario": "Same as above -- `pack_sequences(queries=queries, responses=responses, pack_length=pack_length, pad_token_id=pad_token_id)` at line 412 is missing the required `masks` argument, raising `TypeError`.",
+      "finding_id": "mf-266d2cbcc10657ead596"
+    }
+  ]
+}

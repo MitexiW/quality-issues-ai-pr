@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User runs `map_extractor -o \"C:/Users/me/Documents/World of Warcraft Client Extraction Output With A Very Long Descriptive Name Exceeding The Buffer\"` (128+ chars). strncpy copies 127 chars and the terminator write at input_path/output_path[MAX_PATH_LENGTH-1] cuts the last directory component. ExtractMapsFromMpq then does CreateDir(output_path + \"/maps/\") and writes every extracted map into a directory tree that was never requested — or for `-i`, LoadCommonMPQFiles scans the truncated prefix and the tool dies with 'No locales detected' with no hint that the path was truncated. Previously this input was an unbounded strcpy (UB), so the change introduces a new silent-misdirection failure mode with no length validation or diagnostic.",
+      "file": "src/tools/map_extractor/System.cpp",
+      "line": 188,
+      "summary": "The strncpy conversion silently truncates -i/-o path arguments to 127 characters instead of rejecting them, so the extractor proceeds with a truncated, wrong directory and no error is reported."
+    },
+    {
+      "failure_scenario": "A (custom or translated) Map.dbc contains a map whose name field is 64+ bytes. std::strncpy copies 63 bytes into map_ids[x].name. ExtractMapsFromMpq builds 'World\\Maps\\<truncated>\\<truncated>.wdt' (line 997), wdt.loadFile fails, and the loop hits `continue` at line 1002 — the diagnostic printf is commented out — so that map's files are absent from the output with no indication to the user that the name was truncated and the map dropped.",
+      "file": "src/tools/map_extractor/System.cpp",
+      "line": 288,
+      "summary": "ReadMapDBC now silently truncates Map.dbc names to 63 bytes, after which the WDT/ADT lookups built from the truncated name fail and the map is silently skipped, producing an incomplete extraction with no message."
+    }
+  ],
+  "level": null
+}

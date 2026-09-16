@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User calls agentops.init(api_key=\"<uuid>\") with defaults. Client.init passes exporter_endpoint=None into Config.configure, whose else-branch sets self.exporter_endpoint = self.endpoint (e.g. \"https://api.agentops.ai\"), replacing the field default \"https://otlp.agentops.cloud/v1/traces\". SessionTracer.__init__ then builds OTLPSpanExporter(endpoint=\"https://api.agentops.ai\") and every span is POSTed to https://api.agentops.ai/v1/traces instead of the OTLP collector — trace data is lost/404s for all default users. Baseline hardcoded the correct OTLP URL, so this regression is introduced by the diff.",
+      "file": "agentops/session/tracer.py",
+      "line": 96,
+      "summary": "The newly-activated default branch routes span exports to session.config.exporter_endpoint, which Config.configure overwrites with the REST API endpoint on every agentops.init(), sending all telemetry to the wrong host."
+    },
+    {
+      "failure_scenario": "Any code doing `from agentops.session import *` raises AttributeError during import (Python resolves each __all__ name with getattr). `agentops.session.current` (used by the shipped example examples/using_decorators.py:6) and `from agentops.session import current` raise AttributeError/ImportError. Additionally, the replacement Session.current classproperty returns get_current_session(), which nothing ever sets (set_current_session/add_session have no callers outside registry.py), so it always returns None even when exactly one active session exists — contradicting its own docstring.",
+      "file": "agentops/session/__init__.py",
+      "line": 62,
+      "summary": "The module-level `current` property was removed but \"current\" remains in __all__ and the name is not defined in the module, breaking from agentops.session import * and agentops.session.current."
+    },
+    {
+      "failure_scenario": "tests/integration/test_openai_instrumentation.py:8 does `from agentops import Config, Session`; importing agentops now raises ImportError (cannot import name 'Config'). Any external user relying on the previously exported agentops.Config symbol breaks the same way.",
+      "file": "agentops/__init__.py",
+      "line": 4,
+      "summary": "The diff removed `from .config import Config` from agentops/__init__.py, so `from agentops import Config` now raises ImportError, breaking the public API and in-repo consumers."
+    },
+    {
+      "failure_scenario": "tests/unit/conftest.py imports agentops, whose module-level `_client = Client()` sets Client.__instance to an instance (truthy). For the first collected test, reset_client executes `del Client.__instance`, then mock_client calls Client(); Client.__new__ evaluates `cls.__instance is None` and raises AttributeError: type object 'Client' has no attribute '__instance'. The first test in every fresh pytest run errors during fixture setup (subsequent tests pass only because teardown re-binds __instance = None).",
+      "file": "tests/fixtures/client.py",
+      "line": 12,
+      "summary": "reset_client now deletes Client.__instance from the class, and the autouse mock_client fixture then calls Client(), whose __new__ dereferences the deleted attribute, crashing the first unit test in every pytest run."
+    },
+    {
+      "failure_scenario": "On Python 3.11 the baseline stdlib StrEnum produced distinct members (auto() lowercased 'initializing' vs 'INITIALIZING'), so INITIALIZING.is_terminal was False. Now SessionState.INITIALIZING is a member of (FAILED, SUCCEEDED, INDETERMINATE), so is_terminal returns True while is_alive also returns True — a contradictory state. telemetry.set_status (agentops/session/mixin/telemetry.py:56) then takes the terminal branch and marks the root span UNSET for a session still in INITIALIZING, and from_string(\"INDETERMINATE\") returns the member whose name is \"INITIALIZING\", breaking any name-based dispatch.",
+      "file": "agentops/session/state.py",
+      "line": 27,
+      "summary": "With the new local StrEnum, INDETERMINATE = \"INITIALIZING\" makes INDETERMINATE an alias of INITIALIZING on all Python versions, so SessionState.INITIALIZING.is_terminal returns True and INDETERMINATE.name is \"INITIALIZING\", breaking the state machine on Python <= 3.11."
+    },
+    {
+      "failure_scenario": "Caller invokes agentops.init(api_key=\"not-a-uuid\") and catches the exception (e.g. to retry or degrade). self.api_key already holds the invalid key, so a subsequent init/configure call that omits api_key sees a non-None (but invalid) key and skips the NoApiKeyException check in Client.init. Also, code migrating from the previous behavior — invalid key logged, config left unset, then NoApiKeyException raised at Client.init — now gets an uncaught InvalidApiKeyException. Additionally, the `if not TESTING` guard keys off \"pytest\" in sys.modules, so validation is silently disabled in any process that merely imports pytest.",
+      "file": "agentops/config.py",
+      "line": 138,
+      "summary": "Config.configure now assigns self.api_key = api_key before validation and then raises InvalidApiKeyException, leaving the invalid key stored in the config and replacing the previous log-and-continue behavior with an exception type that NoApiKeyException handlers won't catch."
+    },
+    {
+      "failure_scenario": "A user passes a custom exporter and creates two concurrent sessions (explicitly supported by the library). SessionTracer.__init__ runs for each session and calls provider.add_span_processor with a new BatchSpanProcessor wrapping the same exporter. Every span is then processed and exported by both processors — duplicate telemetry records, doubled export threads and flush work at shutdown. The baseline code ignored exporter/processor config entirely; the diff activates this per-session registration pattern.",
+      "file": "agentops/session/tracer.py",
+      "line": 85,
+      "summary": "Each SessionTracer construction adds a span processor to the shared global TracerProvider, so the newly-enabled custom-exporter branch registers a fresh BatchSpanProcessor per session and exports every span once per session."
+    },
+    {
+      "failure_scenario": "Run the unit suite on a machine with AGENTOPS_API_KEY exported. _client's Config was constructed at agentops import time (before mock_env cleared os.environ), so _client.config.api_key holds the real key. test_no_api_key_raises_exception calls agentops.init() — which mutates _client, not the new Client() — and NoApiKeyException is never raised, so the test fails. The mock_client-created instance and agentops.get_client() also return different objects, so state set through one path is invisible to the other.",
+      "file": "tests/fixtures/client.py",
+      "line": 21,
+      "summary": "The new autouse mock_client fixture creates a fresh Client() singleton, but agentops.init/get_client still operate on the import-time _client whose Config was built from the real environment, so the fixture fails its stated purpose of resetting the client with a cleared env."
+    },
+    {
+      "failure_scenario": "Executing `python tests/manual_test_custom_exporter.py` runs test_custom_exporter, which reaches `session = Client()._safe_get_session()` and raises AttributeError: 'Client' object has no attribute '_safe_get_session' — the manual verification this file exists to provide never completes.",
+      "file": "tests/manual_test_custom_exporter.py",
+      "line": 18,
+      "summary": "The new manual test calls Client()._safe_get_session(), a method that does not exist on Client, so running the test as its __main__ block instructs crashes with AttributeError."
+    },
+    {
+      "failure_scenario": "agentops.configure(auto_init=False) logs `Invalid configuration parameters: {'auto_init'}` even though the value is valid and is applied by Config.configure. Conversely, genuinely invalid parameters only trigger the warning and are still forwarded to Config.configure(**kwargs), which raises TypeError — so the validation neither prevents errors nor accurately identifies them.",
+      "file": "agentops/__init__.py",
+      "line": 111,
+      "summary": "configure()'s valid_params whitelist omits the real configuration parameters auto_init and prefetch_jwt_token (both accepted by Config.configure), so calling agentops.configure with them logs a misleading \"Invalid configuration parameters\" warning."
+    }
+  ],
+  "level": null
+}

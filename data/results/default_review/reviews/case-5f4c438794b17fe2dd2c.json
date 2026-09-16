@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "mlflow/sagemaker/__init__.py",
+      "line": 2017,
+      "summary": "_does_model_exist silently returns None (falsy) when describe_model raises a ClientError that does not contain 'Could not find model', instead of re-raising the error",
+      "failure_scenario": "An IAM role without sagemaker:DescribeModel permission calls this function. The AccessDenied ClientError is caught, doesn't match 'Could not find model', the except block falls through without returning or raising, and the function returns None. The caller at line 1035 interprets None as 'model does not exist' and proceeds to create_model, which then fails with a confusing AWS error instead of a clear 'permission denied'. Similarly, a ThrottlingException would be swallowed, potentially causing a duplicate model creation.",
+      "finding_id": "mf-635a8fa8dd95b82f2dc3"
+    },
+    {
+      "file": "mlflow/langchain/runnables.py",
+      "line": 337,
+      "summary": "_save_runnable_with_steps calls steps_path.mkdir() without exist_ok=True, crashing with FileExistsError if the output directory is reused",
+      "failure_scenario": "A user calls mlflow.langchain.save_model() which internally invokes _save_runnable_with_steps to persist a model with runnable steps to a given path. If the same output path is used again (e.g. a retry, re-logging, or path collision), save_path.mkdir(parents=True, exist_ok=True) on line 333 succeeds silently, but steps_path.mkdir() on line 337 raises FileExistsError. The save operation crashes. The same issue repeats at line 355 for per-step subdirectories.",
+      "finding_id": "mf-700f5e0e90116b503a30"
+    },
+    {
+      "file": "mlflow/store/db/utils.py",
+      "line": 213,
+      "summary": "_upgrade_db docstring documents parameter 'url' but the function signature takes 'engine'; the documented parameter does not exist",
+      "failure_scenario": "A developer reading the docstring to understand the function's API sees a documented 'url' string parameter. The actual parameter is 'engine' (a SQLAlchemy engine). The mismatch causes confusion and could lead to incorrect usage when writing new callers. This is exactly the kind of documentation gap that the removed D417 (undocumented-param) lint rule would have caught.",
+      "finding_id": "mf-dcd04294e7df0c6fb774"
+    }
+  ]
+}

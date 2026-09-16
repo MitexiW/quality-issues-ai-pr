@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Running the javadoc build (Maven javadoc plugin with default doclint reference checks) fails with \"error: tag @param:fieldName: reference not found\", and the published javadoc for the core public API method `WireOut.writeEventName(CharSequence)` documents a nonexistent `fieldName` parameter. The diff changed the `@param` tag on this method (old: `@param key`) but left the parameter named `key`, while the `@param` update intended for it was applied to `write(CharSequence)` instead. This also violates the AGENTS.md Javadoc guideline \"Leave stale comments that now contradict the code.\"",
+      "file": "src/main/java/net/openhft/chronicle/wire/WireOut.java",
+      "line": 56,
+      "summary": "The rename updated the javadoc of the wrong method: `@param fieldName` now documents a parameter that does not exist, because `writeEventName(CharSequence key)` was not actually renamed."
+    },
+    {
+      "failure_scenario": "Javadoc generation for `WireOut.write(CharSequence)` emits \"reference not found\" for the stale `key` tag (under doclint) and the generated docs describe a `key` parameter that no longer exists, leaving the actual `fieldName` parameter undocumented. The diff renamed the parameter at line 121 but left the `@param key` line above it untouched — the `@param fieldName` update intended for this method was instead applied to `writeEventName(CharSequence key)` at line 56. Violates the AGENTS.md Javadoc guideline \"Leave stale comments that now contradict the code.\"",
+      "file": "src/main/java/net/openhft/chronicle/wire/WireOut.java",
+      "line": 118,
+      "summary": "`ValueOut write(CharSequence fieldName)` was renamed but its javadoc still says `@param key`, so the documentation contradicts the renamed signature of a core public API method."
+    },
+    {
+      "failure_scenario": "The parameter name now collides with the class's `isMetaData()` method called in the same expression. Behavior is unchanged, but a maintainer or automated cleanup pass seeing `assert isMetaData == isMetaData();` is likely to \"fix\" it into a tautology (`isMetaData == isMetaData`) or delete it, silently removing the validation that a nested `start()` call carries the same metadata flag as the outer document — exactly the kind of check that catches chained/meta-data write mismatches in `Wires.writeMeta`/method-writer paths.",
+      "file": "src/main/java/net/openhft/chronicle/wire/BinaryWriteDocumentContext.java",
+      "line": 74,
+      "summary": "Renaming the parameter to `isMetaData` makes `assert isMetaData == isMetaData();` read as a tautological self-comparison even though the right-hand side is the `isMetaData()` accessor, leaving the nested-start metadata-consistency check visually indistinguishable from a no-op."
+    },
+    {
+      "failure_scenario": "A reader or refactoring tool cannot tell the right-hand side is the method `isMetaData()` (returning the `metaData` field set on the outermost `start()`) rather than the parameter itself. The metadata-consistency validation for nested `start()` calls becomes effectively unreadable and at risk of being removed as dead code, which would silently drop the only assertion guarding against a metadata flag change mid-document.",
+      "file": "src/main/java/net/openhft/chronicle/wire/TextWriteDocumentContext.java",
+      "line": 69,
+      "summary": "Same rename-induced collision as BinaryWriteDocumentContext: `assert isMetaData == isMetaData();` now compares the renamed parameter against the `isMetaData()` accessor and reads as a tautology."
+    },
+    {
+      "failure_scenario": "The renamed `writeEventId(String name, int eventId)` at line 1618 delegates to `writeEventIdDescription(name, eventId)`, whose parameter is still called `methodId` and whose javadoc (lines 1627-1630) still says \"The ID of the method associated with the event.\" The codebase now uses two names (`eventId` in the API, `methodId` in the helper) for the identical concept, so the rename-for-clarity change leaves the very code it touches internally inconsistent, and any follow-up search-and-replace of one name will miss the other.",
+      "file": "src/main/java/net/openhft/chronicle/wire/BinaryWire.java",
+      "line": 1632,
+      "summary": "Incomplete rename within one feature: the public `writeEventId(...)` methods were renamed from `methodId` to `eventId`, but the private helper `writeEventIdDescription(String name, int methodId)` and its javadoc still use the old name for the same value."
+    }
+  ],
+  "level": null
+}

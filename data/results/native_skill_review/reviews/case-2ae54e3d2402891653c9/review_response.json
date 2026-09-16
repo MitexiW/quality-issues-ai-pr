@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user with a react-router project opens Performance → Set Up Tracing: useLoadGettingStarted({productType: 'performance'}) sets module to 'none' because withPerformanceOnboarding.has('javascript-react-router') is false (useLoadGettingStarted.ts:49), so docs is null and views/performance/onboarding.tsx renders the 'Fiddlesticks. The tracing onboarding checklist isn't available' fallback instead of the shipped install/configure/verify steps; filterProjects and isPlatformSupported (components/performanceOnboarding/utils.tsx:17,37) likewise exclude react-router projects from tracing-setup onboarding tasks. Every other platform whose docs define performanceOnboarding (react, nextjs, javascript, python, django, flask, php, node) is in that set.",
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 454,
+      "summary": "The new guide ships a full performanceOnboarding config but javascript-react-router was not added to withPerformanceOnboarding, so every performance-onboarding entry point treats the platform as unsupported and the shipped config is unreachable."
+    },
+    {
+      "failure_scenario": "For a react-router project, platformToPerformanceType returns FRONTEND (remix/nextjs/sveltekit are explicitly excluded and return ANY), so platformToDomainView returns 'frontend' and the Performance quick links (projectQuickLinks, projectCard, missingPerformanceButtons) land on the frontend domain view where backend transactions from the instrumented server are not surfaced, and the frontend insights overview is enabled for a full-stack platform - inconsistent with the three sibling full-stack frameworks that the two exclusion lists special-case.",
+      "file": "static/app/data/platformCategories.tsx",
+      "line": 27,
+      "summary": "javascript-react-router is added to the frontend list but not to the full-stack exclusion filters in views/performance/utils/index.tsx:101 and views/insights/pages/frontend/settings.ts:41, so react-router is classified as a pure frontend platform even though the new guide instruments the server (createSentryHandleRequest) and emits backend transactions."
+    },
+    {
+      "failure_scenario": "A user reaches the react-router onboarding with profiling selected (e.g. ?product=profiling deep link, since the profiling checkbox is not offered in ProductSelection for this platform): they install @sentry/profiling-node, add nodeProfilingIntegration to instrument.server.mjs, and configure the Document-Policy response header, but the generated entry.client.tsx init registers no browser profiling integration, so no browser profiles are ever collected and the header configuration step has no effect.",
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 376,
+      "summary": "When profiling is selected, the onboarding appends the Document-Policy: js-profiling header step but getClientSetupSnippet never adds Sentry.browserProfilingIntegration() or client-side profilesSampleRate, so the header step is a no-op and browser profiling is never enabled (react.tsx adds the integration and the header step together)."
+    },
+    {
+      "failure_scenario": "A user opens the Feature Flags setup sidebar for a react-router project: the platform passes the featureFlags gate in useLoadGettingStarted, and FeatureFlagOnboardingLayout resolves docsConfig['featureFlagOnboarding'] ?? docsConfig.onboarding (featureFlagOnboardingLayout.tsx:41), so instead of feature-flag evaluation-tracking setup instructions the user is shown the generic full React Router SDK setup guide - a fallback no other JavaScript framework triggers.",
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 498,
+      "summary": "The new docs object omits featureFlagOnboarding, which all 14 other javascript-* getting-started guides provide, while the auto-derived featureFlagOnboardingPlatforms (platformCategories.tsx:600) includes the new platform key."
+    },
+    {
+      "failure_scenario": "A react-router user opens Agent Monitoring onboarding and copies the generated configure snippet: the code block contains `// Import with \\`const Sentry = require(\"@sentry/@sentry/react-router\");\\`` and `import * as Sentry from \"@sentry/@sentry/react-router\"`, an invalid package specifier that fails to resolve, so the instructions cannot be followed. (The shared helper produces the same malformed output for remix; this diff extends the broken pattern to the newly shipped platform.)",
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 505,
+      "summary": "The agent monitoring onboarding for the new platform generates a malformed import, `import * as Sentry from \"@sentry/@sentry/react-router\"`, because getNodeAgentMonitoringOnboarding's getImport helper prefixes '@sentry/' onto the already-scoped basePackage (utils/gettingStartedDocs/node.tsx:400,117)."
+    },
+    {
+      "failure_scenario": "A user pastes the 'Error Boundary' step's snippet into app/root.tsx as shown: TypeScript reports 'Cannot find name isRouteErrorResponse' (and 'Cannot find name Route' in a fresh file), and at runtime the call throws a ReferenceError when an error reaches the boundary; if the snippet replaces the whole template file, the app also stops rendering because the document-level React Router components are dropped.",
+      "file": "static/app/gettingStartedDocs/javascript/react-router.tsx",
+      "line": 101,
+      "summary": "The root ErrorBoundary snippet references isRouteErrorResponse and Route.ErrorBoundaryProps without importing either (only Sentry is imported), and as a standalone snippet it omits the Links/Meta/Outlet/Scripts document scaffolding that root.tsx requires."
+    }
+  ],
+  "level": null
+}

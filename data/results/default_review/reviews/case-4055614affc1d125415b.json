@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "apps/backend/src/smart-router.tsx",
+      "line": 101,
+      "summary": "parseApiVersionStringToArray returns NaN for non-beta release versions because the condition matchResult[2] === '' incorrectly assumes the optional capture group is '' when absent, but it is undefined",
+      "failure_scenario": "When a non-beta release version like 'v2' is added to the migrations folder, parseApiVersionStringToArray('v2') returns [2, NaN]. The sort comparator numberCompare(parsedA[1], parsedB[1]) calls Math.sign(NaN - x) = NaN, returning NaN from the sort callback which produces unpredictable sort order. Non-beta versions would sort incorrectly among beta versions.",
+      "finding_id": "mf-fd7e850dfd4bea885455"
+    },
+    {
+      "file": "apps/backend/src/middleware.tsx",
+      "line": 90,
+      "summary": "Version prefix matching uses string startsWith without enforcing a segment boundary, so paths like /api/v2beta1-extra/something incorrectly match the v2beta1 served route",
+      "failure_scenario": "A request to /api/v2beta1-extra/something would be matched as a v2beta1 request because '/api/v2beta1-extra/something/' starts with '/api/v2beta1/'. The middleware would then try to rewrite it using replace('/api/v2beta1', '/api/v2beta2'), producing the path /api/v2beta2-extra/something and potentially routing to an unintended handler or returning a confusing error.",
+      "finding_id": "mf-807fe7f0f9b1db32d9ad"
+    },
+    {
+      "file": "apps/backend/src/middleware.tsx",
+      "line": 91,
+      "summary": "String.prototype.replace() without a global flag replaces only the first occurrence of the version prefix, producing incorrect paths for URLs that contain the version string multiple times",
+      "failure_scenario": "A crafted request like /api/v1/api/v1/simple would have replace('/api/v1', '/api/v2beta1') produce /api/v2beta1/api/v1/simple (only first occurrence replaced). The repeated version string causes the middleware to rewrite to an unintended intermediate path. This is low-likelihood in normal use but is incorrect URL rewriting.",
+      "finding_id": "mf-c0fcbc34d03634bc05ef"
+    },
+    {
+      "file": "apps/backend/src/route-handlers/smart-route-handler.tsx",
+      "line": 169,
+      "summary": "The invoke property type changes from Promise<Response> to Promise<Res>, a breaking API change for any code that calls a smart-route-handler's .invoke() method expecting an HTTP Response",
+      "failure_scenario": "Any existing (non-diff) code that calls handler.invoke(smartRequest) and expects to receive an HTTP Response object would instead receive a SmartResponse object (a plain object with statusCode, bodyType, etc.), causing runtime failures when trying to use .status, .json(), .text() etc. on the returned value. Currently the only caller (v2beta3 migration route) is new code in this same PR and handles it correctly, but any future or external invoker needs to be aware of this change.",
+      "finding_id": "mf-896bcde29363cdb19c45"
+    },
+    {
+      "file": "apps/backend/scripts/generate-route-info.ts",
+      "line": 14,
+      "summary": "catch handler spreads args from Promise.catch which always receives a single error argument, making the spread unnecessary and potentially hiding error detail depending on console.error formatting",
+      "failure_scenario": "When main() throws, Promise.catch receives exactly one argument (the error). The spread ...args passes it as separate arguments to console.error, which may not format it as helpfully as console.error(error) would. Additionally, if the error is a non-Error primitive (e.g. a string), the spread would pass it piecemeal, potentially losing context compared to passing a single object.",
+      "finding_id": "mf-e88cc379f8cd864f958a"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User runs a project (vite dev server spawned in a node-pty shell via RunManager.startTerminal), then quits the app — before-quit, SIGINT/SIGTERM, window-all-closed, uncaughtException, and the failed single-instance-lock path all route through cleanup(). Because cleanup() returns immediately, the pty child processes are never killed; node-pty children are not terminated when the Electron main process exits, so the dev server keeps running in the background holding its port. Relaunching the app and running the same project then fails with EADDRINUSE ('Port is already in use') and orphaned processes accumulate. run.stopAll() -> cleanProjectDir -> removeIdsFromDirectory also never runs, so the data-onlook-id attributes (and onlook key props) injected into the user's project files remain on disk after quit and can be committed accidentally.",
+      "file": "apps/studio/electron/main/index.ts",
+      "line": 98,
+      "summary": "cleanup() early-returns before terminal.killAll() and run.stopAll(), leaving node-pty dev-server processes and injected onlook IDs behind when the app quits."
+    },
+    {
+      "failure_scenario": "The same diff bumps apps/studio/package.json 'version' to 0.1.49 but sets the corresponding bun.lock workspace entry to 0.1.48. CI runs `bun install --frozen-lockfile` (.github/workflows/build.yml line 60); bun detects the manifest version does not match the recorded lockfile entry and aborts the install with a frozen-lockfile error, breaking CI. Any developer running `bun install` instead gets a silently rewritten bun.lock, producing dirty-tree churn.",
+      "file": "bun.lock",
+      "line": 13,
+      "summary": "Lockfile workspace entry for apps/studio records version 0.1.48 while apps/studio/package.json declares 0.1.49, leaving bun.lock out of sync with the manifest it was edited to match."
+    },
+    {
+      "failure_scenario": "The ImagesTab (upload, drag-and-drop, rename, delete of project image assets — editorEngine.image.upload and scanImages are used only inside ImageTab.tsx) becomes unreachable: nothing else activates TabValue.IMAGES (defaultValue is 'layers' and no other code sets the tab value), so users lose all image management with no replacement path. If the removal was intentional it is incomplete: TabValue.IMAGES, its TabsContent, and the ImagesTab import/component are left as dead code, and any future code that activates the 'images' value would show content with no visible active trigger.",
+      "file": "apps/studio/src/routes/editor/LayersPanel/index.tsx",
+      "line": 58,
+      "summary": "Adding the `hidden` class to the IMAGES TabsTrigger removes the only entry point to the image upload/management feature while its TabsContent and ImageTab implementation remain."
+    },
+    {
+      "failure_scenario": "cleanup() is exported and awaited by the before-quit handler, process exit/SIGTERM/SIGINT handlers, the uncaughtException handler, and the failed single-instance-lock path, but its entire body (including the isCleaningUp guard, try/catch/finally, and the edited mainWindow?.removeAllListeners() line) is dead behind the early `return;` with a comment ('keeping for reference') that suggests it still runs. Future maintainers fixing quit/crash behavior at those call sites will keep no-op'ing silently, and the dead code will drift from the real shutdown path.",
+      "file": "apps/studio/electron/main/index.ts",
+      "line": 99,
+      "summary": "The no-op cleanup() leaves ~26 lines of unreachable teardown code plus the now-unused isCleaningUp flag, masking the disabled teardown from the five call sites that still await it."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "An SDK user who previously called app.scrapeUrl({ url, formats: ['markdown','changeTracking','changeTracking@diff-git'] }) now gets a TypeScript error with no replacement: there is no changeTrackingOptions field to pass modes: ['git-diff'], so the diff feature is unreachable from the SDK without casts; meanwhile code following the published FirecrawlDocument type, e.g. doc.changeTracking.diff.structured.files, compiles but is undefined at runtime because the API now emits diff.json.",
+      "file": "apps/js-sdk/firecrawl/src/index.ts",
+      "line": 106,
+      "summary": "JS SDK was only half-migrated: the API now returns diff.json / changeTracking.json and requires changeTrackingOptions.modes, but FirecrawlDocument.changeTracking still types diff.structured (line 77), has no json field, and CrawlScrapeOptions/ScrapeParams have no changeTrackingOptions property, while the only format token that could request a diff ('changeTracking@diff-git') was removed from the union."
+    },
+    {
+      "failure_scenario": "Scrape example.com with formats ['markdown','changeTracking'], changeTrackingOptions { modes: ['json'], schema: {pricing, features} } after a previous scrape: when changeStatus === 'changed' and pricing differs, the API returns json.pricing = { previous: {...}, current: {...} }; the test then runs expect(json.pricing).toHaveProperty('old') which deterministically throws, so the test fails every time the branch it was written to verify actually executes.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 44,
+      "summary": "compareExtractedData emits { previous, current } per changed key, but the PR's own test 'supports schema-based extraction for change tracking' asserts toHaveProperty('old') / toHaveProperty('new'), so the implementation and its test disagree on the response contract."
+    },
+    {
+      "failure_scenario": "A client sends changeTrackingOptions { modes: ['json'], schema: {pricing:...}, prompt: 'Only report price changes in USD', systemPrompt: 'You are a pricing analyst' }: the per-version extraction runs with the hardcoded systemPrompt and no prompt, so the user's constraints are dropped and the returned json can include content the prompt explicitly excluded — a silent behavior regression for every existing request that combined schema with a prompt.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 139,
+      "summary": "changeTrackingOptions.prompt and systemPrompt are silently ignored whenever a schema is provided: extractDataWithSchema hardcodes its own systemPrompt (line 18) and passes no prompt, whereas the old code always forwarded both to the LLM."
+    },
+    {
+      "failure_scenario": "With modes ['json'] and a schema, if the previous version's extraction throws (LLM refusal, network error — swallowed at lines 24-27 and only logged) the code falls into the else branch and runs one 'Analyze the differences...' completion over the concatenated markdown: document.changeTracking.json then has the raw schema shape ({pricing: {...}}) instead of the diff shape ({pricing: {previous, current}}), so consumers reading .previous/.current get undefined, no warning is returned to the client, and a second LLM call is billed; the same misroute happens for a valid extraction of the number 0 or empty string.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 145,
+      "summary": "The gate `if (previousData && currentData)` conflates 'extraction failed' (extractDataWithSchema catches all errors and returns null) with 'extraction produced a falsy value' (e.g. schema returning 0 or empty string), silently switching the request to a different completion whose output has a different shape."
+    },
+    {
+      "failure_scenario": "In test 'supports both git-diff and structured modes together' (scrape.test.ts:203-205) with schema {summary, changes}, normalizeSchema forces both keys to be extracted from both versions; if the LLM returns an identical summary or changes array across the two scrapes, those keys are omitted from json and expect(json).toHaveProperty('summary') / ('changes') fails — the test outcome depends on LLM nondeterminism. Similarly, a consumer reading json.pricing.current gets undefined for a field that existed only in the previous scrape.",
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 42,
+      "summary": "compareExtractedData drops every key whose value did not change and serializes one-sided keys asymmetrically (a key present only in the previous version becomes {previous: x} with no current key, since JSON.stringify omits undefined), so the response shape is lossy and the PR's 'both modes' test can only pass when both asserted fields happened to change."
+    }
+  ],
+  "level": null
+}

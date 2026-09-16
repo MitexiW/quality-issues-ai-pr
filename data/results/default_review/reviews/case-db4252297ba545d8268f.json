@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3263,
+      "summary": "Copy-paste error: AES-GCM async HW condition checks WC_ASYNC_ENABLE_3DES instead of WC_ASYNC_ENABLE_AES",
+      "failure_scenario": "When WOLFSSL_ASYNC_CRYPT and WC_ASYNC_ENABLE_AES are defined (the correct AES async flag per wolfssl/wolfcrypt/aes.h line 370), but WC_ASYNC_ENABLE_3DES is not defined, the HW AES-GCM benchmark at line 3269 is silently skipped. The benchmark falls back to SW-only despite HW AES async being available. WC_ASYNC_ENABLE_AES is never referenced anywhere in benchmark.c.",
+      "finding_id": "mf-e417c73f1719a286732b"
+    },
+    {
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3552,
+      "summary": "Missing #ifndef NO_SW_BENCH guard for bench_cmac(0) despite having a BENCH_DEVID HW counterpart at line 3554 — the diff adds this guard to bench_aesctr and bench_curve25519KeyGen but misses this identical case",
+      "failure_scenario": "On Renesas platforms (IDE/Renesas/e2studio/RA6M4/common/user_settings.h defines NO_SW_BENCH, WC_USE_DEVID, and HAVE_RENESAS_SYNC), the software CMAC benchmark compiles and runs even though NO_SW_BENCH was intended to suppress all software-only benchmark calls. The user sees a SW CMAC result alongside the expected HW results.",
+      "finding_id": "mf-77047f20d53adaa0819b"
+    },
+    {
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3851,
+      "summary": "Missing #ifndef NO_SW_BENCH guard for bench_curve25519KeyAgree(0) despite having a BENCH_DEVID HW counterpart at line 3853 — same incomplete-fix pattern as bench_aesctr/bench_curve25519KeyGen",
+      "failure_scenario": "On Renesas platforms with NO_SW_BENCH defined, the software Curve25519 key agreement benchmark compiles and runs when only HW benchmarks are desired. The SW call at line 3851 passes useDeviceID=0 to bench_curve25519KeyAgree, which uses INVALID_DEVID (line 12009 of the same file), resulting in a pure-SW benchmark that contradicts the user's NO_SW_BENCH intent.",
+      "finding_id": "mf-794f49ff0083598811f0"
+    },
+    {
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3313,
+      "summary": "Missing #ifndef NO_SW_BENCH guard for bench_aes_aad_options_wrap(bench_aesccm, 0) despite having a BENCH_DEVID HW counterpart at line 3315 — same incomplete-fix pattern",
+      "failure_scenario": "On Renesas platforms with NO_SW_BENCH defined, the SW AES-CCM benchmark runs. Compare to the AES-GCM section (lines 3259-3277) which correctly guards both bench_aesgcm(0) at line 3261 and bench_gmac(0) at line 3272 with #ifndef NO_SW_BENCH. The AES-CCM section was overlooked.",
+      "finding_id": "mf-e247554b65c95bdfb024"
+    },
+    {
+      "file": "wolfcrypt/benchmark/benchmark.c",
+      "line": 3263,
+      "summary": "Operator precedence: && !defined(NO_HW_BENCH) only gates the MAX3266X sub-condition, not the entire AES-GCM HW condition — HW bench can fire when NO_HW_BENCH is defined",
+      "failure_scenario": "Define both NO_HW_BENCH and WOLFSSL_ASYNC_CRYPT (or HAVE_RENESAS_SYNC, or WOLFSSL_CAAM, etc.). Due to C preprocessor precedence (&& binds tighter than ||), the expression becomes 'A || (B && !NO_HW_BENCH)'. Since WOLFSSL_ASYNC_CRYPT is in the 'A' group (not gated by NO_HW_BENCH), the condition evaluates to true and bench_aes_aad_options_wrap(bench_aesgcm, 1) compiles and runs despite NO_HW_BENCH. The fix needs outer parentheses: (A || B) && !defined(NO_HW_BENCH).",
+      "finding_id": "mf-9f3b897fa692ed0a84a9"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A developer creates the stable version folder `src/app/api/migrations/v2` per the documented workflow (README line 18). listApiVersions parses \"v2\" as [2, NaN]; numberCompare returns NaN for every comparison against it, so Array.sort treats v2 as 'equal' to all betas and keeps readdir's arbitrary order. If v2 lands before a later beta (e.g. [v1, v2, v2beta4, latest]), the middleware loop (middleware.tsx:84-107) uses v2beta4 as v2's `nextVersion` and rewrites every `/api/v2/*` request to `/api/migrations/v2beta4/*`, serving stable v2 clients the older beta migration behavior (the very backwards-compatibility break this framework exists to prevent). The intended check is `matchResult[2] == null ? Number.POSITIVE_INFINITY : +matchResult[2]`.",
+      "file": "apps/backend/src/smart-router.tsx",
+      "line": 101,
+      "summary": "parseApiVersionStringToArray returns NaN as the beta component for stable (non-beta) versions because `matchResult[2] === \"\"` is never true for the non-participating capture group (it is `undefined`), so `+matchResult[2]` evaluates to NaN and the version sort comparator (numberCompare → Math.sign) yields NaN, breaking the documented ordering `v2beta1 < v2beta2 < v2`."
+    },
+    {
+      "failure_scenario": "A client that consumes the generated api-versions.json (which lists latest with servedRoute /api/latest) calls `GET /api/latest/auth/sessions`. The middleware leaves the pathname untouched, Next.js finds no `src/app/api/latest` folder, and the `[...notFoundPath]` catch-all returns a 404 even though the endpoint exists and is served at /api/v1. Every /api/latest/* request fails this way; the entry's servedRoute is dead unless a consumer knows to substitute /api/v1 (the code's own TODO at line 66 acknowledges the gap).",
+      "file": "apps/backend/src/smart-router.tsx",
+      "line": 67,
+      "summary": "The \"latest\" version entry advertises `servedRoute: \"/api/latest\"` in the generated api-versions.json, but the middleware loop `for (let i = 0; i < apiVersions.length - 1; i++)` (middleware.tsx:84) never examines the last array element, so no `/api/latest/*` URL is ever rewritten or resolved."
+    },
+    {
+      "failure_scenario": "In SmartRouter.listApiVersions (smart-router.tsx:52), `.filter(isTruthy)` on `(string | undefined)[]` produces `never[]`; every downstream value (`a`, `b`, `version`) is typed `never`, so `a!`, `parsedA[0]`, and `version.name` all compile against the uninhabitable type and the compiler provides no protection (e.g. a future refactor could drop the non-null assertion or misread fields with no type error). The predicate should be `value is Truthy<T>` with `Truthy<T> = T extends null | undefined | 0 | \"\" | false ? never : T` (and Falsy as the extraction of the falsy literals).",
+      "file": "packages/stack-shared/src/utils/booleans.tsx",
+      "line": 4,
+      "summary": "The isTruthy/isFalsy type guards declare `value is T & Truthy<T>` where `Truthy<T>`/`Falsy<T>` resolve to the boolean literals `true`/`false`, so for any real type (e.g. string) the positive branch narrows to `T & boolean` which collapses to `never`, silently erasing the value's type instead of narrowing it."
+    },
+    {
+      "failure_scenario": "A user opens `http://localhost:8102/api/v1/migration-tests` (no trailing slash; req.url is the original request URL preserved through the middleware rewrite). `new URL(\"./smart-route-handler\", \"http://localhost:8102/api/v1/migration-tests\")` resolves to `http://localhost:8102/api/v1/smart-route-handler`, so every migration-test link displayed on the page points at a route that does not exist and returns 404; only visiting with a trailing slash yields the correct link.",
+      "file": "apps/backend/src/app/api/v1/migration-tests/route.tsx",
+      "line": 26,
+      "summary": "The migration-test index page builds its links with `new URL(\"./smart-route-handler\", req.url)`, which resolves against the parent directory whenever the page is requested without a trailing slash (the base path's last segment is treated as a file), producing a link to `/api/v1/smart-route-handler` instead of `/api/v1/migration-tests/smart-route-handler`."
+    },
+    {
+      "failure_scenario": "A developer creating the first stable release version per the README adds `src/app/api/migrations/v2/release-changes.txt` and omits `changes.txt`. `pnpm codegen` then throws `StackAssertionError: API version v2 does not have a changes.txt file...` and route info is not generated, blocking `next dev`/`next build` (which import ./generated/api-versions.json); the docs must say `changes.txt` (the file actually checked and read by listApiVersions).",
+      "file": "apps/backend/src/app/api/migrations/README.md",
+      "line": 18,
+      "summary": "The README instructs creating a `release-changes.txt` file for release versions, but SmartRouter.listApiVersions requires and reads `changes.txt` (smart-router.tsx:81-86), so following the documented workflow makes codegen fail."
+    }
+  ],
+  "level": null
+}

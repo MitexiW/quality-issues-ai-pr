@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "prefetchObjects >= 1 and prefetchStale > 0; rows 5,6,7 are selected consecutively so row 8 is prefetched and cached. The user clicks uncached row 3 (fetchAggregationPanelData starts, currentInfoPanelQuery=p3, isLoadingInfoPanel=true), then clicks row 8 before p3 resolves: the cache hit shows row 8's data and sets loading false, but p3 is never cancelled; when p3 resolves its then-handler sees currentInfoPanelQuery===p3 and sets AggregationPanelData to row 3's result, so the panel displays row 3's data while row 8 is selected. Before this change every navigation call went through fetchAggregationPanelData, which cancels the previous query at the top of each call.",
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 741,
+      "summary": "The cache-hit path in handleCallCloudFunction serves prefetched data without cancelling an in-flight on-demand cloud-function request, so the stale response later overwrites the panel with the wrong object's data."
+    },
+    {
+      "failure_scenario": "The info-panel cloud function returns undefined or a non-object (e.g., the prefetched object was deleted before the prefetch ran, or the function has no return): prefetchObject stores {data: undefined, timestamp} because only rejects are skipped. A later selection hits the cache and calls setAggregationPanelData(undefined); AggregationPanel.js line 201 then throws on Object.keys(undefined)/data.panel.segments during render, unmounting the React 16 tree (blank page). The on-demand path guards this exact case: result && result.panel && result.panel.segments, otherwise it shows the 'Improper JSON format' note.",
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 725,
+      "summary": "prefetchObject caches the raw cloud-function result without the result.panel.segments validation that fetchAggregationPanelData applies, so a malformed prefetched response later crashes the panel render instead of showing the 'Improper JSON format' error."
+    },
+    {
+      "failure_scenario": "Config {prefetchObjects: 2} without prefetchStale: handlePrefetch skips its purge because 'if (prefetchStale)' is false, and the freshness check '!prefetchStale || ...' at line 739 treats every cached entry as fresh. A revisited row therefore always renders the first prefetched response even after the server-side object changed (no refresh exists for cache hits), and every prefetched row's full response is retained in DataBrowser state for the lifetime of the SPA view — browsing a large class accumulates unbounded memory. The README documents prefetchStale default 0, making this the configuration the docs steer users toward.",
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 739,
+      "summary": "With prefetchObjects set but prefetchStale unset (documented default 0), cached entries are treated as fresh forever and never purged, so the panel serves permanently stale data and the cache grows without bound."
+    },
+    {
+      "failure_scenario": "User clicks rows 3,4,5 (history [3,4,5]); applies a filter so this.props.data is replaced with different rows — componentWillReceiveProps resets selectionHistory only in the className-change branch, not on data reload. The user then clicks rows 5,6,7 in the new data: history becomes [5,6,7], which satisfies a+1===b && b+1===c, so handlePrefetch executes the info-panel cloud function with useMasterKey: true against rows 8,9 of the new dataset — arbitrary objects the user did not select, wasting server-side master-key cloud executions.",
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 626,
+      "summary": "selectionHistory stores raw row indices into this.props.data but is only cleared when className changes, so after a filter/sort/pagination reload the stale indices are treated as consecutive navigation and trigger master-key cloud-function calls for rows the user never approached."
+    },
+    {
+      "failure_scenario": "prefetchObjects=2: pressing down-arrow through rows 2,3,4 triggers prefetchObject for rows 5 and 6; pressing down again before those promises resolve finds cache[5] and cache[6] still unset and calls prefetchObject again — duplicate Parse.Cloud.run calls with useMasterKey for the same object. Likewise, if the cloud function rejects for row 6 (the catch only logs), every further arrow press that keeps row 6 inside the prefetch window re-invokes the failing call, repeatedly executing failing server-side code.",
+      "file": "src/dashboard/Data/Browser/DataBrowser.react.js",
+      "line": 700,
+      "summary": "handlePrefetch has no in-flight or error tracking, so rapid navigation fires duplicate cloud-function calls for rows already being prefetched, and a row whose function fails is retried on every subsequent navigation step."
+    }
+  ],
+  "level": null
+}

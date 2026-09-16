@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/tools/dedup.ts",
+      "line": 3,
+      "summary": "Runtime crash: imports removed singleton 'tokenTracker' -- 'trackUsage' called on undefined",
+      "failure_scenario": "Agent calls dedupQueries() at agent.ts:447 or :481. dedup.ts:3 imports { tokenTracker } from token-tracker.ts but that named export was deleted. At line 122, tokenTracker.trackUsage('dedup', tokens) throws TypeError: Cannot read properties of undefined, crashing the entire getResponse() workflow. All API requests fail with error events through the SSE endpoint.",
+      "finding_id": "mf-7c2ab5711722b6e601de"
+    },
+    {
+      "file": "src/tools/error-analyzer.ts",
+      "line": 3,
+      "summary": "Runtime crash: imports removed singleton 'tokenTracker' -- 'trackUsage' called on undefined",
+      "failure_scenario": "Agent calls analyzeSteps() at agent.ts:409. error-analyzer.ts:3 imports { tokenTracker } but the export was removed. At line 128, tokenTracker.trackUsage('error-analyzer', tokens) throws TypeError. All API request error-analysis paths crash.",
+      "finding_id": "mf-81b315dd0b62a5dfacef"
+    },
+    {
+      "file": "src/server.ts",
+      "line": 85,
+      "summary": "SSE progress events never sent: ActionTracker listener registered after all events already emitted",
+      "failure_scenario": "server.ts line 83 awaits getResponse() which completes fully, emitting all 'action' events during its execution. Line 85 then registers context.actionTracker.on('action', emitProgress) -- but EventEmitter does not replay past events, and no more trackAction() calls will ever fire for this context. SSE clients on /api/v1/stream/:requestId receive only the final { type: 'answer' } event; all intermediate progress updates are silently dropped.",
+      "finding_id": "mf-707e54aee390bcdac268"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 476,
+      "summary": "rewriteQuery called without token tracker -- token usage silently discarded from budget tracking",
+      "failure_scenario": "Agent loop at line 476: rewriteQuery(thisStep) is called without passing context.tokenTracker. The fallback (tracker || new TokenTracker()) in query-rewriter.ts:118 creates a throwaway tracker whose data is never added to the budget. Each query-rewrite call's Gemini API token usage is invisible to the budget check at line 271, so the agent may exceed tokenBudget without detection.",
+      "finding_id": "mf-1371e0a4aae6b5393e26"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 661,
+      "summary": "CLI main() prints zero-token summary: creates fresh empty TokenTracker instead of using context's",
+      "failure_scenario": "main() at line 659 correctly destructures getResponse() into { result, context } but then ignores context. Line 661 creates new TokenTracker() with zero usage entries and calls printSummary(). CLI output always shows { total: 0, breakdown: {} } regardless of actual tokens consumed.",
+      "finding_id": "mf-af2abc2075bab3c4f9cd"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "libs/core/kiln_ai/adapters/extractors/gemini_extractor.py",
+      "line": 27,
+      "summary": "CSV support removed from SUPPORTED_MIME_TYPES, UI, and all tests, but MIME_TYPES_SUPPORTED in GeminiExtractor still maps 'text/csv' to Kind.DOCUMENT; unit test and paid integration test for CSV were both removed, leaving no regression coverage for the still-functional extractor code path.",
+      "failure_scenario": "An existing CSV document in the database gets extracted via ExtractorRunner -> GeminiExtractor._extract -> _get_kind_from_mime_type('text/csv'), which still returns Kind.DOCUMENT. If a Gemini API model update later breaks or changes CSV extraction behavior, no existing test will catch it because test_get_kind_from_mime_type no longer parametrizes 'text/csv' and test_extract_csv was deleted entirely.",
+      "finding_id": "mf-d96719c757251a7ecd5f"
+    }
+  ]
+}

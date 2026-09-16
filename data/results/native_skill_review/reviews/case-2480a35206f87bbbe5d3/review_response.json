@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A saved agent created before this change stored aspect_ratio as any string, e.g. \"16:10\" (the field was a plain str and every value was forwarded to Replicate). On the next run, Block.execute calls input_schema.validate_data (backend/data/block.py:462), and the jsonschema gate now rejects the value because it is not in the enum, raising ValueError('Unable to execute block with invalid input data') on every execution of that agent. Additionally, any aspect ratio the Replicate API accepts that is not hardcoded in AspectRatio (now or added later by the API) can no longer be used at all.",
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 77,
+      "summary": "Changing aspect_ratio from a free-form str to a closed 14-value AspectRatio enum makes every execution hard-fail for any previously accepted value outside the list, silently breaking existing saved agents."
+    },
+    {
+      "failure_scenario": "The platform UI displays the block name derived from the class name (Block.name → 'AIImageEditorBlock'), while docs/content/platform/blocks/blocks.md:89 still lists '[Flux Kontext](flux_kontext.md#flux-kontext)' and docs/content/platform/blocks/flux_kontext.md documents the block under the old name. Users following the docs cannot locate the block in the UI under its documented name, and the docs drift from the actual block name.",
+      "file": "autogpt_platform/backend/backend/blocks/flux_kontext.py",
+      "line": 61,
+      "summary": "The block class was renamed FluxKontextBlock to AIImageEditorBlock without updating the user-facing documentation that still describes it as 'Flux Kontext', an incomplete change coordination."
+    }
+  ],
+  "level": null
+}

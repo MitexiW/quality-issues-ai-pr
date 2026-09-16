@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "DNS resolution of a provider API endpoint transiently fails (socket.gaierror) or the connection times out during a request. do_open wraps the error in URLError (\"except OSError as err: raise URLError(err)\"), which is not in the except tuple at line 263, so request(..., retries=2) raises after exactly one attempt. In ip.py, _open then returns None and IP detection silently fails on the first transient network error, and in _base.py a proxy slot is burned after a single failure — the advertised 3-attempt network retry never happens. The unit tests pass only because they mock parent.open to raise raw socket exceptions, which the real opener never raises.",
+      "file": "ddns/util/http.py",
+      "line": 263,
+      "summary": "RetryHandler's network-error retry branch never fires in production: real connection failures surface as urllib.error.URLError (wrapped by AbstractHTTPHandler.do_open), not socket.timeout/gaierror/herror, so only the HTTP-status-code branch ever retries."
+    },
+    {
+      "failure_scenario": "CallbackProvider.set_record POSTs a webhook via _base._http, which calls request(..., retries=2). The webhook endpoint executes the action, but a reverse proxy returns 502/504 on the response leg. RetryHandler sleeps 2s then 4s and re-opens the same Request object (data intact), re-invoking the webhook up to 3 times. Similarly, a DNS provider that applied an update but returned a 500 gets the same update re-sent twice. Standard retry designs (urllib3/requests) restrict status-code retries to idempotent methods; this handler retries every method.",
+      "file": "ddns/util/http.py",
+      "line": 256,
+      "summary": "RetryHandler re-sends non-idempotent requests (POST/PUT with body) on 408/429/500/502/503/504, duplicating side effects on the DDNS providers and callback webhooks that use it."
+    },
+    {
+      "failure_scenario": "tests/test_util_http_retry.py:297 attaches its log-capture handler to logging.getLogger(\"ddns.util.http\"). The module now emits through the root-child logger \"http\", whose records propagate only to the root logger, so log_capture stays empty. test_http_502_retry_auto therefore always reaches the skipTest(\"No retry log found ...\") branch (test file lines 330-333) even though retries did occur — the retry feature's only real-network verification cannot pass or fail. Additionally, any logging configuration scoped to \"ddns\" or \"ddns.util\" no longer controls this module's output.",
+      "file": "ddns/util/http.py",
+      "line": 47,
+      "summary": "Changing the module logger from getChild(__name__) (\"ddns.util.http\") to getChild(\"http\") detaches the module from the ddns logging hierarchy and makes the PR's own new retry-verification test always self-skip, so retry logging is never actually verified."
+    },
+    {
+      "failure_scenario": "The auto-fallback in SSLFallbackHandler.https_open breaks (e.g., the verify == \"auto\" condition or the matched error strings are changed, or URLError stops being caught). request(\"GET\", \"https://postman-echo.com/status/200\", verify=\"auto\") then raises, and the new test at lines 227-229 converts that failure into skipTest(\"SSL test failed: ...\"), keeping CI green while every user's ssl_verify=\"auto\" mode (the default in ip.py and SimpleProvider) is broken. The deleted test would have failed on exactly this regression.",
+      "file": "tests/test_util_http.py",
+      "line": 229,
+      "summary": "The dedicated SSL auto-fallback test (test_ssl_auto_fallback_real_network, which asserted the fallback succeeds) was replaced by a sub-test that catches every exception and calls skipTest, so a regression in the auto-fallback silently skips instead of failing."
+    }
+  ],
+  "level": null
+}

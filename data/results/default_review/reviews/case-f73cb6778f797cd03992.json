@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 467,
+      "summary": "BufferUnderflowException when backslash is the last character before the closing quote in a JSON string — bytes.readUnsignedByte() is called without checking remaining bytes after consuming the backslash",
+      "failure_scenario": "Input JSON {\"key\":\"value\\\"} where the backslash immediately precedes the closing quote with no escaped character after it. copyQuote enters the while loop (readRemaining > 0), reads '\\' at line 466, then line 467 calls bytes.readUnsignedByte() with 0 remaining bytes, throwing BufferUnderflowException.",
+      "finding_id": "mf-221352ef3e10fa370c08"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 1390,
+      "summary": "Runtime colon validation uses assert instead of if/throw, so the check is silently skipped when assertions are disabled (default JVM configuration)",
+      "failure_scenario": "A malformed type definition like {\"@type\" \"com.Foo\"} (missing colon) enters readTypeDefinition. The '{' check at line 1384 throws properly, but the colon at line 1390 uses assert. With assertions disabled, the missing colon is silently ignored, the method returns without error, and parseType proceeds with misaligned reads, producing silent data corruption or ClassNotFoundException downstream.",
+      "finding_id": "mf-c8eec46aa327ce765a0b"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 588,
+      "summary": "copyNumber does not handle JSON scientific notation (e/E exponent marker), causing valid JSON numbers like 1e10 to throw IORuntimeException when copied between wire formats",
+      "failure_scenario": "Copying the JSON array [1e10, 2] from JSONWire to BinaryWire via copyTo. copyOne reads '1', calls copyNumber which parses '1' then stops at 'e' (not in the switch cases). Back in copySequence, expectComma(']') encounters 'e' which is neither ',' nor ']', throwing IORuntimeException 'Expected a comma or ']' not a 'e''.",
+      "finding_id": "mf-4587188ffb503630f030"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 309,
+      "summary": "Error message in copyOne uses variable ch (opening quote) instead of ch2 (actual unexpected character), producing misleading diagnostics",
+      "failure_scenario": "A JSON map entry {\"key\"x\"value\"} where 'x' appears instead of ':'. copyOne reads the quote, then line 308 checks ch2 ('x') != ':'. The thrown IORuntimeException reports 'Expected a ':' but got a '\"' ' — printing the opening quote '\"' instead of 'x', misleading the developer about what was actually found.",
+      "finding_id": "mf-ce0d5042fb19a2ac3914"
+    }
+  ]
+}

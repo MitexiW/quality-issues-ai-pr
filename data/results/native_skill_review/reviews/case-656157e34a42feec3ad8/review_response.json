@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The diff renamed get(Object object) to get(Object target) but left `return UnsafeMemory.unsafeGetObject(object, getOffset());` unchanged; 'object' resolves to nothing (no such field in UnsafeFieldInfo/VanillaFieldInfo/AbstractFieldInfo), so javac fails with 'cannot find symbol: variable object' and the module cannot be built at all.",
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/ObjectFieldInfo.java",
+      "line": 51,
+      "summary": "The parameter rename object->target left the getter body referencing the undefined identifier 'object', so the file no longer compiles."
+    },
+    {
+      "failure_scenario": "Compiling the project after this change fails with 'cannot find symbol: variable object' in IntFieldInfo.getInt; every int field read via FieldInfo is impossible until fixed.",
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/IntFieldInfo.java",
+      "line": 48,
+      "summary": "getInt(Object target) still calls UnsafeMemory.unsafeGetInt(object, getOffset()) with an undefined 'object' identifier after the rename, breaking compilation."
+    },
+    {
+      "failure_scenario": "Compiling the project after this change fails with 'cannot find symbol: variable object' in LongFieldInfo.getLong; every long field read via FieldInfo is impossible until fixed.",
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/LongFieldInfo.java",
+      "line": 48,
+      "summary": "getLong(Object target) still calls UnsafeMemory.unsafeGetLong(object, getOffset()) with an undefined 'object' identifier after the rename, breaking compilation."
+    },
+    {
+      "failure_scenario": "Compiling the project after this change fails with 'cannot find symbol: variable object' in DoubleFieldInfo.getDouble; every double field read via FieldInfo is impossible until fixed.",
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/DoubleFieldInfo.java",
+      "line": 48,
+      "summary": "getDouble(Object target) still calls UnsafeMemory.unsafeGetDouble(object, getOffset()) with an undefined 'object' identifier after the rename, breaking compilation."
+    },
+    {
+      "failure_scenario": "Compiling the project after this change fails with 'cannot find symbol: variable object' in CharFieldInfo.getChar; every char field read via FieldInfo is impossible until fixed.",
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/CharFieldInfo.java",
+      "line": 49,
+      "summary": "getChar(Object target) still calls UnsafeMemory.unsafeGetChar(object, getOffset()) with an undefined 'object' identifier after the rename, breaking compilation."
+    },
+    {
+      "failure_scenario": "Calling fieldInfo.set(tupleProxy, 42) (or the char/long/double overload) executes set(name, (Object) 42), which invokes getMap(name) -> Proxy.getInvocationHandler(\"fieldName\") on a String; Proxy.getInvocationHandler throws IllegalArgumentException('not a proxy instance'), so primitive values can never be written to tuple-backed fields even though the renamed 'target' parameter is ignored.",
+      "file": "src/main/java/net/openhft/chronicle/wire/Wires.java",
+      "line": 1982,
+      "summary": "TupleFieldInfo's primitive set overloads (char/int/long/double) pass the field-name String 'name' instead of the 'target' proxy to set(), so any primitive write to a tuple field throws IllegalArgumentException."
+    },
+    {
+      "failure_scenario": "The public FieldInfo javadoc (lines 35, 71, 137, 237-238) is rendered garbled in the published API docs: 'This metadata is used by WireMarshaller ... to read and write field newValues' and 'It's a shallow copy, so targets will be copied by reference' misstate what the API does, misleading all consumers of the javadoc.",
+      "file": "src/main/java/net/openhft/chronicle/wire/FieldInfo.java",
+      "line": 35,
+      "summary": "The mechanical rename corrupted published API javadoc prose: 'read and write field newValues', 'FieldInfo targets', 'Returns the newValue of the field', and 'targets will be copied by reference' are nonsensical replacements of 'values'/'objects'."
+    },
+    {
+      "failure_scenario": "Running the javadoc tool emits a 'parameter o not found' warning for getMap(Object target), and the generated documentation for TupleFieldInfo.getMap documents a parameter that does not exist.",
+      "file": "src/main/java/net/openhft/chronicle/wire/Wires.java",
+      "line": 1941,
+      "summary": "The javadoc tag '@param o The object whose fields map needs to be fetched' was not updated when the parameter was renamed to 'target', so the tag references a nonexistent parameter."
+    }
+  ],
+  "level": null
+}

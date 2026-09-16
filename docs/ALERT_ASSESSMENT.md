@@ -102,8 +102,44 @@ do not fill them from model judgments. Confirm that their union equals the full
 frame before computing issue counts. Actionability is a separate field and is
 not an extra condition for the three-property Quality outcome.
 
-The released `build_validated_issue_snapshot.py` is a **historical snapshot
-builder**: it enforces 7,124 alerts and an RQ2-ready roster. Do not force a new
-experiment to those counts or silently reuse published labels. The new human
-exports are the new experiment's outcomes; the existing frozen-data entry point
-remains the route for reproducing the paper's exact statistics.
+## 4. Analyze a newly assessed sample
+
+The snapshot builder retains its historical count checks by default. For a new
+experiment, combine the completed queue exports as `outputs/assessment/final_human_labels.csv`
+and use the explicit new-experiment mode:
+
+```bash
+python scripts/analysis/build_validated_issue_snapshot.py \
+  --new-experiment --derived-snapshot-id new_confirmed_sample \
+  --raw-snapshot-dir outputs/codeql_experiment/reports/raw-analysis \
+  --adjudication-dir outputs/assessment/summary \
+  --human-labels outputs/assessment/final_human_labels.csv \
+  --output-dir outputs/new-confirmed
+python scripts/analysis/summarize_introduced_alerts.py \
+  --alerts outputs/new-confirmed/validated_alerts.csv \
+  --analysis-pr-level outputs/new-confirmed/analysis_pr_level.csv \
+  --output-dir outputs/new-rq1-ai --group ai \
+  --bootstrap-replicates 2000 --seed 20260623 --status final
+python scripts/analysis/prepare_rq2_design.py \
+  --analysis-pr-level outputs/new-confirmed/analysis_pr_level.csv \
+  --snapshot-manifest outputs/new-confirmed/snapshot_manifest.json \
+  --output-dir outputs/new-rq2-design
+python scripts/analysis/fit_rq2_models.py \
+  --analysis-pr-level outputs/new-confirmed/analysis_pr_level.csv \
+  --snapshot-manifest outputs/new-confirmed/snapshot_manifest.json \
+  --design-weights outputs/new-rq2-design/design_weights.csv \
+  --design-manifest outputs/new-rq2-design/design_manifest.json \
+  --output-dir outputs/new-rq2-models --draws 2000 --seed 20260623
+```
+
+Repeat the RQ1 summary with `--group human` and a separate output directory for
+the human cohort. New mode removes historical sample-size/outcome-count checks,
+not validity gates: the raw sample must be RQ2-ready, assessment must be complete,
+every alert must have a completed human decision, and raw and confirmed alert
+counts must conserve within PRs. Zero-alert eligible PRs remain in the denominator.
+Small or degenerate samples can still fail model-estimation checks; do not force
+a model to produce an estimate. New root-cause clusters require new coding under
+`AI_QUALITY_ROOT_CAUSE_PROTOCOL.md`; do not reuse historical cluster memberships.
+For new RQ3 frames, follow `RQ3_REVIEW.md` with these new outcomes and newly
+generated alerts/enrichment inputs. Historical frozen-data reproduction remains
+a separate command and still requires its original counts.

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Context(paths=['repo_1','repo_2']) where repo_1 defines variables: {foo: 'a'} and repo_2 variables: {foo: 'b'} (examples/multi pattern): Context.__init__ builds all loaders first (context.py:405-408, each calling _init_model_defaults), then load() runs repo_1's loader with the globals left by repo_2. repo_1's SQL audits (_load_audits), python models (_load_python_models), environment statements, and model tests are loaded with repo_2's variables, baking 'b' into repo_1's artifacts. Likewise, the lazy load_model_tests path (line 826) picks up whatever context was constructed last in the process (web UI holds many project contexts; context.copy(gateway=...) also overwrites), so tests render with the wrong gateway/variables. Previously _get_variables used instance state (self.config, self.context.selected_gateway) and was immune.",
+      "file": "sqlmesh/core/loader.py",
+      "line": 181,
+      "summary": "Module-level globals (_config_essentials/_selected_gateway) set in Loader.__init__ make get_variables() resolve against whichever loader was constructed last, so parent-process loads use the wrong project's variables in multi-repo contexts and in any process with more than one Context."
+    },
+    {
+      "failure_scenario": "Old code ran 'if isinstance(model, SeedModel): self._track_file(model.seed_path)' for every model (confirmed in HEAD:sqlmesh/core/loader.py); the new cached and uncached branches drop it entirely (workers cannot track anyway, and the parent never adds the path). User edits only seeds/waiter_names.csv and re-runs 'sqlmesh plan'/'run': Context.refresh() -> reload_needed() iterates _path_mtimes, which no longer contains the CSV, returns False, the context is not reloaded, and the plan/run executes against the previously loaded seed rows. No other code tracks seed_path (grep confirms), so the file is never watched.",
+      "file": "sqlmesh/core/loader.py",
+      "line": 561,
+      "summary": "The refactored _load_sql_models no longer calls _track_file(seed_path) for SeedModel entries, so edits to seed CSV files are invisible to reload_needed() and stale seed data is silently reused."
+    },
+    {
+      "failure_scenario": "Previously with MAX_FORK_WORKERS==1 the executor.map was skipped and rendering happened via self._optimized_query_cache.with_optimized_query(snapshot.model) wrapped in 'except Exception: logger.exception(...)' (old snapshot/cache.py), so a snapshot whose model fails render_query() (e.g. a macro raising, a jinja error, a query referencing a removed @variable) was logged and the snapshot still loaded and put. Now SynchronousPoolExecutor.map runs load_optimized_query in-process; _optimized_query_cache.put -> model.render_query() raises (QueryRenderer.render only catches ParsetimeAdapterCallError, renderer.py:419), the exception propagates out of executor.map, out of SnapshotCache.get_or_load, and fails context snapshot loading entirely — the later try/except branch at line 75-81 never gets a chance. Affects all Windows users and 1-worker configurations.",
+      "file": "sqlmesh/core/snapshot/cache.py",
+      "line": 58,
+      "summary": "Removing the 'if c.MAX_FORK_WORKERS != 1' guard makes load_optimized_query run unconditionally, so in the synchronous path (MAX_FORK_WORKERS=1, Windows, daemon processes) a model render failure now aborts the entire snapshot load instead of being logged and skipped."
+    },
+    {
+      "failure_scenario": "Two .sql files define the same model name (e.g. 'db.test_model'): on a cold first load the duplicate check at line 603 raises the proper ConfigError, but on a second load (both files cached from the prior run) the cached branch executes models[model.fqn] = model and UniqueKeyDict.__setitem__ (sqlmesh/utils/__init__.py:76-81) raises ValueError: Duplicate key ... found in UniqueKeyDict<models>. Call dict.update(...) if this is intentional. — with no file path and an exception type the CLI renders as a full traceback. The old code called _raise_failed_to_load_model_error for every model from cache.get_or_load_models, including cache hits.",
+      "file": "sqlmesh/core/loader.py",
+      "line": 565,
+      "summary": "The cached-paths branch adds models with no duplicate-fqn check, so duplicate model names served from the file cache now surface as a raw UniqueKeyDict ValueError instead of the ConfigError with file path that the old code raised."
+    },
+    {
+      "failure_scenario": "config.gateways is a plain dict[str, GatewayConfig] (config/root.py:76-80), so _config_essentials['gateways'].get(gateway_name) returns None for an unknown gateway and the except ConfigError handler at lines 148-154 is unreachable. A user who references a gateway that does not exist (e.g. a model test YAML with 'gateway: bad-name', or a misconfigured default_gateway) previously got get_gateway's ConfigError caught and a console warning 'Gateway ... not found in project ...'; now the failure is silent and the code proceeds with only global variables, hiding the misconfiguration. (Additionally _variables_by_gateway at line 173 is now write-only state.)",
+      "file": "sqlmesh/core/loader.py",
+      "line": 147,
+      "summary": "get_variables() looks up the gateway via plain dict.get(), which never raises ConfigError, making the except branch dead code and silently removing the 'Gateway not found' warning the old code emitted via Config.get_gateway()."
+    }
+  ],
+  "level": null
+}

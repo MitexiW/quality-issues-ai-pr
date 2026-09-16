@@ -1,0 +1,71 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Windows SMB upload with default preserve-info (true on Windows): 'azcopy cp read-only.txt https://share/ --force-if-read-only' -> addSMBPropertiesToHeaders copies the source's ReadOnly attribute into u.smbPropertiesToApply; Prologue's first Create uses createOptions.SMBProperties=&u.smbPropertiesToApply (line 229), so the file is created with ReadOnly=true (creationProperties with ReadOnly=false is only substituted on the ParentNotFound retry at lines 255-257, which doesn't run when the parent exists). DoWithOverrideReadOnlyOnAzureFiles only intervenes after a read-only failure, so Create succeeds and the subsequent UploadRange chunks fail with read-only errors; the previous code always created with creationProperties, and Epilogue is what re-applied ReadOnly.",
+      "file": "ste/sender-azureFile.go",
+      "line": 229,
+      "summary": "First Create attempt sends the source's SMB attributes (ReadOnly=true) instead of creationProperties with ReadOnly cleared, so --force-if-read-only uploads of read-only files create a read-only destination that rejects all chunk uploads"
+    },
+    {
+      "failure_scenario": "'azcopy cp /data/mylink https://share/file' where /data/mylink is a symlink to a 5 GB file (link size 18 bytes): the single-file branch (non-NFS) schedules a transfer with SourceSize=18; the STE computes numChunks=getNumChunks(18,...)=1 and creates the destination with size 18, reading only 18 bytes through the followed symlink. DestLengthValidation compares 18==18, so the job reports success while the destination contains only the first 18 bytes of the target file. Previously OSStat returned the target's FileInfo, giving the correct full size.",
+      "file": "cmd/zc_traverser_local.go",
+      "line": 82,
+      "summary": "Switching getInfoIfSingleFile from OSStat to os.Lstat makes single-file symlink sources enumerate with the link's own size, so non-NFS copies of a symlink silently truncate the destination to the link length"
+    },
+    {
+      "failure_scenario": "'azcopy cp /data/share https://nfs-share/ --nfs --recursive=false' where /data/share contains dirA, file1.txt, file2.txt (os.ReadDir sorts dirA first): dirA hits 'else if !IsRegularFile(fileInfo)' (line 841), sets entityType=Other, increments SkippedSpecialFileCount, and continues. file1.txt/file2.txt are regular files so neither branch resets entityType; they are stored with entityType=Other and isCompatibleWithEntitySettings (zc_enumerator.go) returns false for Other, so ToNewCopyTransfer returns shouldSendToSte=false and the files are silently never copied while the job reports success.",
+      "file": "cmd/zc_traverser_local.go",
+      "line": 841,
+      "summary": "In non-recursive NFS enumeration, a directory entry sets the shared loop variable entityType=Other and continues, so every regular file listed after the first subdirectory is silently filtered out, and directories are counted as skipped special files"
+    },
+    {
+      "failure_scenario": "'azcopy copy https://smbshare/path /local --nfs' where the share GetProperties call fails (SAS lacking share-level read, throttling): getShareProtocolType returns the fallback 'NFS' so validation passes, but on an SMB share fileProperties.NFSFileType/LinkCount are nil, so line 209-210 dereferences nil and panics. In the directory-listing path every entry's NFSFileType converts to \"\" which hits the default branch of evaluateAndLogNFSFileType (skip), so the root directory entity returns (nil, nil) and processStoredObject(s.(StoredObject)) at line 333 panics on the nil assertion.",
+      "file": "cmd/zc_traverser_file.go",
+      "line": 209,
+      "summary": "NFS file-type fields (NFSFileType, LinkCount, ID) are dereferenced without nil checks, panicking when --nfs is used against a share whose protocol check fell back to assuming NFS (any share GetProperties failure), and the root-entity skip path then type-asserts a nil StoredObject"
+    },
+    {
+      "failure_scenario": "convertToStoredObject (cmd/zc_traverser_file.go:240-242) returns (nil, err) when file.ParseURL fails on a listed entity: the TransformResult is now dropped because out==nil, so the 'Failed to scan Directory/File' warning and scanning-log entry that the consumer used to emit never happen; the job can complete with files silently missing from enumeration and no error surfaced. The nil-skip filter was added to shared infrastructure for one NFS call site instead of being encoded in the worker's contract, changing behavior for every current and future Transform worker.",
+      "file": "common/parallel/Transformer.go",
+      "line": 90,
+      "summary": "The shared Transformer now discards every worker result with a nil output, including (nil, err), so enumeration errors are silently swallowed and skipped items are indistinguishable from failures"
+    },
+    {
+      "failure_scenario": "NFS upload without --preserve-permissions on a host where user.Current() fails (UID with no /etc/passwd entry, common in minimal containers, or a broken NSS setup): currentUser is nil but owner = to.Ptr(currentUser.Uid) executes first and panics; the intended 'return nil, nil, nil, err' error handling at lines 307-310 is unreachable.",
+      "file": "ste/sourceInfoProvider-Local_linux.go",
+      "line": 305,
+      "summary": "GetNFSDefaultPerms dereferences currentUser.Uid/Gid before checking the error from user.Current(), panicking with a nil pointer dereference when the lookup fails"
+    },
+    {
+      "failure_scenario": "During an NFS upload, the first transfer's Prologue triggers getUmask(); between syscall.Umask(0) and syscall.Umask(current), any file another goroutine creates (job/scan log rotations, sync hash-data files, MMF plan files, files created by parallel transfers in the e2e framework) is created with umask 0, i.e. mode 0666, leaving world-writable files behind. The umask is process-wide state, so the read-restore pattern cannot be made safe; the value should be read without mutation (e.g., /proc/self/status Umask on Linux).",
+      "file": "ste/sourceInfoProvider-Local_linux.go",
+      "line": 282,
+      "summary": "getUmask reads the process umask by temporarily setting it to 0 (syscall.Umask(0) then restore), which is process-global and racy: any file created by a concurrent goroutine in that window gets 0666 permissions"
+    },
+    {
+      "failure_scenario": "Resuming or listing a job created by the previous release: the version check (DataSchemaVersion==19) passes, and IsNFSCopy is read from what was the trailing padding byte of the old header — a byte whose value was never defined by the writer (zero only by current compiler luck). If nonzero, a resumed SMB job's transfers run through the NFS property/permission paths in the STE (sender Prologue NFS branch, downloader PutNFSProperties), corrupting the resumed job's behavior. The file's own comment (lines 14-16) requires incrementing dataSchemaVersion whenever the data schema changes; a future field that does not fit the padding byte will additionally shift every transfer-record offset computed from unsafe.Sizeof.",
+      "file": "ste/JobPartPlan.go",
+      "line": 110,
+      "summary": "The job-part plan binary schema gained an IsNFSCopy header field without incrementing DataSchemaVersion (still 19), so plan files written by older AzCopy releases are read with IsNFSCopy taken from a byte the old layout never wrote, in violation of the file's documented versioning rule"
+    },
+    {
+      "failure_scenario": "In-process runs (unit tests, any library-style use) that cook an NFS copy/sync followed by an SMB one: isNFSCopy stays true, so the SMB local/file traversers skip symlinks and special files, misclassify hardlinked files, and inflate the skipped counters; syncEnumerator.go:333 even reads the global while the adjacent line 330 reads cca.isNFSCopy in the same block, and processCopyJobPartOrders has the same pattern. The callbacks (copyEnumeratorInit.go:100, syncEnumerator.go:78) could read the captured cca.isNFSCopy instead, and SetNFSFlag(false) should be called in the else branch of cook().",
+      "file": "cmd/copy.go",
+      "line": 183,
+      "summary": "The new package-global isNFSCopy is set only to true (SetNFSFlag is never called with false) and traversers/enumeration callbacks read the global instead of the per-command cooked value, so a non-NFS copy or sync run in the same process after an NFS one inherits NFS behavior"
+    },
+    {
+      "failure_scenario": "A user following the sync flag's own help text runs 'azcopy sync ... --hardlinks=skip' (or 'preserve'): cooked.hardlinks.Parse calls enum.ParseInt which only knows 'Follow', so the command aborts with an invalid-value error before any transfer, contradicting the documented options.",
+      "file": "cmd/sync.go",
+      "line": 942,
+      "summary": "The --hardlinks flag help advertises 'skip, preserve, follow' options but HardlinkHandlingType defines only Follow, so Parse rejects the documented values with a parse error"
+    },
+    {
+      "failure_scenario": "Maintainability: the empty if-branch (duplicated at cmd/sync.go:836) can never execute anything different from the plain preserve-info case; the misleading comment ('we give precedence...if both flags are set') hides that the A&&B||A form collapses to A, so future edits assuming three distinct cases will misbehave.",
+      "file": "cmd/copy.go",
+      "line": 2052,
+      "summary": "Dead boolean condition in copy and sync Run: 'Changed(PreserveInfoFlag) && Changed(PreserveSMBInfoFlag) || Changed(PreserveInfoFlag)' is logically just Changed(PreserveInfoFlag), making the first branch and its precedence-comment dead code"
+    }
+  ],
+  "level": null
+}

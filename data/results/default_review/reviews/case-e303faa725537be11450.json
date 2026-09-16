@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "src/bespokelabs/curator/request_processor/online/openai_online_request_processor.py",
+      "line": 46,
+      "summary": "OpenAIOnlineRequestProcessor does not override compatible_provider property, causing online status tracker to show $0.000 per-token pricing for external providers like inference.net",
+      "failure_scenario": "Using curator.LLM(model_name='meta-llama/llama-3.1-8b-instruct/fp-16', backend='inference.net') in online mode → process_requests_from_file() passes compatible_provider=self.compatible_provider to OnlineStatusTracker, but the inherited property from BaseOnlineRequestProcessor returns 'base' (not 'inference.net'). The tracker then calls external_model_cost(model, provider='base'), which returns {'input_cost_per_token': 0.0, 'output_cost_per_token': 0.0} because 'base' is not a key in _DEFAULT_COST_MAP['external']['providers']. The status tracker displays 'Model Pricing: Input: $0.000 Output: $0.000' — misleading the user about per-unit pricing. (Actual total costs from _cost_processor are correct; only the per-token pricing display line is affected.) Contrast with OpenAIBatchRequestProcessor which correctly stores compatible_provider in __init__ (line 39) and overrides the property (lines 57-59). The same bug affects klusterai online mode.",
+      "finding_id": "mf-3793736c7cadef461cdb"
+    },
+    {
+      "file": "examples/providers/inference_net_online.py",
+      "line": 12,
+      "summary": "Example file uses response[0]['response'] while the batch counterpart and all klusterai examples use response['response'] without list indexing",
+      "failure_scenario": "If a user copies the inference_net_online.py example verbatim, and the LLM call returns a Dataset (dict-like access pattern as used by all other provider examples), accessing response[0] would raise a TypeError because dict objects are not subscriptable by integer. The batch example inference_net_batch.py correctly uses response['response'], matching all existing examples.",
+      "finding_id": "mf-a0abe1e92eea2f55428e"
+    }
+  ]
+}

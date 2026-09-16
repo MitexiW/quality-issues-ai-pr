@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 73,
+      "summary": "Broad except Exception: pass silently drops ALL context macros if any single value in _macros lacks .func (Executable has no .func, and the type is ExecutableOrMacro)",
+      "failure_scenario": "If any entry in context.context._macros is an Executable (which lacks .func), getattr(m.func, '__doc__', None) raises AttributeError on m.func evaluation -- not on the getattr itself, so the default=None never comes into play. The except Exception: pass then discards every remaining context macro, not just the failing one. Type annotation explicitly allows ExecutableOrMacro values.",
+      "finding_id": "mf-9b34ea1c95eb06159684"
+    },
+    {
+      "file": "examples/sushi/macros/utils.py",
+      "line": 15,
+      "summary": "multiply docstring renders with an unmatched opening double-quote because the closing \" of \"column > 0\" is consumed by the \"\"\" delimiter",
+      "failure_scenario": "The docstring literal is \"\"\"untyped column will be a sqlglot column and return a sqlglot exp \"column > 0\"\"\". Python's tokenizer treats the final three \" as the closing \"\"\", so the docstring content becomes: 'untyped column will be a sqlglot column and return a sqlglot exp \"column > 0' -- with a stray unmatched \" that was meant to be the opening quote of \"column > 0\". Cosmetic documentation defect; no runtime crash.",
+      "finding_id": "mf-a55f18e96800aefe9ec3"
+    }
+  ]
+}

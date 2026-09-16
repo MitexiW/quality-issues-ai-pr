@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "next/src/components/tools/MetadataEditorTool.js",
+      "line": 34,
+      "summary": "Binary EXIF tag values (ArrayBuffer, TypedArray, thumbnail) are stringified to \"{}\" by JSON.stringify, permanently corrupting the tag data on save",
+      "failure_scenario": "User uploads a JPEG with MakerNote or thumbnail EXIF tags, edits any visible field, clicks Save — the binary tags become `{}` in the saved file, and the original binary data is permanently lost",
+      "finding_id": "mf-bb952e0db1edf51f3ce8"
+    },
+    {
+      "file": "next/src/components/tools/MetadataEditorTool.js",
+      "line": 17,
+      "summary": "f.type.startsWith('image/') accepts PNG/GIF/WebP but piexif.load() and piexif.insert() only work with JPEG, silently corrupting non-JPEG images",
+      "failure_scenario": "User uploads a PNG with EXIF metadata, edits a field, clicks Save Image — piexif.insert() embeds JPEG EXIF bytes into the PNG data URL, producing a corrupted file that can no longer be opened as a valid image",
+      "finding_id": "mf-c9f3b1945a2b60103307"
+    },
+    {
+      "file": "next/src/components/tools/HeicConvertTool.js",
+      "line": 36,
+      "summary": "zipStream.readable.pipeTo(fileStream) is not awaited, so stream errors (download denied, quota exceeded) become unhandled promise rejections with no user feedback",
+      "failure_scenario": "User converts multiple HEIC files to a zip, browser denies the StreamSaver download (permission popup dismissed) — pipeTo rejects silently, zipStream.close() still succeeds, progress completes, but no usable zip file is ever saved to disk",
+      "finding_id": "mf-d3a41440f14741d96eb2"
+    },
+    {
+      "file": "next/src/components/tools/HeicConvertTool.js",
+      "line": 41,
+      "summary": "writer.write(outputBuffer) returns a Promise but is not awaited before writer.close(), so close may fire before the write completes, truncating data",
+      "failure_scenario": "User converts a large HEIC photo, writer.write() begins transferring the converted JPEG blob, writer.close() fires synchronously before the write promise settles — the zip entry is truncated or empty, and the downloaded zip contains a corrupt or zero-byte file",
+      "finding_id": "mf-ddd8b29fac46cac2ce0c"
+    },
+    {
+      "file": "next/src/components/tools/DownloadTimeCalculator.js",
+      "line": 24,
+      "summary": "parseFloat(size) || 0 passes negative values through (e.g. -5 is truthy), producing a negative byte count that yields negative time strings like \"-1h\"",
+      "failure_scenario": "User accidentally types \"-5\" into the file size input (e.g. clearing a number and the minus persists) — the calculator displays a nonsensical negative time estimate such as \"-1h\" instead of showing an error or clamping to zero",
+      "finding_id": "mf-a43a628a606c18d0c92b"
+    },
+    {
+      "file": "next/src/components/tools/UnzipFilesTool.js",
+      "line": 10,
+      "summary": "Module-scoped let zipFileReader and let zipReader are overwritten on each unzip() call without ever calling zipReader.close(), leaking the previous zip reader and its file handle",
+      "failure_scenario": "User opens zip A, then opens zip B — zip A's reader is overwritten without close() being called, the underlying BlobReader retains a reference to zip A's data in memory; repeated across many files, memory usage grows unboundedly until the tab crashes",
+      "finding_id": "mf-491a3667c425d509e538"
+    },
+    {
+      "file": "next/src/lib/utils.js",
+      "line": 315,
+      "summary": "readFileTillEnd never calls reject on error; if file.slice().arrayBuffer() throws (deleted file, permission change), the promise hangs forever with no error propagation",
+      "failure_scenario": "User starts zipping files via ZipFilesTool, one file is deleted or moved mid-read — readFileTillEnd's readSlice async function rejects unhandled, the outer Promise stays pending forever, the zip progress bar freezes, and the user sees an unresponsive tool with no error message",
+      "finding_id": "mf-8b82d7d112cae7dfbe12"
+    },
+    {
+      "file": "next/src/components/tools/UnzipFilesTool.js",
+      "line": 39,
+      "summary": "richFile.entry.getData(fileStream) can throw (corrupt zip entry, invalid offset) but the rejection from handleAction is unhandled, leaving the user with no error feedback",
+      "failure_scenario": "User clicks a file inside a partially-corrupt zip archive — getData throws because the compressed data is invalid, the promise from handleAction rejects without a .catch, the console shows an unhandled rejection, and the download never starts with no visible error to the user",
+      "finding_id": "mf-cebbd1c922485b5f3f60"
+    }
+  ]
+}

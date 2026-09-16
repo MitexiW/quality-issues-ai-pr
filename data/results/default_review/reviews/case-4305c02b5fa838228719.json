@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "agentops/session/state.py",
+      "line": 27,
+      "summary": "INDETERMINATE becomes an alias of INITIALIZING because they share the same string value \"INITIALIZING\", which makes is_terminal return True for INITIALIZING (breaking the session state machine)",
+      "failure_scenario": "After the enum members are defined, `SessionState.INITIALIZING is SessionState.INDETERMINATE` evaluates to True (they are the same member). `SessionState.INITIALIZING.is_terminal` returns True (should be False). In telemetry.py line 56, if `set_status` is called with INITIALIZING, `state.is_terminal` is True, so the span status is prematurely set to UNSET before the session properly starts. Any code that checks `is_terminal` on an INITIALIZING state gets a wrong answer, and INDETERMINATE cannot be distinguished from INITIALIZING anywhere in the codebase.",
+      "finding_id": "mf-552896033c91c50a58d4"
+    },
+    {
+      "file": "agentops/config.py",
+      "line": 190,
+      "summary": "Config.configure() overwrites exporter_endpoint to self.endpoint (API endpoint) whenever exporter_endpoint is not explicitly passed, silently replacing the correct OTLP endpoint field default",
+      "failure_scenario": "Call `agentops.init()` without specifying `exporter_endpoint`. The flow: `agentops.init(exporter_endpoint=None)` -> `Client.init(exporter_endpoint=None)` -> `Client.configure(exporter_endpoint=None)` -> `Config.configure(exporter_endpoint=None)`. Since `exporter_endpoint is None` (falsy in the `is not None` check), the else branch sets `self.exporter_endpoint = self.endpoint` (i.e., `https://api.agentops.ai`). In `SessionTracer.__init__`, `session.config.exporter_endpoint` is now the API endpoint URL. The `OTLPSpanExporter(endpoint=\"https://api.agentops.ai\")` then sends OTLP trace data to the REST API server instead of the OTLP collector, causing all trace data to be lost with 404 errors.",
+      "finding_id": "mf-a6dcddc4fbcb67dc2c0e"
+    },
+    {
+      "file": "agentops/session/__init__.py",
+      "line": 62,
+      "summary": "Module-level `current` property was removed but is still listed in `__all__`, making `from agentops.session import current` and `from agentops.session import *` raise ImportError",
+      "failure_scenario": "Any code that does `from agentops.session import current` or `from agentops.session import *` raises `ImportError: cannot import name 'current'`. The file `examples/using_decorators.py` line 6 accesses `agentops.session.current`, which raises `AttributeError`. The `current` attribute now only lives on the `Session` class as a classproperty (`Session.current`), not at module level.",
+      "finding_id": "mf-99c734b4cba70372a3bd"
+    },
+    {
+      "file": "agentops/session/session.py",
+      "line": 77,
+      "summary": "Session.current uses get_current_session() (context-only) while the old module-level `current` used get_default_session() (context plus single-session fallback), silently returning None in cases that previously returned a valid session",
+      "failure_scenario": "A single session exists but no OpenTelemetry context is set (e.g., when sessions are managed without context propagation). Old behavior: `get_default_session()` returns the single active session. New behavior: `get_current_session()` returns None because no context is set. Code relying on `Session.current` to find the sole active session now gets None.",
+      "finding_id": "mf-647412377623b1f5e9f2"
+    },
+    {
+      "file": "agentops/session/state.py",
+      "line": 23,
+      "summary": "Replacing auto() with explicit uppercase strings changes str(INITIALIZING) from \"initilizing\" to \"INITIALIZING\", a breaking serialization change for all states except INDETERMINATE",
+      "failure_scenario": "Old behavior: `str(SessionState.INITIALIZING)` -> `\"initilizing\"`, `str(SessionState.RUNNING)` -> `\"running\"`. New behavior: all return uppercase strings like `\"INITIALIZING\"`, `\"RUNNING\"`. Any code that compares session state strings (e.g., log parsing, dashboard state matching, deserialization from stored state strings that used lowercase) will fail. The `dict()` method serializes state via `str(self._state)`, so all session JSON output changes state casing.",
+      "finding_id": "mf-1693294a764ffb38e526"
+    },
+    {
+      "file": "agentops/config.py",
+      "line": 138,
+      "summary": "self.api_key is assigned the raw value before UUID validation, so if InvalidApiKeyException is raised (and caught downstream), the Config object is left with an invalid API key set",
+      "failure_scenario": "A caller provides an invalid API key string. `self.api_key = api_key` sets it immediately (line 138). Then `UUID(api_key)` raises ValueError -> InvalidApiKeyException. If the calling code catches the exception and continues using the same Config instance (e.g., in a retry loop or graceful degradation path), `self.api_key` holds the invalid value. Old code only assigned `self.api_key` after successful UUID validation.",
+      "finding_id": "mf-84f1ddb348a539a5a56f"
+    },
+    {
+      "file": "agentops/__init__.py",
+      "line": 111,
+      "summary": "The valid_params set in configure() is missing prefetch_jwt_token and auto_init, causing false-positive warnings for valid configuration parameters",
+      "failure_scenario": "Call `agentops.configure(prefetch_jwt_token=True)` or `agentops.configure(auto_init=False)`. The valid_params set (lines 111-126) does not include `prefetch_jwt_token` or `auto_init`, so they are flagged as `\"Invalid configuration parameters\"` and a warning is logged. The parameters are still passed through and correctly handled by Config.configure(), so the warning is spurious.",
+      "finding_id": "mf-49537ee0651348ecdcb1"
+    },
+    {
+      "file": "agentops/__init__.py",
+      "line": 1,
+      "summary": "TYPE_CHECKING is imported but never used in this module",
+      "failure_scenario": "Unused import adds noise and can confuse readers. No runtime impact, but violates Python best practices. The import was likely carried over during refactoring of the typing imports.",
+      "finding_id": "mf-0f310d689f69619f4dd4"
+    },
+    {
+      "file": "agentops/session/state.py",
+      "line": 2,
+      "summary": "auto is imported from enum but no longer used after replacing auto() calls with explicit string values",
+      "failure_scenario": "Unused import. No runtime impact. The `auto` was previously used for INITIALIZING, RUNNING, SUCCEEDED, and FAILED enum members; now all use explicit strings, so `auto` is dead.",
+      "finding_id": "mf-2611be738d52d45f6f1b"
+    }
+  ]
+}

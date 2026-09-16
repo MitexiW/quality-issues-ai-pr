@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "packages/graphic-walker/src/components/painter/index.tsx",
+      "line": 1027,
+      "summary": "Race condition: new await introduces an async suspension point in a previously synchronous code path inside a useEffect with no abort/cleanup mechanism; concurrent effect re-runs can race on paintMapRef.current and React state",
+      "failure_scenario": "User opens painter panel on an existing non-aggregated paint map (same-channel editing path). The new await decompressBitMap(...) begins. Before it completes, user changes a column via another UI control. MobX triggers a useEffect re-run with a different paintInfo (e.g., new dimensions). Both IIFEs execute concurrently — the first run's decompress completes later and overwrites paintMapRef.current and React state (setDict, setDomainX, etc.) with stale data from the old encoding, corrupting the paint editor display and potentially the saved paint map.",
+      "finding_id": "mf-1f1dad226611f10464a4"
+    },
+    {
+      "file": "packages/graphic-walker/src/components/painter/index.tsx",
+      "line": 997,
+      "summary": "Missing error handling: painter useEffect does not handle paintInfo returning { type: 'error', ... }, causing an infinite loading spinner; the new validation in visualSpecStore.ts makes this reachable for the existPaintField path",
+      "failure_scenario": "User opens the painter panel with a valid encoding. While the panel is open, user changes a column to a temporal type (or adds/removes columns so count != 1). paintInfo now returns { type: 'error', key: 'temporal' } due to the new validation at visualSpecStore.ts line 310. The useEffect re-runs: setLoading(true) fires, then destructures paintInfo. The 'if (paintInfo)' block is entered (error objects are truthy), but no branch matches 'error'. setLoading(false) is never called. The loading spinner persists indefinitely until the user manually closes the dialog. The same gap also swallows any exception thrown by decompressBitMap or other async operations inside the untry-wrapped async IIFE.",
+      "finding_id": "mf-cd78aa4fca48efda5c17"
+    },
+    {
+      "file": "packages/graphic-walker/src/store/visualSpecStore.ts",
+      "line": 304,
+      "summary": "Duplicated validation logic: the columns/rows count check, aggName check, and field ID checks at lines 304-324 in paintInfo are identical to those in paintFields at lines 237-257 (non-aggregated) and partially overlap lines 265-281 (aggregated); any future change to these rules must be made in three places",
+      "failure_scenario": "Maintenance burden. A developer adding a new paint restriction (e.g., blocking 'ordinal' type) to paintFields may forget to also update paintInfo's pre-validation, causing the existPaintField path to bypass the new restriction and return exist data for an invalid encoding. The dual-layer validation is defensive but the cost is divergence risk.",
+      "finding_id": "mf-a1c2e8c374a5d6ad1197"
+    },
+    {
+      "file": "packages/graphic-walker/src/store/visualSpecStore.ts",
+      "line": 265,
+      "summary": "Missing temporal check in paintFields aggregated path: the non-aggregated path (line 243) rejects temporal fields but the aggregated path (line 265) does not; now papered over by paintInfo's new validation but latent inconsistency remains",
+      "failure_scenario": "If paintFields is ever consumed directly (not through paintInfo), aggregated paint configurations with temporal columns would be generated despite temporal paint being unsupported ('range on temporal need use a temporal Domain, which is not implemented'). The resulting invalid paint map would fail at render time with a cryptic error rather than a clear validation message.",
+      "finding_id": "mf-f74e13ea7f8e8b7d67ad"
+    }
+  ]
+}

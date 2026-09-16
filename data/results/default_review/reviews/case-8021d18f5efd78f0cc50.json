@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/agents/crew_agent_executor.py",
+      "line": 588,
+      "summary": "Dead code: _log_feedback_error (lines 588-596) and _log_max_retries_exceeded (lines 598-606) are never called after _get_llm_feedback_response was removed; import of MAX_LLM_RETRY at line 20 is now only used in these dead methods",
+      "failure_scenario": "Developers reading this code will be misled into thinking these methods are part of active error-handling paths; they consume the MAX_LLM_RETRY constant import and add maintenance burden with no benefit",
+      "finding_id": "mf-0dfd9a6e458799fad5d7"
+    },
+    {
+      "file": "tests/agent_test.py",
+      "line": 979,
+      "summary": "Stale @pytest.mark.vcr decorator on test_agent_human_input references a deleted cassette file (tests/cassettes/test_agent_human_input.yaml) and is unnecessary since _invoke_loop is now mocked",
+      "failure_scenario": "The VCR marker is misleading -- it suggests the test uses cassette replay when it actually patches _invoke_loop to avoid all HTTP calls. The decorator serves no purpose and will confuse future maintainers",
+      "finding_id": "mf-4e51f253fde11e5e8ce2"
+    },
+    {
+      "file": "tests/agent_test.py",
+      "line": 1016,
+      "summary": "Test coverage regression: _invoke_loop is patched with a fixed return_value=AgentFinish(output='Hello'), so the test cannot verify that _process_feedback_iteration properly appends feedback to messages or that the LLM processes feedback correctly",
+      "failure_scenario": "If _process_feedback_iteration had a bug (e.g., it fails to append the feedback instructions to self.messages before calling _invoke_loop), the test would still pass because the mock always returns 'Hello' regardless of the actual message state. The deleted cassette test previously verified real LLM feedback processing behavior",
+      "finding_id": "mf-fae4644f083a4b1fea17"
+    }
+  ]
+}

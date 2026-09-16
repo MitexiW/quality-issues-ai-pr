@@ -1,0 +1,89 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A consumer looking up \"England\" gets \"right\" while looking up \"United Kingdom\" gets \"left\" — e.g., a navigation or driver-assist app keyed on this dataset configures UK users' driving side inconsistently or wrongly.",
+      "file": "src/country-by-driving-side.json",
+      "line": 260,
+      "summary": "England is listed with driving side \"right\", but England drives on the left (the file itself lists United Kingdom as \"left\" at line 932)."
+    },
+    {
+      "failure_scenario": "An app routing or configuring vehicles/driving aids for Myanmar based on this record produces left/right traffic rules that contradict the country's actual left-hand traffic.",
+      "file": "src/country-by-driving-side.json",
+      "line": 604,
+      "summary": "Myanmar is listed with driving side \"right\", but Myanmar has driven on the left since December 1970."
+    },
+    {
+      "failure_scenario": "A lookup for \"Scotland\" returns \"right\" while the same file says \"United Kingdom\" is \"left\" (line 932); consumers get contradictory driving-side data for the same jurisdiction.",
+      "file": "src/country-by-driving-side.json",
+      "line": 780,
+      "summary": "Scotland is listed with driving side \"right\", but Scotland (part of the UK) drives on the left."
+    },
+    {
+      "failure_scenario": "A lookup for \"Wales\" returns \"right\" while the same file says \"United Kingdom\" is \"left\" (line 932); consumers get contradictory driving-side data for the same jurisdiction.",
+      "file": "src/country-by-driving-side.json",
+      "line": 972,
+      "summary": "Wales is listed with driving side \"right\", but Wales (part of the UK) drives on the left."
+    },
+    {
+      "failure_scenario": "A lookup for \"Northern Ireland\" returns \"right\" while the same file says \"United Kingdom\" is \"left\" (line 932); consumers get contradictory driving-side data for the same jurisdiction.",
+      "file": "src/country-by-driving-side.json",
+      "line": 660,
+      "summary": "Northern Ireland is listed with driving side \"right\", but Northern Ireland (part of the UK) drives on the left."
+    },
+    {
+      "failure_scenario": "Any consumer using this record for Bermuda (route planning, vehicle import rules, driver-assist configuration) is told the traffic side is right when it is left.",
+      "file": "src/country-by-driving-side.json",
+      "line": 96,
+      "summary": "Bermuda is listed with driving side \"right\", but Bermuda drives on the left (British Overseas Territory with right-hand-drive vehicles)."
+    },
+    {
+      "failure_scenario": "A lookup for the US Virgin Islands returns \"right\"; an app configuring driving-side-dependent behavior (e.g., lane warnings, overtaking rules) for USVI users would apply the wrong side.",
+      "file": "src/country-by-driving-side.json",
+      "line": 968,
+      "summary": "\"Virgin Islands, U.S.\" is listed with driving side \"right\", but the US Virgin Islands drive on the left (the only US jurisdiction with left-hand traffic)."
+    },
+    {
+      "failure_scenario": "A lookup for \"Gibraltar\" returns \"left\"; consumers routing or configuring vehicles for Gibraltar get the opposite of the actual right-hand traffic rule.",
+      "file": "src/country-by-driving-side.json",
+      "line": 340,
+      "summary": "Gibraltar is listed with driving side \"left\", but Gibraltar uses right-hand traffic (aligned with neighboring Spain)."
+    },
+    {
+      "failure_scenario": "A lookup for \"Vanuatu\" returns \"left\"; any consumer using the record (navigation, driving-rule checks, fleet configuration) gets the wrong traffic side for the country.",
+      "file": "src/country-by-driving-side.json",
+      "line": 952,
+      "summary": "Vanuatu is listed with driving side \"left\", but Vanuatu drives on the right."
+    },
+    {
+      "failure_scenario": "A lookup for \"New Caledonia\" returns \"left\"; consumers applying French road rules (right-hand traffic) would instead be told the traffic side is left.",
+      "file": "src/country-by-driving-side.json",
+      "line": 628,
+      "summary": "New Caledonia is listed with driving side \"left\", but New Caledonia (French territory) drives on the right."
+    },
+    {
+      "failure_scenario": "A lookup for \"Wallis and Futuna\" returns \"left\"; consumers applying French road rules (right-hand traffic) get the opposite side.",
+      "file": "src/country-by-driving-side.json",
+      "line": 976,
+      "summary": "Wallis and Futuna is listed with driving side \"left\", but this French territory drives on the right."
+    },
+    {
+      "failure_scenario": "A lookup for \"Falkland Islands\" returns \"left\"; a consumer configuring driving-side-dependent behavior for the territory would apply the wrong traffic side.",
+      "file": "src/country-by-driving-side.json",
+      "line": 288,
+      "summary": "Falkland Islands is listed with driving side \"left\", but the Falkland Islands are one of the few British Overseas Territories with right-hand traffic."
+    },
+    {
+      "failure_scenario": "A lookup for \"Norfolk Island\" returns \"right\" while \"Australia\" (line 52) returns \"left\"; consumers get contradictory driving-side data for the same legal jurisdiction (Australian road rules apply).",
+      "file": "src/country-by-driving-side.json",
+      "line": 652,
+      "summary": "Norfolk Island is listed with driving side \"right\", but this Australian external territory follows Australia's left-hand traffic."
+    },
+    {
+      "failure_scenario": "A lookup for \"British Indian Ocean Territory\" returns \"left\"; any consumer configuring vehicles or driving rules for Diego Garcia personnel gets the wrong traffic side.",
+      "file": "src/country-by-driving-side.json",
+      "line": 124,
+      "summary": "British Indian Ocean Territory is listed with driving side \"left\", but its only population (the US-UK military base on Diego Garcia) uses right-hand traffic."
+    }
+  ],
+  "level": null
+}

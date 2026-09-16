@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/agent.py",
+      "line": 143,
+      "summary": "Missing @classmethod decorator on a model_validator(mode='before') — will raise PydanticUserError on Pydantic v2.5+, crashing Agent construction for any from_repository usage",
+      "failure_scenario": "User runs with Pydantic >= 2.5 (compatible with the project's pydantic>=2.4.2 constraint). Any Agent(from_repository='x') call raises PydanticUserError: 'A model validator with mode=\"before\" should be a classmethod' at model class creation time. Every other mode='before' validator in this codebase (base_agent.py:165, security_config.py:73, task.py:225) correctly uses @classmethod.",
+      "finding_id": "mf-4e368dcc8ba0641d031d"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 158,
+      "summary": "Network exceptions (ConnectionError, Timeout, SSLError) and auth failures from get_auth_token() are not caught or wrapped in AgentRepositoryError — raw exceptions propagate through Pydantic's model validation giving confusing error messages",
+      "failure_scenario": "User is offline or the CrewAI+ API is unreachable. Calling Agent(from_repository='my_agent') raises a raw requests.ConnectionError wrapped inside a pydantic_core.ValidationError with a message like '1 validation error for Agent ... ConnectionError'. The user gets no indication this is a repository loading failure. Similarly, if the user is not logged in, get_auth_token() raises Exception('No token found...') which leaks through as a ValidationError instead of a clear AgentRepositoryError.",
+      "finding_id": "mf-054381c0f2d433bc70a2"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 165,
+      "summary": "response.json() is called without a try/except after checking only status_code — a 200 response with a non-JSON body (e.g. gateway HTML error page) raises uncaught JSONDecodeError",
+      "failure_scenario": "A proxy or load balancer returns HTTP 200 with an HTML error page (common with misconfigured gateways). The status_code check passes, but response.json() raises requests.exceptions.JSONDecodeError, which propagates through Pydantic as an unhelpful ValidationError instead of an AgentRepositoryError.",
+      "finding_id": "mf-83b1ee37ea692b8a55f2"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 171,
+      "summary": "importlib.import_module('crewai_tools') is called inside the for-loop over tools — the module is re-imported for every single tool unnecessarily",
+      "failure_scenario": "An agent from the repository has 10 tools. importlib.import_module('crewai_tools') executes 10 times inside the loop instead of once before the loop begins. While importlib caches the module so the I/O cost is only paid once, the repeated function call and cache lookup waste CPU on a hot path (construction of every Agent from a repository). The import should be hoisted before the for loop.",
+      "finding_id": "mf-cfad478e7c41990fd1a2"
+    },
+    {
+      "file": "src/crewai/agent.py",
+      "line": 152,
+      "summary": "The if from_repository: guard inside _load_agent_from_repository is dead code — the sole caller validate_from_repository already verifies from_repository is truthy before invoking this method",
+      "failure_scenario": "Not a runtime crash, but a code-quality defect: the guard implies the method handles empty-string input, but returning {} silently for an empty from_repository would create an Agent with no role/goal/backstory set (violating BaseAgent's required-field validation) and from_repository='' still stored on the instance. If this code path were ever reached (e.g. future refactor of the caller), it would create a broken agent with no attributes loaded from the repository.",
+      "finding_id": "mf-b035c4052f8f92caa7e5"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "ddns/util/http.py",
+      "line": 263,
+      "summary": "RetryHandler network error retry is dead code -- catches wrong exception type (socket.timeout/gaierror/herror) while urllib wraps all socket errors in URLError before they reach the handler chain",
+      "failure_scenario": "A network timeout occurs during an HTTP request. urllib's AbstractHTTPHandler.do_open() wraps the socket.timeout in URLError(err) and raises it. RetryHandler.default_open catches (socket.timeout, socket.gaierror, socket.herror) which does not match URLError. The exception propagates uncaught -- the request is never retried despite retries=2 being configured, defeating the purpose of the retry handler for network-level errors. The integration test misses this because it directly mocks parent.open to raise socket.timeout without the URLError wrapping that real urllib applies.",
+      "finding_id": "mf-04ce9e2d2e419b78d709"
+    },
+    {
+      "file": "tests/test_util_http_retry.py",
+      "line": 297,
+      "summary": "Test log capture uses wrong logger name 'ddns.util.http' but production logger is now named 'http' after the diff changed getLogger().getChild(__name__) to getLogger().getChild('http')",
+      "failure_scenario": "The integration test test_http_502_retry_auto sets up log capture on logging.getLogger('ddns.util.http') but the RetryHandler logs to the logger named 'http' (a sibling, not a child, of 'ddns.util.http'). No log messages are captured. The test's log-output checks (for 'retrying' in log_output) receive an empty string and always fall through to self.skipTest(), so retry behavior is never actually verified in the integration test.",
+      "finding_id": "mf-e7fea018c5e755d093c0"
+    },
+    {
+      "file": "ddns/util/http.py",
+      "line": 133,
+      "summary": "HTTP error log level silently reduced from warning to info in NoHTTPErrorProcessor, hiding provider error diagnostics from WARNING-level log filtering",
+      "failure_scenario": "A DNS provider starts returning 500 errors consistently. An operator monitoring logs at WARNING level and above would previously see 'HTTP error 500: Internal Server Error' warnings, alerting them to the issue. After this change, these messages are logged at INFO level and are invisible at WARNING filtering, delaying diagnosis of the provider outage.",
+      "finding_id": "mf-ed4bb5620eaab50f8128"
+    }
+  ]
+}

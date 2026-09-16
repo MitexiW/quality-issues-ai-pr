@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Provider instrumentors only activate when the provider's SDK package is importable (agentops/instrumentation/__init__.py `should_activate`), and the crewai wrapper never checks this. A CrewAI app using model \"claude-3-5-sonnet\" through litellm without the `anthropic` package installed (litellm calls Anthropic via httpx), or \"gemini-1.5-pro\" without `google.genai` installed, or a \"gpt-\"-prefixed model served through a non-OpenAI-SDK path (e.g. \"gpt-neo-125m\" via litellm's transformers provider): the wrapper returns `wrapped(*args, **kwargs)` with no span, no attributes, and no duration histogram, where the old code always emitted the span and metric — the user's LLM traces vanish with no warning. The wrapper should consult `agentops.instrumentation._active_instrumentors` instead of guessing from the model string.",
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 433,
+      "summary": "The CrewAI LLM wrapper skips span/metric creation based solely on the model-name prefix, without verifying the alternate provider instrumentor is actually installed and active in this process, so all LLM telemetry silently disappears whenever it is not."
+    },
+    {
+      "failure_scenario": "CrewAI's `LLM` (>= 0.70) is a plain class that stores `model` unvalidated, so `LLM(model=None)` or `llm.model = None` is possible at runtime. Previously the wrapper only formatted the value (`f\"{llm}.llm\"`, `str(instance.model)`), created the span, and let crewai/litellm raise its own clear error. Now `\"/\" in None` raises `TypeError: argument of type 'NoneType' is not iterable` from inside the instrumentation, `wrapped()` is never invoked, and the re-raised exception is logged as \"Error in provider detection\" with a traceback pointing into agentops rather than the actual cause.",
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 417,
+      "summary": "The new provider detection calls `llm.split(...)` on `instance.model` with no type check, so a None or non-string model raises TypeError before the wrapped LLM call ever runs, aborting the call itself."
+    },
+    {
+      "failure_scenario": "Even in the happy path where the alternate instrumentor is active and produces a span for the SDK call, the provider instrumentors cannot see CrewAI's `kwargs[\"callbacks\"][0].token_cost_process`, so `LLM_USAGE_PROMPT_TOTAL_COMPLETION_TOKENS` attributes, `MessageAttributes.PROMPT_CONTENT`/`COMPLETION_CONTENT` per-message attributes, and the CrewAISpanAttributes LLM instance details (e.g. `LLM_REQUEST_MODEL`, `LLM_REQUEST_TEMPERATURE`) are never recorded for any model whose name matches \"gpt/openai/claude/anthropic/google/gemini/ibm/watsonx/agents\". Dashboards and queries built on these attributes for CrewAI apps lose data for the most common providers, with only a debug-level log noting the skip.",
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 435,
+      "summary": "The skip path drops CrewAI-specific span data that is not re-established anywhere: per-message prompt/completion attributes, LLM instance attributes from CrewAISpanAttributes, and token usage from CrewAI's `token_cost_process` callback are only set inside the skipped span."
+    },
+    {
+      "failure_scenario": "An LLM API failure inside the skip branch (`wrapped()` at line 435, e.g. a litellm rate-limit or auth error) is logged only as \"Error in provider detection: ...\" — misleading for on-call debugging — while errors in the instrumented branch are logged twice (\"Error in trace creation\" then \"Error in provider detection\"). Because `raise e` re-raises the same exception object with a fresh `__traceback__` starting at the `raise e` line, the original failure site inside crewai/litellm disappears from the reported traceback, degrading debugging and exception-grouping (Sentry-style) for end users compared to the previous bare `raise`.",
+      "file": "agentops/instrumentation/crewai/instrumentation.py",
+      "line": 496,
+      "summary": "The new outer try/except logs every failure as \"Error in provider detection\" (including genuine LLM API errors, which are now logged twice with conflicting messages), and `raise e` at lines 495 and 498 resets the exception traceback, replacing the old bare `raise` that preserved the original frames."
+    }
+  ],
+  "level": null
+}

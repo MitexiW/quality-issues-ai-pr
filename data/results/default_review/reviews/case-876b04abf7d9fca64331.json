@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/acceptance-test-config.yml",
+      "line": 7,
+      "summary": "All six CAT acceptance-test suites (spec, connection, discovery, basic_read, full_refresh, incremental) are now bypassed. Previously, spec, connection, discovery, and incremental ran real tests. This PR introduces a breaking config-schema change (single 'database' string to 'databases' array) with no integration-test validation.",
+      "failure_scenario": "The spec backward-compatibility test (which validated expected_spec.json against the new multi-database schema) no longer runs. A mismatch between spec.json, expected_spec.json, and the config parsing code would go undetected until a user configures the connector.",
+      "finding_id": "mf-ad60503aa74ae62ecd65"
+    },
+    {
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbCdcInitializer.java",
+      "line": 100,
+      "summary": "Hardcoded string literal \"connection_string\" used instead of the existing constant MongoDbDebeziumConstants.Configuration.CONNECTION_STRING_CONFIGURATION_KEY.",
+      "failure_scenario": "If the constant value is ever changed (e.g. renamed to 'conn_string' for consistency), this line would silently break with a MissingNode result while all other code paths remain correct.",
+      "finding_id": "mf-9b97c39c375cc9549d2f"
+    },
+    {
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/InitialSnapshotHandler.java",
+      "line": 65,
+      "summary": "New .filter() calls getNamespace().equals(...) without a null-guard; a stream with a null namespace would throw NullPointerException. Old code had no filter and would have processed such a stream.",
+      "failure_scenario": "If a catalog contains a ConfiguredAirbyteStream whose AirbyteStream.getNamespace() returns null (due to an upstream bug or incomplete stream discovery), the filter throws NPE, crashing the initial snapshot phase. The old code would have skipped the filter and proceeded.",
+      "finding_id": "mf-ce4af98e1019d0cc1ca3"
+    },
+    {
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/main/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbDebeziumStateUtil.java",
+      "line": 163,
+      "summary": "Log message contains typo: 'save_id' should be 'server_id' to match the first half of the sentence which correctly references 'server_id'.",
+      "failure_scenario": "Confusing log output during offset migration. An operator searching logs for 'server_id' would miss this message, delaying diagnosis of offset-migration issues.",
+      "finding_id": "mf-b2836533cb96aed384f3"
+    },
+    {
+      "file": "airbyte-integrations/connectors/source-mongodb-v2/src/test/java/io/airbyte/integrations/source/mongodb/cdc/MongoDbCdcTargetPositionTest.java",
+      "line": 1017,
+      "summary": "Dead commented-out code left behind: the old single-database pipeline construction. The new code uses Filters.or with ns.db matching, making these commented lines permanently dead.",
+      "failure_scenario": "No runtime failure. Maintenance cost: a future developer wastes time wondering whether the commented code should be restored or whether it documents an alternative approach.",
+      "finding_id": "mf-73b1d3844fae37d1e8b6"
+    }
+  ]
+}

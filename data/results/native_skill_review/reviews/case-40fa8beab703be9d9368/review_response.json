@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Publisher runs a default build (bidResponseFilter included) and never calls setConfig({bidResponseFilter: ...}). moduleConfig is undefined, so catConfig/advConfig/attrConfig fall back to {enforce: true, blockUnknown: true}. The first check `catConfig.blockUnknown && !primaryCatId` is true for any bid whose meta lacks primaryCatId (almost all adapters never set it), so addBidResponseHook calls reject(BID_CATEGORY_REJECTION_REASON) and the auction returns no bids. Baseline only registered the hook after the publisher enabled the module via config.",
+      "file": "modules/bidResponseFilter/index.js",
+      "line": 11,
+      "summary": "The bidResponseFilter hook is now registered unconditionally at module load and applies blockUnknown/enforce defaults even when the module is never configured, so nearly every bid without meta.primaryCatId/advertiserDomains/attr is rejected."
+    },
+    {
+      "failure_scenario": "Every IX request is built with `option: {contentType: 'text/plain'}` but the ajax layer reads `request.options` (undefined), dropping withCredentials. IX endpoint requests are sent without cookies, breaking user matching and buyer-side targeting; the contentType only survives by accident because 'text/plain' happens to be the ajax default (src/ajax.js line 39). Baseline sent `options: {contentType: 'text/plain', withCredentials: true}`.",
+      "file": "modules/ixBidAdapter.js",
+      "line": 754,
+      "summary": "The request options object was renamed from `options` to `option`, so bidderFactory/ajax ignores it and Index Exchange requests lose `withCredentials: true` (cookies are no longer sent)."
+    },
+    {
+      "failure_scenario": "A banner renders successfully via renderAdDirect (both the direct ad-write path at line 257 and the creative-renderer path at line 265). emitAdRenderSucceeded({doc, bid, adId}) drops the passed key because its signature is ({doc, bid, id}) and sets data.adId = undefined. Analytics adapters listening to EVENTS.AD_RENDER_SUCCEEDED can no longer correlate the render with a bid (baseline passed `id: bid.adId` and the payload contained adId).",
+      "file": "src/adRendering.js",
+      "line": 257,
+      "summary": "renderAdDirect now calls emitAdRenderSucceeded with `adId: bid.adId`, but the function destructures `id` and builds `data.adId = id`, so AD_RENDER_SUCCEEDED events are emitted without an adId."
+    },
+    {
+      "failure_scenario": "Publisher runs prebid-server over HTTPS with default s2sConfig (no `secure` field) and no adUnit ortb2Imp.secure. Baseline produced `imp.secure = ortb2Imp.secure ?? 1`; now `imp.secure = undefined` and the field is omitted from the request. Client-side adapters using ortbConverter lose the same default (removed `imp.secure ?? 1` processor in libraries/ortbConverter/processors/default.js). Endpoints that interpret missing secure as insecure may apply different floor/auction handling, and the per-adunit ortb2Imp.secure override publishers set is now ignored.",
+      "file": "modules/prebidServerBidAdapter/ortbConverter.js",
+      "line": 40,
+      "summary": "imp.secure is now set from s2sConfig.secure with no default and no per-impression ortb2Imp.secure override, and the generic `secure` DEFAULT_PROCESSOR that defaulted imp.secure to 1 was deleted, so impressions are sent without secure=1 on HTTPS pages unless the publisher explicitly configures it."
+    },
+    {
+      "failure_scenario": "Publisher sets setConfig({enableSendAllBids: true, targetingControls: {alwaysIncludeDeals: true}}). getBidderTargeting passes (true, true) into addBidToTargeting; the inner check `(!deals || bid.dealId)` now requires bid.dealId, so non-deal bids (the majority) are skipped and lose hb_bidder/hb_size-style bidder-level targeting keys that the baseline emitted for every bid whenever enableSendAllBids was true.",
+      "file": "src/targeting.js",
+      "line": 221,
+      "summary": "addBidToTargeting's condition changed from `enableSendAllBids || (deals && bid.dealId)` to `(!deals || bid.dealId)`, so when both enableSendAllBids and targetingControls.alwaysIncludeDeals are enabled, non-deal bids lose all bidder-level targeting."
+    },
+    {
+      "failure_scenario": "Publisher configures an ad unit with {ortb2Imp: {video: {pos: 7, playbackmethod: [2]}}} and no mediaTypes.video fields. Baseline syncOrtb2 copied those values into mediaTypes.video, which fillVideoImp (libraries/ortbConverter/processors/video.js) and many adapters read; now only `battr` is synced, so the ORTB imp is built without pos/playbackmethod and adapters keying off mediaTypes.video see them missing.",
+      "file": "src/prebid.js",
+      "line": 103,
+      "summary": "syncOrtb2 was replaced with setBattrForAdUnit, so ad-unit banner/video parameters defined only under ortb2Imp (pos, playbackmethod, topframe, mimes, etc.) are no longer synced into mediaTypes and disappear from request building."
+    },
+    {
+      "failure_scenario": "Publisher calls setBidderConfig({bidder: 'qortex', config: {ortb2: {...}}}); qortexRtdProvider.addContextToRequests runs mergeDeep(reqBidsConfig.ortb2Fragments.bidder, {[bidder]: fragment}). Because the bidder fragment values are the same object references stored in the bidder config registry (no deepClone), site.content enrichment is written into the publisher's config object and re-merged into every subsequent auction, accumulating stale per-auction data in the shared config.",
+      "file": "src/prebid.js",
+      "line": 537,
+      "summary": "requestBids no longer deepClones bidder-level ortb2 config, so RTD/auction code that merges into ortb2Fragments.bidder mutates the publisher's live setBidderConfig ortb2 object and state accumulates across auctions."
+    },
+    {
+      "failure_scenario": "Publisher defines an adUnit/mediaTypes renderer as {render: function(bid) {...}} without a url (the documented renderNow pattern). Baseline installed it via Renderer.install with renderNow: true; the new guard `mediaTypeRenderer && mediaTypeRenderer.url && mediaTypeRenderer.render` fails, no renderer is attached to the bid, and the video/outstream creative never renders with no warning.",
+      "file": "src/auction.js",
+      "line": 638,
+      "summary": "getPreparedBidForAuction now requires a renderer to have a `url` and drops the `renderNow: renderer.url == null` behavior, so custom renderers defined with only a render function are silently ignored and never render."
+    },
+    {
+      "failure_scenario": "hookConfig is created with the never-read `haveExited` field; continueAuction's guard `if (!hookConfig.hasExited)` works only because hasExited starts as undefined, and the comment 'only run if hasExited' no longer matches the state object. The double-continue protection is now implicit and fragile — any future code that initializes hasExited (or checks haveExited) would either always-skip or double-run continueAuction, which calls nextFn and corrupts the auction.",
+      "file": "modules/priceFloors.js",
+      "line": 580,
+      "summary": "The requestBids hook initializes `haveExited: false` (typo) while continueAuction reads/sets `hasExited`, leaving dead state and making the re-entry guard rely on an implicit undefined instead of the initialized flag."
+    }
+  ],
+  "level": null
+}

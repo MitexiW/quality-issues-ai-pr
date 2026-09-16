@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "agentops/__init__.py",
+      "line": 7,
+      "summary": "ErrorEvent and ToolEvent imported from agentops.legacy (no-op functions returning None) instead of from agentops.event (real dataclasses), shadowing the real implementations at the package level",
+      "failure_scenario": "A user writes `from agentops import ErrorEvent; event = ErrorEvent(trigger_event=ev, exception=ValueError('fail'))` -- the no-op legacy function accepts all args and returns None, so `event` is `None`. Passing it to `Client().record(event)` reaches `session.record(None)`, where line 412 executes `event.id = uuid4()` on `None`, raising `AttributeError: 'NoneType' object has no attribute 'id'`. If the user never passes the result to `record`, the error is silently discarded with no trace -- a silent data-loss path. The real `ErrorEvent` and `ToolEvent` dataclasses at `agentops.event.ErrorEvent` and `agentops.event.ToolEvent` have full behavior (serialization, timestamping, exception parsing in `__post_init__`); the legacy stubs accept any arguments and return None, so code that thought it was constructing an event object gets a falsy None with no error until it tries to use it.",
+      "finding_id": "mf-a94e72e8ca9c52749633"
+    }
+  ]
+}

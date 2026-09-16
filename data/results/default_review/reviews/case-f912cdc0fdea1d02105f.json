@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "tools/azure-sdk-tools/ci_tools/parsing/parse_functions.py",
+      "line": 109,
+      "summary": "_set_root_namespace fails to detect the end of a multi-line docstring — in_docstring stays True forever after entering, causing all subsequent content (imports, assignments) to be silently dropped",
+      "failure_scenario": "An __init__.py containing '\\\"\\\"\\\"Multi-line\\ndocstring\\\"\\\"\\\"\\nfrom ._version import VERSION' has in_docstring=True from line 1 and never toggles back (the closing \\\"\\\"\\\" on line 2 does not start with triple quotes, so no toggle occurs; a closing \\\"\\\"\\\" alone on a line does start with \\\"\\\"\\\" but the condition also requires NOT ending with \\\"\\\"\\\", which is False — so still no toggle). All lines after the docstring are skipped, content is empty, and _set_root_namespace returns None. discover_namespace then falls back to the next __init__.py or ultimately to name.replace('-', '.') — producing an incorrect namespace. For azure-eventhub-checkpointstoreblob, this could yield 'azure.eventhub.checkpointstoreblob' instead of 'azure.eventhub.extensions.checkpointstoreblob', silently breaking sphinx docs, mypy/pyright type checking, and import verification.",
+      "finding_id": "mf-3ac45ae756dbc64cea15"
+    },
+    {
+      "file": "tools/azure-sdk-tools/ci_tools/parsing/parse_functions.py",
+      "line": 109,
+      "summary": "_set_root_namespace does not exclude single-line triple-quoted docstrings from the content list, inflating the line count and causing false 'substantial content' detection",
+      "failure_scenario": "An __init__.py containing '\\\"\\\"\\\"Azure SDK.\\\"\\\"\\\"\\n__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)' has the single-line docstring incorrectly added to content (because it starts AND ends with \\\"\\\"\\\", so the toggle condition 'starts but does not end' is False and in_docstring stays False; the line is not a #-comment so it passes the append filter). The extension line is also added, giving content 2 items. len(content) > 1 causes the function to return the module name, treating this namespace-extension-only file as substantial. The wrong (shallower) namespace is used.",
+      "finding_id": "mf-94dcebfbffb13be00f56"
+    },
+    {
+      "file": "tools/azure-sdk-tools/ci_tools/parsing/parse_functions.py",
+      "line": 112,
+      "summary": "_set_root_namespace does not filter blank/empty lines, which are appended to the content list and can inflate the line count past 1 for extension-only __init__.py files",
+      "failure_scenario": "An __init__.py with a blank line followed by '__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)' has the empty line (stripped to '') added to content because 'not \"\".startswith(\"#\")' evaluates to True. Both the blank line and the extension line are in content, giving len(content) > 1, so the function incorrectly returns the module name instead of None. This causes discover_namespace to stop at this file and use the wrong namespace.",
+      "finding_id": "mf-17aaa52f25890fb4deb5"
+    },
+    {
+      "file": "tools/azure-sdk-tools/ci_tools/parsing/parse_functions.py",
+      "line": 490,
+      "summary": "requires can be None when pyproject.toml [project] lacks a 'dependencies' key, causing TypeError on line 491 where None is iterated by map()",
+      "failure_scenario": "A pyproject.toml with a valid [project] section but no 'dependencies' key (which is optional per PEP 621) has project_config.get('dependencies') return None. Line 491 calls any(map(lambda x: ..., None)), which raises TypeError: 'NoneType' object is not iterable. This crashes parse_pyproject for any dependency-free package using pyproject.toml. (Pre-existing bug; the setup.py path handles this with a [ ] default.)",
+      "finding_id": "mf-3d06a8e42e775e14e6c4"
+    }
+  ]
+}

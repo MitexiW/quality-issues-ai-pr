@@ -1,0 +1,8 @@
+{
+  "review_count": 267,
+  "candidate_finding_count": 1484,
+  "selection": "First valid completed review with verified native Skill loading, in original/retry order; independent of finding content.",
+  "evaluation_status": "Human reference matching complete; comparison uses the combined default reviews.",
+  "privacy": "SDK transcripts, sessions, credentials, host paths and worktree source excluded.",
+  "model": "deepseek-v4-pro[1m]"
+}

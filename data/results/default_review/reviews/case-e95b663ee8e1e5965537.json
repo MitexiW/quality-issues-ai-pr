@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "apps/api/sharedLibs/html-transformer/src/lib.rs",
+      "line": 14,
+      "summary": "to_str().unwrap() panics and crashes the entire Node.js process when HTML input contains non-UTF-8 byte sequences",
+      "failure_scenario": "A scraped web page serves HTML with an encoding mis-declared as UTF-8 but containing Latin-1 bytes in the 0x80-0xFF range. The scraper's HTTP client decodes it into a JS string with replacement characters, but if the actual response bytes are passed directly as a C string through koffi FFI, to_str() fails and the entire service process terminates.",
+      "finding_id": "mf-eedc9c979d8692939ee7"
+    },
+    {
+      "file": "apps/api/sharedLibs/html-transformer/src/lib.rs",
+      "line": 22,
+      "summary": "CString::new().unwrap() panics and crashes the Node.js process if a base href attribute contains an embedded null byte",
+      "failure_scenario": "A malicious or corrupted HTML page contains <base href=\"https://example.com/\\x00evil\">. The scraper extracts the href value containing the null byte, CString::new() panics, and the entire service process terminates.",
+      "finding_id": "mf-428cb248483c048b4bfb"
+    },
+    {
+      "file": "apps/api/src/scraper/scrapeURL/lib/extractLinks.ts",
+      "line": 42,
+      "summary": "extractLinksRust parses the same HTML twice (once to extract links, once to extract base href), each via a separate parse_html() call in Rust",
+      "failure_scenario": "On the scrape hot path with large HTML documents (e.g., 500KB+ pages), the duplicate full-HTML parse doubles CPU time spent in the Rust HTML parser, adding measurable latency per scrape. A single combined Rust function returning both links and base href would parse once.",
+      "finding_id": "mf-479d3c66f4a85ee42434"
+    }
+  ]
+}

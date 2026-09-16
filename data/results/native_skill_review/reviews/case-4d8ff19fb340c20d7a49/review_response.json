@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`func_name = name_override or doc_info.name if doc_info else func.__name__` parses as `(name_override or doc_info.name) if doc_info else func.__name__` (the conditional expression binds looser than `or`). With `doc_info = None` (i.e. `use_docstring_info=False`), the expression evaluates to `func.__name__`, dropping a caller-supplied override. Calling `function_schema(foo, use_docstring_info=False, name_override=\"custom\")` now returns name `\"foo\"` instead of `\"custom\"` — the exact assertion of the deleted `test_name_override_without_docstring` (old code `name_override or (doc_info.name if doc_info else func.__name__)` always honored the override). A `function_tool(..., use_docstring_info=False, name_override=\"get_weather\")` will register the tool under the Python function name, so the LLM calls the overridden name and the tool-call lookup fails.",
+      "file": "src/agents/function_schema.py",
+      "line": 226,
+      "summary": "Operator-precedence change makes `name_override` silently ignored whenever `use_docstring_info=False`, regressing behavior the PR's own deleted test covered."
+    },
+    {
+      "failure_scenario": "The diff adds `from openai.types.responses.response_computer_tool_call import PendingSafetyCheck` (src/agents/tool.py) and `from openai.types.responses.response_input_item_param import ComputerCallOutputAcknowledgedSafetyCheck` (src/agents/_run_impl.py). These types shipped with the computer-use safety-checks API release (~openai-python 1.87, Oct 2025), which is why the baseline required >=1.87.0 and pinned 1.87.0 in uv.lock; the PR lowers both to 1.81.0. Installing per the locked dependencies (`uv sync` gives openai==1.81.0) makes `import agents` raise ImportError at module load; even if import succeeded, `ComputerCallOutput(..., acknowledged_safety_checks=...)` would raise TypeError, and the pre-existing `pending_safety_checks=` usages in tests would break. The mcp floor drop 1.9.4 -> 1.8.0 (line 16, lock 1.8.1) risks the same class of failure for `streamablehttp_client(terminate_on_close=...)` in src/agents/mcp/server.py, which was written against the 1.9.x client API.",
+      "file": "pyproject.toml",
+      "line": 10,
+      "summary": "OpenAI SDK floor is downgraded from >=1.87.0 to >=1.81.0 (and uv.lock pinned to 1.81.0) in the same change that adds unconditional imports of computer-use safety-check types that do not exist in openai-python 1.81.0."
+    },
+    {
+      "failure_scenario": "Publishing a release numbered 0.0.17 after 0.0.19 existed means pip and other resolvers will never offer it as an upgrade to anyone on 0.0.19 (they stay on the old code with the old APIs), while fresh installers get the breaking removals under a version that sorts *below* the prior release. Users of `from agents import Prompt` / `set_trace_provider` / `from agents.run import AgentRunner` / custom Model subclasses with a `prompt` parameter hit ImportError/TypeError, and users of `Agent(prompt=...)` get an unexpected keyword error — all delivered invisibly as a downgrade rather than a major-version bump.",
+      "file": "pyproject.toml",
+      "line": 3,
+      "summary": "Package version is downgraded from 0.0.19 to 0.0.17 while the change simultaneously removes public API (Prompt, set_trace_provider, get_trace_provider, AgentRunner, set_default_agent_runner, agents.tracing.provider module, prompt= model argument)."
+    },
+    {
+      "failure_scenario": "`connect()` now calls `streamablehttp_client(timeout=self.params.get(\"timeout\", timedelta(seconds=30)), ...)` (previously the fallback was `5`), but the unchanged docstring on `MCPServerStreamableHttpParams.timeout` documents a 5-second default. A user who reads the docstring and omits the parameter gets a 30-second hang instead of the documented 5-second failure when the MCP server is unreachable, and callers passing `timeout=5.0` (valid per the old `timedelta | float` type) now fail type checking although the runtime still accepts floats.",
+      "file": "src/agents/mcp/server.py",
+      "line": 344,
+      "summary": "Streamable HTTP `timeout` default is silently changed from 5 seconds to 30 seconds and its type narrowed from `timedelta | float` to `timedelta`, while the field docstring still says \"Defaults to 5 seconds.\""
+    }
+  ],
+  "level": null
+}

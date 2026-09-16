@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "dspy/streaming/streaming_listener.py",
+      "line": 76,
+      "summary": "`receive()` uses `__class__.__name__` string lookup for adapter detection, breaking all subclasses of ChatAdapter, JSONAdapter, and XMLAdapter",
+      "failure_scenario": "User creates `class CustomAdapter(JSONAdapter): pass` and uses it with streaming. `receive()` computes `adapter_name = \"CustomAdapter\"`, which is not in the `adapter_identifiers` dict (keyed by \"ChatAdapter\", \"JSONAdapter\", \"XMLAdapter\"), so it raises `ValueError(\"Unsupported adapter for streaming: CustomAdapter...\")` even though the adapter inherits JSONAdapter's behavior and `flush()` (line 187) would handle it correctly via `isinstance()`. The old code used `isinstance()` for all adapter detection; the refactor to a dict-keyed-by-`__name__` lost subclass polymorphism.",
+      "finding_id": "mf-43a7f20ac62f263b829a"
+    },
+    {
+      "file": "dspy/streaming/streaming_listener.py",
+      "line": 193,
+      "summary": "ChatAdapter `flush()` does not guard against `find()` returning -1, silently dropping the last character of the buffer",
+      "failure_scenario": "If the ChatAdapter's `end_identifier` regex in `receive()` (line 161) matches but `find(\"[[\")` in `flush()` returns -1 (edge case where the closing `]]` pattern is in the buffer but `[[` is somehow absent, or threading/settings change between the two calls), then `boundary_index = -1` and `last_tokens[:-1]` silently drops the last character of the accumulated output. The new XMLAdapter branch (lines 188-189) correctly handles `find()` returning -1 with a length fallback, making this inconsistency visible.",
+      "finding_id": "mf-118a10b38eb10d087991"
+    }
+  ]
+}

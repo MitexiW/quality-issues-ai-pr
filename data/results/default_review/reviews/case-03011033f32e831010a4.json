@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 577,
+      "summary": "EVENT_NOP passes describeUnknownEvent(statusByte) as description, producing 'Unknown Event: 0xNN' for a known NOP event",
+      "failure_scenario": "When parsing any HudsonSnes sequence file, every NOP byte encountered produces UI output like 'NOP' with description 'Unknown Event: 0xNN', misidentifying a known event as unknown. This is wrong because NOP is a defined event, not an unknown opcode.",
+      "finding_id": "mf-04c9241558683503a9d6"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 584,
+      "summary": "EVENT_NOP1 passes describeUnknownEvent(statusByte) as description for a known NOP event",
+      "failure_scenario": "Same as EVENT_NOP above: every NOP1 byte (status byte with 1 arg consumed as padding) produces 'NOP' with misleading 'Unknown Event: 0xNN' description.",
+      "finding_id": "mf-6dd88b5a9d9a2abcd18c"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 654,
+      "summary": "EVENT_NOTE tie branch passes describeUnknownEvent(statusByte) for a known note tie, producing 'Unknown Event' description",
+      "failure_scenario": "When two identical consecutive notes are slurred (tied), the Tie event gets description 'Unknown Event: 0xNN', confusing users who see a Tie with an 'Unknown' label.",
+      "finding_id": "mf-0ecf3c12b813740dbe6c"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 785,
+      "summary": "EVENT_LOOP_END passes describeUnknownEvent(statusByte) as description",
+      "failure_scenario": "Every loop end in a HudsonSnes sequence displays 'Loop End' with description 'Unknown Event: 0xNN'. A known control flow event is mislabeled as unknown, making debugging loop logic harder.",
+      "finding_id": "mf-7eb43ab2e0443a9af989"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 895,
+      "summary": "EVENT_ECHO_ON passes describeUnknownEvent(statusByte) as description",
+      "failure_scenario": "Echo enable events show 'Echo On' with misleading 'Unknown Event: 0xNN' description. Echo On is a defined, known SPC700 DSP event.",
+      "finding_id": "mf-0b1b505010beaba15695"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 925,
+      "summary": "EVENT_PITCH_ATTACK_ENV_OFF passes describeUnknownEvent(statusByte) as description",
+      "failure_scenario": "Disabling the pitch attack envelope produces 'Attack Pitch Envelope Off' with 'Unknown Event: 0xNN' description. This is a known, named event.",
+      "finding_id": "mf-daf38dce9b0cbf80a690"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 932,
+      "summary": "EVENT_LOOP_POINT passes describeUnknownEvent(statusByte) as description",
+      "failure_scenario": "Infinite loop point markers show 'Infinite Loop Point' with 'Unknown Event: 0xNN' description. This is a known song structure event, not unknown.",
+      "finding_id": "mf-d02b4fdd7dfc91250e55"
+    },
+    {
+      "file": "src/main/formats/HudsonSnes/HudsonSnesSeq.cpp",
+      "line": 945,
+      "summary": "EVENT_LOOP_POINT_ONCE passes describeUnknownEvent(statusByte) as description",
+      "failure_scenario": "One-shot infinite loop point markers show 'Infinite Loop Point (Ignore after the Second Time)' with misleading 'Unknown Event: 0xNN' description.",
+      "finding_id": "mf-352db219fba16b665398"
+    }
+  ]
+}

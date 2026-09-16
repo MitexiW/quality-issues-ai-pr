@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run `halmos --dump-smt-directory out` on a project where two test contracts (e.g. A.t.sol and B.t.sol) both define `check_foo()`. run_contract runs both sequentially in one process, each creating FunctionContext(info.name='check_foo') and writing `out/check_foo/{path_id}.smt2` where path_id restarts at 0 per function (__main__.py:896). Contract B's queries overwrite contract A's files (and each contract's `setUp` likewise collides in `out/setUp/`), so the dumped SMT queries for contract A are lost and the directory contains a mix of both contracts' queries, silently corrupting the debug output the option exists to produce.",
+      "file": "src/halmos/solve.py",
+      "line": 236,
+      "summary": "The custom dump subdirectory is keyed only on the function name, so contracts with same-named test functions (or the shared setUp) silently overwrite each other's dumped SMT files."
+    },
+    {
+      "failure_scenario": "Run `halmos --dump-smt-directory out` twice on the same project. Run 1 produces out/check_foo/0.smt2..10.smt2. After a code change that reduces the number of paths, run 2 produces 0.smt2..5.smt2 but leaves 6..10.smt2 (and their .out/.err files) from run 1 in place, so the directory presents a mixed set of queries from different program versions, misleading anyone analyzing the dumps.",
+      "file": "src/halmos/solve.py",
+      "line": 237,
+      "summary": "The custom dump directory is never cleaned or versioned (`mkdir(..., exist_ok=True)`, no stale-file removal), so files from previous runs accumulate and mix with the current run's dumps."
+    },
+    {
+      "failure_scenario": "Run `halmos --dump-smt-directory ./out` where `./out` is a regular file (e.g. a stale artifact). `Path.mkdir(exist_ok=True)` raises FileExistsError even with exist_ok when the path is a file. In run_contract (__main__.py:1399) the setup FunctionContext creation fails and run_contract returns [], so every test is reported failed with 0 passed; in run_tests each test prints `[ERROR]` and is recorded with Exitcode.EXCEPTION, giving the user `setUp failed: FileExistsError: [Errno 17] File exists` and failed test results rather than a validation of the directory argument.",
+      "file": "src/halmos/solve.py",
+      "line": 233,
+      "summary": "If `--dump-smt-directory` names an existing file, `custom_dir.mkdir(parents=True, exist_ok=True)` raises FileExistsError, which the per-test/setup exception handlers convert into a confusing all-tests-failed outcome instead of a clear configuration error."
+    }
+  ],
+  "level": null
+}

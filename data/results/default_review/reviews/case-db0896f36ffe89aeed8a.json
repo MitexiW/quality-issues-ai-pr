@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 319,
+      "summary": "User-tag count subtitle only refreshes in onResume, which never fires when tags are changed through the in-app dialogs, leaving the displayed count stale.",
+      "failure_scenario": "User opens Settings with no tags (summary empty), taps 'Manage user tags', tags two users via the tag dialog, and dismisses all dialogs with 'Done'. Because ManageUserTagsDialogFragment and UserDialogFragment are dialogs, the host SettingsFragment is never paused/resumed, so updateUserTagsSubtitle() does not run — the settings screen still shows the old (empty) count. Rotation doesn't help either, since SettingsActivity declares configChanges=\"orientation|screenSize\", so the fragment is not recreated. The count only corrects itself if the user backgrounds/foregrounds the app or navigates to another activity and back. Fix: refresh on dialog dismissal (callback when the manage dialog's 'Done' is clicked or after UserDialogFragment.onResult) or register an OnSharedPreferenceChangeListener for KEY_SHARED_PREFERENCES_USER_TAGS.",
+      "finding_id": "case-db0896f36ffe89aeed8a-f0001"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 350,
+      "summary": "Subtitle shows ungrammatical '1 users with tags' for a single tagged user because the plural form is hardcoded.",
+      "failure_scenario": "User tags exactly one account, then leaves and re-enters Settings (triggering onResume): the preference summary reads '1 users with tags'. The same file already handles singular/plural elsewhere (e.g., 'Cleared 1 entry' vs 'N entries' at line 258), so this should use a similar count == 1 ? singular : plural branch or a plurals resource.",
+      "finding_id": "case-db0896f36ffe89aeed8a-f0002"
+    }
+  ]
+}

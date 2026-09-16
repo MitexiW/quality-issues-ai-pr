@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Config with `providers: [openai:gpt-4o]` and `assert: [{type: 'perplexity', threshold: 5}]`. OpenAI/Azure chat providers only add `logprobs` to the API request when `callApiOptions?.includeLogProbs` is truthy (src/providers/openai/chat.ts:115), and `response.logProbs` is parsed from `data.choices[0].logprobs` (chat.ts:209). With the option gone, `response.logProbs` is undefined, `handlePerplexity` (src/assertions/perplexity.ts:4) throws 'Perplexity assertion does not support providers that do not return logProbs', and the test errors out — a regression from the pre-diff behavior where these assertions worked.",
+      "file": "src/evaluator.ts",
+      "line": 188,
+      "summary": "The diff removes the `{ includeLogProbs: test.assert?.some((a) => a.type === 'perplexity') }` third argument from `callApi`, so providers are never asked to return logprobs and every `perplexity`/`perplexity-score` assertion now fails."
+    },
+    {
+      "failure_scenario": "A `provider.py` whose `call_api` returns `\"string result\"` (malformed output). The new log line evaluates `'output' in 'string result'` and throws `TypeError: Cannot use 'in' operator to search for 'output' in string result` before the validation block at line 133-143 can produce its intended message ('The Python script `call_api` function must return a dict with an `output` string/object or `error` string...'). The updated test at test/providers/pythonCompletion.test.ts:133 codifies this degraded error path, and the descriptive error is now unreachable for primitive results.",
+      "file": "src/providers/pythonCompletion.ts",
+      "line": 127,
+      "summary": "New debug logging `if (result && 'output' in result)` parses as `(result && 'output') in result` and throws a raw TypeError when the Python script returns a string or number, pre-empting the intended descriptive validation error below it."
+    },
+    {
+      "failure_scenario": "Cache enabled, script returns `tokenUsage: {prompt: 12, completion: 18, total: 30}` on first run; on the second (cached) run the provider returns `tokenUsage: {cached: 30, total: 30}`, and the evaluator's merge (evaluator.ts:326-331) records prompt=0, completion=0, cached=30. The CLI summary 'Prompt tokens / Completion tokens' and telemetry then report 0/0 with all 30 tokens counted as cached-tier, diverging from the pre-diff behavior (which preserved prompt/completion/total) and from every other provider's cached accounting; the original breakdown is retained in the cached JSON but thrown away.",
+      "file": "src/providers/pythonCompletion.ts",
+      "line": 91,
+      "summary": "On cache hits, `parsedResult.tokenUsage` is rewritten to `{cached: total, total}`, discarding the stored `prompt` and `completion` counts, so token-usage stats and any token-derived cost reporting lose the prompt/completion breakdown for cached Python results."
+    },
+    {
+      "failure_scenario": "A custom JS provider returns `{output: 'x', metadata: {test: context.test}}` (or any object graph containing a cycle). `JSON.stringify(response)` throws 'Converting circular structure to JSON', which the surrounding try/catch converts into a failed test with ERROR status — purely from debug logging of a response that the old code processed without stringifying. The same risk applies to responses carrying BigInt values.",
+      "file": "src/evaluator.ts",
+      "line": 225,
+      "summary": "New debug log `JSON.stringify(response).substring(0, 100)` throws TypeError on provider responses containing circular references or BigInt fields, failing evaluations that previously succeeded."
+    }
+  ],
+  "level": null
+}

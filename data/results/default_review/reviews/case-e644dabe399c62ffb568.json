@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "src/vs/workbench/contrib/void/browser/react/src/void-settings-tsx/Settings.tsx",
+      "line": 963,
+      "summary": "Debug gate 'deleteme' was flipped from false to true, permanently hiding the real Settings component and rendering VoidOnboarding instead",
+      "failure_scenario": "Any user opening Settings sees the onboarding flow instead of the actual settings panel. The variable name 'deleteme' indicates this was a temporary debug toggle accidentally shipped active.",
+      "finding_id": "mf-992ffb8343071e96f185"
+    },
+    {
+      "file": "src/vs/workbench/contrib/void/browser/react/src/sidebar-tsx/SidebarChat.tsx",
+      "line": 31,
+      "summary": "Dead import 'import { error } from \"console\"' — the 'console' Node module may not be available in the VS Code renderer process, and the imported 'error' function is never called but shadows the map callback parameter at line 1353",
+      "failure_scenario": "In a sandboxed Electron renderer, this import may fail at module load time with a 'Module not found' error, crashing the sidebar. Even when available, the import is dead code that pollutes the module namespace and shadows the 'error' parameter in lintErrors.map().",
+      "finding_id": "mf-ce24284f0952e51d0a9c"
+    },
+    {
+      "file": "src/vs/workbench/contrib/void/electron-main/llmMessage/extractGrammar.ts",
+      "line": 334,
+      "summary": "newOnFinalMessage never flushes openToolTagBuffer to fullText; characters buffered at stream end as a partial tool tag are lost from the emitted message",
+      "failure_scenario": "If an LLM stream terminates while the last chunk ends with a partial tool tag (e.g. '<edit_f' or even a complete '<edit_file>' with nothing after it), findPartiallyWrittenToolTagAtEnd returns truthy, the text goes into openToolTagBuffer at line 290 but is never merged into fullText. newOnFinalMessage at line 334 calls newOnText which buffers the chunk, then emits fullText via onFinalMessage without the buffered content, permanently losing those characters from the user-visible response.",
+      "finding_id": "mf-dfbe2888679be9ecbe28"
+    },
+    {
+      "file": "src/vs/workbench/contrib/void/browser/directoryStrService.ts",
+      "line": 351,
+      "summary": "Fallback in getDirectoryStrTool hardcodes DEFAULT_MAX_ITEMS_PER_DIR (3) when initial pass is cut off, ignoring the caller-specified maxItemsPerDir value held in the local variable of the same name",
+      "failure_scenario": "A caller passes getDirectoryStrTool(uri, { maxItemsPerDir: 50 }). The unlimited first pass (START_MAX_ITEMS_PER_DIR=Infinity) gets cut off. The fallback uses maxItemsPerDir: DEFAULT_MAX_ITEMS_PER_DIR (3) instead of the caller's 50, returning far fewer items than the caller requested. The same bug exists in getAllDirectoriesStr at line 407.",
+      "finding_id": "mf-c4b2d7a87fbbb08d5de1"
+    },
+    {
+      "file": "src/vs/workbench/contrib/void/browser/directoryStrService.ts",
+      "line": 420,
+      "summary": "Unremoved debug console.log leaks full directory structure strings including file paths to the browser console",
+      "failure_scenario": "Every call to getAllDirectoriesStr writes the entire directory structure string to the console, potentially exposing sensitive file paths. This is inconsistent with the systematic removal of console.log debug statements performed in chatThreadService.ts in this same diff.",
+      "finding_id": "mf-ccfc5ed8be7258a330a9"
+    },
+    {
+      "file": "src/vs/workbench/contrib/void/electron-main/llmMessage/extractGrammar.ts",
+      "line": 233,
+      "summary": "Close-tag search in parseXMLPrefixToToolCall iterates allowedParams and matches the first found closing tag from any param, not the one that was opened — a </paramB> can be picked up as closing paramA if paramB is iterated before paramA",
+      "failure_scenario": "AllowedParams = ['paramB', 'paramA']. Text is '<paramA>content<paramB>nested</paramB></paramA>'. The for loop at line 233 checks '</paramB>' first, finds it, and treats it as closing paramA. paramA receives 'content<paramB>nested' as its value, and paramB's close tag is consumed prematurely. While LLMs typically produce well-formed XML, this differs from the old SAX parser which correctly scoped close-tag matching to the currently open param.",
+      "finding_id": "mf-e7cd7550a13cf76e2668"
+    }
+  ]
+}

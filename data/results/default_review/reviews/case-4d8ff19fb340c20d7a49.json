@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/agents/function_schema.py",
+      "line": 226,
+      "summary": "Operator precedence bug: missing parentheses causes name_override to be ignored when doc_info is None (use_docstring_info=False)",
+      "failure_scenario": "Call `function_schema(func, use_docstring_info=False, name_override='custom')`. The expression `name_override or doc_info.name if doc_info else func.__name__` parses as `(name_override or doc_info.name) if doc_info else func.__name__` because `or` binds tighter than ternary. With `doc_info=None`, the else branch fires and returns `func.__name__` unconditionally, ignoring the `name_override`. The deleted test `test_name_override_without_docstring` validated exactly this contract (custom name override without docstrings) and would now fail.",
+      "finding_id": "mf-a2495632cde5879faf08"
+    },
+    {
+      "file": "src/agents/mcp/server.py",
+      "line": 404,
+      "summary": "HTTP connection timeout default silently changed from 5 seconds to 30 seconds; docstring still claims 'Defaults to 5 seconds'",
+      "failure_scenario": "Any `MCPServerStreamableHttp` instance created without an explicit timeout will now use 30s instead of 5s. A misbehaving or unreachable MCP server that previously timed out in 5s now blocks for 30s per connection attempt, potentially exhausting connection pools in agent pipelines that create many MCP servers. The docstring on `MCPServerStreamableHttpParams.timeout` (line 343) is now incorrect.",
+      "finding_id": "mf-eae775697827afef7c69"
+    },
+    {
+      "file": "src/agents/_run_impl.py",
+      "line": 646,
+      "summary": "Computer tool pending safety checks are silently ignored when no on_safety_check callback is configured",
+      "failure_scenario": "The model returns a `ResponseComputerToolCall` with `pending_safety_checks=['dangerous_action']` but the developer created `ComputerTool(computer=..., on_safety_check=None)` (the default). The condition `action.tool_call.pending_safety_checks and action.computer_tool.on_safety_check` short-circuits on the falsy `None` callback, so `acknowledged` stays `None`, and `ComputerCallOutput(acknowledged_safety_checks=None)` is sent. The safety check is never surfaced to the developer, and the computer action proceeds unacknowledged. Should at minimum emit a warning log.",
+      "finding_id": "mf-e96883a48bc70de9d0ef"
+    }
+  ]
+}

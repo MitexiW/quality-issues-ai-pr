@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "On a 32 GB Windows machine, get_max_free_memory(device='cpu', unit='gb') returns 32/1e9/1e9 = 3.2e-8 instead of 32 (the pre-change code returned a clean 8 GB default); estimate_memory_remainder_after_batch is then always negative, so save_peak_mem='auto' always enables 8-way chunking in reset_peak_memory_if_required (inference.py:172), needlessly slowing every CPU inference, and any caller of get_max_free_memory gets a value off by 1e9.",
+      "file": "src/tabpfn/model/memory.py",
+      "line": 258,
+      "summary": "get_total_memory_windows() returns a value in GB but get_max_free_memory feeds it to convert_bytes_to_unit, which treats it as bytes and divides by 1e9 again, so the CPU memory estimate on Windows is ~1e-8 GB"
+    },
+    {
+      "failure_scenario": "The 'Ruff Linting & Formatting' job runs ruff 0.8.6 over ./src ./tests with select including 'PLC' and 'TCH' (pyproject.toml lines 129/159, with no per-file exemption): the import at memory.py:255 inside the except block and the imports at tests/test_utils.py:10/22/24/26 trigger PLC0415, and the annotation-only `import typing` at utils.py:9 triggers TCH003 — the lint job goes red and blocks the PR.",
+      "file": "src/tabpfn/model/memory.py",
+      "line": 255,
+      "summary": "The change adds function-level imports that violate the repo's enabled ruff rule PLC0415 (import-outside-top-level), so the CI lint job fails"
+    },
+    {
+      "failure_scenario": "On the ubuntu and macos CI matrix jobs, both tests enter neither branch and pass with zero assertions, so a broken or deleted get_total_memory_windows would keep these tests green on 4 of the 6 matrix jobs, producing false-green coverage; the tests should use pytest.mark.skipif or pytest.skip to make the no-op explicit.",
+      "file": "tests/test_utils.py",
+      "line": 8,
+      "summary": "The two new Windows memory tests silently pass without executing any assertion on non-Windows platforms because the whole body is guarded by `if os.name == 'nt'` with no skip marker"
+    },
+    {
+      "failure_scenario": "If GlobalMemoryStatusEx fails (returns FALSE, e.g. buffer/struct problems), mem_status remains zero-filled and get_total_memory_windows() returns 0.0; get_max_free_memory then reports ~0 GB free memory on Windows with no warning, corrupting the save_peak_mem='auto' decision and any other consumer of the estimate.",
+      "file": "src/tabpfn/utils.py",
+      "line": 824,
+      "summary": "The BOOL return value of GlobalMemoryStatusEx is ignored, so an API failure silently returns 0.0 GB instead of raising or warning"
+    }
+  ],
+  "level": null
+}

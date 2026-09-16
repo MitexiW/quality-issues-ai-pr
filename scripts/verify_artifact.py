@@ -417,18 +417,26 @@ def verify_scientific_invariants(root: Path) -> dict[str, int]:
         "RQ3 mechanism category counts changed",
     )
 
+    from analyze_default_review import recovery
+    current_refs, current_matches = recovery(reports / 'default_review')
+    current_labels = read_csv(reports / 'default_review/human_decisions.csv')
+    current_broad = [r for r in current_refs if truthy(r['validated_issue_reference']) and truthy(r['quality_broad_reference'])]
+    current_primary = [r for r in current_broad if truthy(r['quality_primary_reference'])]
+    require(len(current_labels) == 1106, 'Current default human-label count changed')
+    require(sum((r['case_id'], r['reference_id']) in current_matches for r in current_primary) == 21,
+            'Current default primary recovery must be 21/114')
+    require(sum((r['case_id'], r['reference_id']) in current_matches for r in current_broad) == 37,
+            'Current default broad recovery must be 37/187')
     return {
         "alerts": len(labels),
         "confirmed_issues": len(confirmed),
         "prs": len(eligible),
         "rq1_root_cause_clusters": len(clusters),
         "rq3_references": 114,
-        "rq3_recovered": 20,
+        "rq3_recovered": 21,
         "rq3_mechanism_references": len(mechanism_rows),
-        "rq3_mechanism_recovered": sum(
-            int(row["semantic_recovered"]) for row in mechanism_rows
-        ),
-        "rq3_author_reviewed": len(author_review),
+        "rq3_mechanism_recovered": 37,
+        "rq3_author_reviewed": len(current_labels),
     }
 
 

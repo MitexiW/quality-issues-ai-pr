@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "App startup (app/startup/lifecycle.py:56) instantiates MemoryHelper for every user; with the default MEMORY_ANALYSIS=False (app/core/config.py:278), start_monitoring() returns immediately at the settings check, yet tracemalloc stays enabled for the whole process lifetime — adding its well-documented ~1.5-2x slowdown to allocation-heavy paths and retaining allocation traces for every live object, with no code ever consuming the traces.",
+      "file": "app/helper/memory.py",
+      "line": 38,
+      "summary": "MemoryHelper.__init__ unconditionally starts tracemalloc with 25 frames, imposing permanent CPU/memory overhead on every deployment even though MEMORY_ANALYSIS defaults to False and the monitoring loop never runs."
+    },
+    {
+      "failure_scenario": "On a Windows install (README platform badge claims Windows support) with MEMORY_ANALYSIS=True, Process.memory_info() returns a pmem tuple without shared/text/data/lib/dirty and memory_maps() returns pmmap_grouped without size/perms, so _write_system_memory_info raises AttributeError; _create_memory_snapshot swallows it and the monitoring feature silently never produces a snapshot. The pre-change code only read memory_info.rss, which is cross-platform.",
+      "file": "app/helper/memory.py",
+      "line": 166,
+      "summary": "The new snapshot code reads Linux-only psutil fields (memory_info.shared/text/data, memory_info.lib/dirty, mmap.size/perms) that do not exist on Windows/macOS, so every snapshot fails on platforms the project officially supports."
+    },
+    {
+      "failure_scenario": "With the default MEMORY_ANALYSIS=False, start_monitoring() never reaches the mkdir at line 70, so calling create_detailed_memory_analysis() — or running the module directly via the __main__ demo — raises FileNotFoundError on open(analysis_file, 'w'), is caught at line 352, and the method returns None: the detailed-report feature cannot work on a default install.",
+      "file": "app/helper/memory.py",
+      "line": 326,
+      "summary": "create_detailed_memory_analysis writes into _memory_snapshot_dir without ensuring the directory exists; it is only created inside start_monitoring(), which returns early when MEMORY_ANALYSIS is disabled."
+    },
+    {
+      "failure_scenario": "Non-behavioral: a repo-wide search finds these methods referenced only by their own definitions and the __main__ demo block; no API router, scheduler job, plugin, or event handler invokes them, so ~600 lines of new diagnostic code are inert and the leak/growth analysis can never be triggered by the running app.",
+      "file": "app/helper/memory.py",
+      "line": 320,
+      "summary": "The four new public methods (create_detailed_memory_analysis, get_memory_summary, force_garbage_collection, analyze_memory_growth) have no callers anywhere in the repo, so the new diagnostics are unreachable dead code in the shipped application."
+    },
+    {
+      "failure_scenario": "If the method is exposed through the FastAPI request path (its natural integration point) or called from a plugin handler, a single call blocks a shared worker thread for 300 s, stalling concurrent request handling in the app's thread pool; there is no async or background-thread variant.",
+      "file": "app/helper/memory.py",
+      "line": 949,
+      "summary": "analyze_memory_growth sleeps synchronously for interval_seconds (default 300) inside the call, blocking the caller's thread for five minutes."
+    },
+    {
+      "failure_scenario": "Every call to create_detailed_memory_analysis writes a new detailed_memory_analysis_<timestamp>.txt that no cleanup path ever removes; repeated or scheduled diagnostics accumulate files in the log volume without bound.",
+      "file": "app/helper/memory.py",
+      "line": 688,
+      "summary": "_cleanup_old_snapshots only globs memory_snapshot_*.txt, so the newly introduced detailed_memory_analysis_*.txt files are never rotated or deleted."
+    },
+    {
+      "failure_scenario": "In a long-running MoviePilot process with hundreds of thousands of live objects, generating a detailed report performs a recursive size traversal of the full object graph for each object; the report generation becomes CPU-bound for minutes to hours, blocking whatever thread requested it.",
+      "file": "app/helper/memory.py",
+      "line": 497,
+      "summary": "_write_detailed_large_objects runs asizeof.asizeof() on every live object with no shallow-size pre-filter, unlike the existing _get_large_variables which skips objects under 1KB shallow size first."
+    },
+    {
+      "failure_scenario": "In a process whose objects span more than 20 distinct types, the report's 'Python对象总内存' and '未统计内存' percentage omit every type beyond the top 20, overstating unaccounted memory by the size of all omitted types and misdirecting leak diagnosis toward 'C extension' memory that is actually ordinary Python objects.",
+      "file": "app/helper/memory.py",
+      "line": 422,
+      "summary": "_write_detailed_python_analysis accumulates total_python_memory only over sorted_types[:20], then derives the '未统计内存' (unaccounted) figure and its percentage from that partial sum."
+    },
+    {
+      "failure_scenario": "Pympler's summary.format_ renders smaller type totals with KB/B units; those rows are skipped by the `if 'MB' in size_str` filter, so the 'Python对象总内存' and '未统计内存(可能为C扩展)' figures in every snapshot undercount Python memory and overstate C-extension memory, misdirecting memory diagnosis.",
+      "file": "app/helper/memory.py",
+      "line": 217,
+      "summary": "The pympler summary parsing (lines 217-227) only sums rows whose size column contains 'MB', silently dropping rows pympler renders in KB/B units, so python_total_mb systematically undercounts Python memory."
+    },
+    {
+      "failure_scenario": "Non-behavioral: dead imports (os at line 5, List and Tuple at line 8) add lint noise (F401 under flake8/ruff if linting is introduced) and are leftover from an incomplete refactor; only Optional and Dict from the new typing import are actually used.",
+      "file": "app/helper/memory.py",
+      "line": 5,
+      "summary": "The diff adds `import os` and `List`/`Tuple` to the typing import, none of which are used anywhere in the file."
+    }
+  ],
+  "level": null
+}

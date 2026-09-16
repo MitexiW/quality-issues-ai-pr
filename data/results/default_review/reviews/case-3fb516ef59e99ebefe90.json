@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 347,
+      "summary": "NullPointerException crash on first app launch: readStringFromSharedPreferences returns null for a never-written key, then .isEmpty() is called on null",
+      "failure_scenario": "Fresh install: SharedPreferences has no entry for KEY_SHARED_PREFERENCES_HISTORIES. sharedPref.getString(key, null) returns null. Java expression null.isEmpty() throws NullPointerException, crashing MainActivity.onCreate() before any UI appears.",
+      "finding_id": "mf-006f005e8b46a0bd993f"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/Utils.java",
+      "line": 347,
+      "summary": "Existing user data loss on upgrade — old clicked-story IDs (KEY_SHARED_PREFERENCES_CLICKED_IDS) are never migrated to the new histories format",
+      "failure_scenario": "A user upgrades from a previous version. Their Set of previously-clicked story IDs stored under the old shared-preferences key KEY_SHARED_PREFERENCES_CLICKED_IDS is completely ignored. No migration reads that key; the new history system starts empty. All stories appear unread and the old reading history is permanently lost.",
+      "finding_id": "mf-b7326a574fc25b6e4ea5"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 241,
+      "summary": "Clearing history in Settings only clears SharedPreferences but leaves the HistoriesUtils in-memory list untouched, so isHistoryExist() continues returning stale true values",
+      "failure_scenario": "User opens Settings, taps 'Clear clicked stories'. SharedPreferences is saved as empty string, snackbar reports correct old count. User returns to the story list — HistoriesUtils.histories still contains all old entries because clear() never calls HistoriesUtils.init() or clears the list. Stories remain visually marked as 'clicked', hide-clicked filter still hides them. Only an app restart fixes it.",
+      "finding_id": "mf-0fbfbac6162e1fc17814"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/utils/HistoriesUtils.kt",
+      "line": 18,
+      "summary": "HistoriesUtils.addHistory uses one System.currentTimeMillis() for the in-memory entry and UtilsKt.addHistory uses a separate call for persistence, producing divergent timestamps and an unsorted in-memory list",
+      "failure_scenario": "User clicks a story: HistoriesUtils.addHistory records time T1=1700000000000 in memory (appended unsorted to end of list). UtilsKt.addHistory independently calls System.currentTimeMillis() giving T2=1700000000003, then sorts the persisted list by descending time. In-memory list order diverges from persisted order. On next init(), T2 overwrites T1. Repeated across a session with many clicks, the in-memory list becomes progressively more unsorted from the persisted order.",
+      "finding_id": "mf-e75ffd70335f5351a792"
+    },
+    {
+      "file": "app/src/main/java/com/simon/harmonichackernews/StoriesFragment.java",
+      "line": 289,
+      "summary": "Dead code — getHistorybyId() result assigned to variable h but never read, performing an unnecessary linear scan of the history list on every long-press",
+      "failure_scenario": "User long-presses any story: a linear O(n) scan of the in-memory HistoriesUtils.histories list runs via getHistorybyId(story.id). The result is assigned to variable h but the variable is never referenced — no logic uses it. The scan is wasted computation on every long-press, and the unused variable suggests an unfinished feature.",
+      "finding_id": "mf-04ce919efde9f7144c43"
+    }
+  ]
+}

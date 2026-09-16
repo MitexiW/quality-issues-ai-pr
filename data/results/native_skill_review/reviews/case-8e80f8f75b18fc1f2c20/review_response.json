@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user upgrading crewAI whose code contains `from crewai.tasks.task_guardrail import TaskGuardrail` or `from crewai.utilities.events import TaskGuardrailStartedEvent` (import paths that existed in the baseline release and are shown in the shipped docs) gets ModuleNotFoundError/ImportError at import time; a repo-wide search confirms no task_guardrail.py shim, no alias, and no DeprecationWarning path was added anywhere in the tree.",
+      "file": "src/crewai/tasks/llm_guardrail.py",
+      "line": 21,
+      "summary": "The rename deletes the previously shipped public module crewai.tasks.task_guardrail (TaskGuardrail, TaskGuardrailResult) and crewai.utilities.events.task_guardrail_events (TaskGuardrailStartedEvent, TaskGuardrailCompletedEvent) with no deprecated alias or re-export, so existing user imports of those names fail after upgrade."
+    },
+    {
+      "failure_scenario": "An external observability or alerting pipeline (the event bus is explicitly documented for external event handling and BaseEvent.to_json() serializes the `type` field) that filters on event.type == \"task_guardrail_started\" receives no matching events after the upgrade, so guardrail monitoring silently stops reporting with no error raised; persisted event logs from before and after the upgrade also no longer group under one discriminator.",
+      "file": "src/crewai/utilities/events/llm_guardrail_events.py",
+      "line": 14,
+      "summary": "The event wire discriminator changed from type \"task_guardrail_started\"/\"task_guardrail_completed\" to \"llm_guardrail_started\"/\"llm_guardrail_completed\" with no compatibility mapping, silently breaking external consumers that filter serialized events on the type field."
+    }
+  ],
+  "level": null
+}

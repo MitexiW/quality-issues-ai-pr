@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Owner opens /dashboard/caps: each card's fetch to /api/video/analytics?videoId=X 404s (route.ts was deleted and no replacement route exists; only SharedCaps/Share/Activity were migrated to the new server action), so response.status !== 200 causes continue, analytics stays {}, CapCard receives analytics=0, and displayCount falls back to Math.max(totalComments, totalReactions) — the dashboard shows comment/reaction counts as 'unique views' instead of real click counts.",
+      "file": "apps/web/app/dashboard/caps/Caps.tsx",
+      "line": 46,
+      "summary": "The 'My Caps' dashboard still calls the deleted GET /api/video/analytics route via apiClient.video.getAnalytics (contract path /video/analytics), which now returns 404 for every video, silently breaking view counts on all cards."
+    },
+    {
+      "failure_scenario": "An authenticated user (or attacker with a session cookie) fires unlimited editTitle server-action POSTs in a loop — previously throttled to 10 requests/minute/IP by rateLimitMiddleware and surfaced to the client as 429 'Too many requests'; now every request executes an unthrottled DB update, enabling abuse/DB spam, and the editDate action introduced in the same PR is likewise unthrottled.",
+      "file": "apps/web/actions/videos/edit-title.ts",
+      "line": 9,
+      "summary": "Replacing the rate-limited PUT /api/video/title endpoint (wrapped in rateLimitMiddleware(10, ...) in the deleted route) with the editTitle server action removes all rate limiting on title updates, and the client-side 429 handling was deleted from ShareHeader."
+    },
+    {
+      "failure_scenario": "dub API is down or times out: the old code threw on !response.ok and left the initial server-computed views intact; the new action catches the error and returns count 0, so setAnalytics stores views = comments.length — a video with 10,000 views and 3 comments displays '3 views' in the Activity tab during any dub outage.",
+      "file": "apps/web/app/s/[videoId]/_components/tabs/Activity.tsx",
+      "line": 346,
+      "summary": "getVideoAnalytics now swallows all dub errors and returns {count: 0}, so the pre-existing fallback 'result.count === 0 ? comments.length : result.count' renders the comment count as the view count whenever the dub API fails, replacing the previously retained server-computed views."
+    },
+    {
+      "failure_scenario": "A workspace with 15 shared videos: every visit to /dashboard/shared-caps fires 15 sequential browser→server→dub round trips (server actions are POSTs, bypassing both the browser HTTP cache and Next's data cache that the previous GET route with revalidate = 300 had), multiplying dub API call volume and adding serial latency to the dashboard load.",
+      "file": "apps/web/app/dashboard/shared-caps/SharedCaps.tsx",
+      "line": 44,
+      "summary": "Replacing fetch('/api/video/analytics...', { cache: 'force-cache' }) (a GET on a route with revalidate = 300) with sequential getVideoAnalytics server-action calls makes every shared-caps visit issue N sequential, uncacheable POST round trips that each re-query the dub API server-side."
+    },
+    {
+      "failure_scenario": "Owner edits the date, presses Enter (async editDate starts, input stays focused/mounted), then clicks elsewhere before the response lands: onBlur fires handleDateBlur a second time with the same value, producing two concurrent DB updates and duplicate 'Video date updated' toasts.",
+      "file": "apps/web/app/dashboard/caps/components/CapCard.tsx",
+      "line": 175,
+      "summary": "Pressing Enter in the new date editor calls handleDateBlur without blurring the input, so a subsequent click-away (or second Enter press while the first call is in flight) fires handleDateBlur again and submits editDate twice concurrently."
+    },
+    {
+      "failure_scenario": "Any change to the custom-date format (e.g. timezone handling or a renamed metadata key) must be updated in 5 places — the two SQL expressions in caps/page.tsx and shared-caps/page.tsx plus the three client derivations — and the wire payload carries a field no consumer uses; drift between the SQL string-ordering and the JS Date-parsing derivations silently changes card ordering vs. displayed dates.",
+      "file": "apps/web/app/dashboard/caps/page.tsx",
+      "line": 70,
+      "summary": "The effectiveDate expression is selected from the DB, serialized to the client, and then immediately discarded via destructuring (only the separately re-stated ORDER BY expression uses it), while the same 'customCreatedAt || createdAt' derivation is re-implemented independently in CapCard, SharedCapCard, and Share.tsx."
+    },
+    {
+      "failure_scenario": "The action is invoked directly (server actions are publicly callable POST endpoints) with date = '2026-02-30' (or any malformed string): newDate is Invalid Date, the future check at line 38 does not reject it, toISOString() at line 46 throws RangeError('Invalid time value'), which the catch rethrows to the caller — the user gets a confusing error rather than the 'Invalid date' validation message the client-side moment check normally produces.",
+      "file": "apps/web/actions/videos/edit-date.ts",
+      "line": 34,
+      "summary": "editDate does not validate that the date string parses before the future-date check: an Invalid Date passes the comparison (NaN > Date is false) and then newDate.toISOString() throws RangeError, surfacing a cryptic 'Invalid time value' error instead of a validation error."
+    }
+  ],
+  "level": null
+}

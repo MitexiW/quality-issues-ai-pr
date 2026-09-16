@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Running `npm run build` executes `tsc -b && vite build` (vite/package.json); CheckAccess.tsx:184/199 render `<FeatureTypeBadge type={selectedFeature.type} />` against the new `FeatureTypeBadge(feature: Feature)` signature, so the typecheck errors out and the production build breaks. In dev (vite serves without typechecking), `feature` receives the props object `{ type: 'metered' }`, so `feature.config?.usage_type` is undefined and every feature badge in the onboarding 'Check access' step renders 'single use' — continuous-use and boolean features are all mislabeled.",
+      "file": "vite/src/views/features/FeatureTypeBadge.tsx",
+      "line": 9,
+      "summary": "FeatureTypeBadge's signature was changed from `{ type: string | undefined }` to a required `feature: Feature` object, but the two callers in CheckAccess.tsx (lines 184, 199) still pass `type={...}`, so `npm run build` fails `tsc -b` (TS2739: `{ type: FeatureType }` is missing required Feature fields id/name/internal_id/...), blocking deployment."
+    },
+    {
+      "failure_scenario": "`UpdateStatusDropdownBtn` declares `cusProduct: CusProduct` (line 254); the `CusProduct` zod schema (shared/models/cusProductModels/cusProductModels.ts:37-73) has no `product` field, so line 277 errors under tsconfig strict → `npm run build` fails. The runtime only works by accident because callers pass `FullCusProduct` objects; any bare `CusProduct` passed would make the is_default check silently false and the expire warning dialog would never appear.",
+      "file": "vite/src/views/customers/customer/CustomerProductList.tsx",
+      "line": 277,
+      "summary": "New code reads `cusProduct.product?.is_default` on a prop typed `CusProduct`, which has no `product` field (only `FullCusProduct` extends it), so `tsc -b` fails with TS2339 under strict mode and the build breaks."
+    },
+    {
+      "failure_scenario": "Opening any customer page in the app writes the full customer-context object (verified to include `customer`, `invoices`, `coupons`, `events`, `entities` from the `/customers/:id/data` response) to the console on every render; it is a debug artifact that leaks customer data to the console and adds noise in production.",
+      "file": "vite/src/views/customers/customer/customer-sidebar/select-entity.tsx",
+      "line": 31,
+      "summary": "Leftover `console.log(cusContext)` debug statement logs the entire customer context — including the customer object (name/email), products, invoices, coupons, and env — to the browser console on every render of the customer view."
+    },
+    {
+      "failure_scenario": "Rendering FeaturesTable with N features writes N log lines of feature objects per render, and the SelectItemFeature dropdown logs every feature option each time it renders — pure debug-spam cost in production, with no functional effect.",
+      "file": "vite/src/views/features/FeatureTypeBadge.tsx",
+      "line": 10,
+      "summary": "Leftover `console.log(\"feature\", feature)` debug statement runs on every render of every badge, logging a feature object once per row of the features table and once per option in the feature-select dropdowns."
+    },
+    {
+      "failure_scenario": "The three copies at lines 146-148, 154-155, and 172-173 are evaluated independently; changing the forced-create rule (e.g., to also require no features) in only one copy would produce a dialog whose title says 'Create Feature' while the body renders ProductItemConfig or vice versa, with no compile-time signal of the divergence.",
+      "file": "vite/src/views/products/product/product-item/CreateProductItem.tsx",
+      "line": 146,
+      "summary": "The compound condition `showCreateFeature || (features.length == 0 && item.price === null)` is copy-pasted three times (DialogTitle, body, and footer) and must be hand-kept in sync; one future edit to any copy silently desyncs the title from the rendered view and footer."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A consumer migrating off the deprecated public constant ULL reads the @deprecated note 'use _ULL' and writes JSONWire._ULL; this fails to compile with 'private access in JSONWire'. The published Javadoc also renders a link to a member absent from the public API docs (broken anchor), so no usable replacement for ULL is documented.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 63,
+      "summary": "The new deprecation Javadoc on the public field ULL directs users to the private field _ULL, which is inaccessible outside the class."
+    },
+    {
+      "failure_scenario": "Input JSON containing a number in exponent notation, e.g. {\"x\": 1e3}: copyNumber reads '1' and stops at 'e' (the switch's default case), then expectComma throws IORuntimeException \"Expected a comma or '}' not a 'e'\". A developer relying on the documented exponent support for scientific-notation values gets a parse failure the Javadoc says cannot happen.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 576,
+      "summary": "New copyNumber Javadoc claims the method reads an optional exponent, but the parsing switch has no 'e'/'E' case, so exponent notation is not read."
+    },
+    {
+      "failure_scenario": "escape0(s, Quotes.SINGLE), a call the superclass contract permits, emits an unescaped double-quote character inside a JSON double-quoted string, producing malformed JSON — exactly the behavior the new Javadoc rules out by stating the quotes parameter is ignored.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 680,
+      "summary": "New escape0 Javadoc claims the quotes parameter is ignored, but the 'case \"' branch checks ch == quotes.q, so the output depends on that parameter."
+    },
+    {
+      "failure_scenario": "A reader of the Javadoc expects sb to hold both the key and the value following the colon; the actual method (JSONWire.java:1382-1392) reads only the key text into sb and never reads the value, so code written against the documented contract misinterprets sb's contents.",
+      "file": "src/main/java/net/openhft/chronicle/wire/JSONWire.java",
+      "line": 1377,
+      "summary": "New readTypeDefinition Javadoc says the method reads the '@type' key and its string value into sb, but the method reads only the key into sb and consumes the colon."
+    }
+  ],
+  "level": null
+}

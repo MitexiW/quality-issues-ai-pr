@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Parent op calls a child op that does `call.summary[\"label\"] = \"hi\"` (the docs explicitly invite 'other post-call values'). When the parent finishes, finish_call runs `sum_dict_leaves([child.summary or {} for child in call._children])`; for k=\"label\", v=\"hi\", it computes `result.get(\"label\", 0) + \"hi\"` = `0 + \"hi\"` → TypeError raised before `send_end_call` is deferred, so the parent call's call_end is never sent (call left 'running' in the DB, summary lost) and the error propagates into the user's op result handling. Even numeric user values crash if they collide with a dict leaf (e.g. child1 sets summary[\"usage\"]=5 while child2 has a usage dict → dict + int TypeError).",
+      "file": "weave/trace/weave_client.py",
+      "line": 1316,
+      "summary": "User-set child summary values are now fed into sum_dict_leaves, which does `result.get(k, 0) + v` on non-dict leaves, so any non-numeric value (e.g. a string) in a child call's summary makes the parent's finish_call raise TypeError"
+    },
+    {
+      "failure_scenario": "An op does `call.summary[\"lock\"] = threading.Lock()` (or stores a lambda, generator, or open file handle) and returns successfully. In finish_call, `copy.deepcopy(call.summary or {})` raises `TypeError: cannot pickle '_thread.lock' object`; the exception propagates through op.py's finish()/on_output path, so the call is never finalized (no call_end sent, output and summary lost) and the user either sees a raise (raise_on_captured_errors) or an error log — despite the op itself succeeding. Before this change user summary contents were never read at finish time, only overwritten.",
+      "file": "weave/trace/weave_client.py",
+      "line": 1356,
+      "summary": "finish_call now runs copy.deepcopy over arbitrary user-provided summary contents, so any non-deepcopyable value stored in call.summary raises TypeError when the call finishes"
+    },
+    {
+      "failure_scenario": "Inside an op body (attributes frozen at create_call), `call.attributes |= {\"weave\": {\"spoofed\": True}}` silently replaces the internal WeaveKeyDict with a plain dict — no TypeError, no KeyError — or `call.attributes.pop(\"weave\")` removes the reserved subdict. Subsequent code reading attributes[\"weave\"][\"client_version\"] then fails, and the documented guarantee 'Attributes become immutable once the call is created' (new in this diff) does not hold for these standard dict APIs.",
+      "file": "weave/trace/weave_client.py",
+      "line": 820,
+      "summary": "The new attributes freeze guard is bypassable: dict.setdefault, pop, popitem, clear and the |= operator are C-level dict operations that do not dispatch through the overridden __setitem__/__delitem__/update, so the promised immutability and reserved-'weave'-key protection are silently defeatable"
+    },
+    {
+      "failure_scenario": "Run the test suite: inside the op at line 2736 the write raises TypeError (contradicting the '# allowed in this context' comment), the op is recorded as an errored call and returns None, and lines 2738-2742 are dead code. The test passes only vacuously — the reserved-'weave' KeyError behavior during execution is no longer verified by any test, and the test asserts the opposite of what the implementation does, masking future regressions in exactly the behavior it is named for.",
+      "file": "tests/trace/test_client_trace.py",
+      "line": 2736,
+      "summary": "The modified test_user_cannot_modify_call_weave_dict is self-contradictory: `call.attributes[\"test\"] = 123` inside the op raises TypeError (attributes are frozen in create_call before execution), so the op body aborts, the exception is swallowed by `__should_raise=False`, and the three in-op assertions (including both pytest.raises(KeyError) blocks) never execute"
+    },
+    {
+      "failure_scenario": "With a real trace server, `c = client.get_call(id)` returns a Call whose attributes are a plain dict (server JSON round-trip), so `c.attributes[\"x\"] = 1` succeeds silently with no TypeError, while the identical write on a locally created call raises TypeError. Users cannot rely on the documented 'attributes are frozen once the call is created' contract, and the isinstance-based freeze only triggers against in-memory mock servers used in tests — the production path of the new feature is inconsistent with the tested path.",
+      "file": "weave/trace/weave_client.py",
+      "line": 759,
+      "summary": "The new immutability guarantee is not enforced for calls fetched from a real server: make_client_call only freezes attributes when isinstance(call.attributes, AttributesDict), which is never true for JSON-deserialized plain dicts, so fetched calls remain silently mutable"
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/DoubleFieldInfo.java",
+      "line": 48,
+      "summary": "Compilation error: parameter renamed from 'object' to 'target' but body still references undeclared 'object' in UnsafeMemory.unsafeGetDouble() call",
+      "failure_scenario": "`javac` rejects the file -- method signature says `getDouble(Object target)` but line 48 uses `UnsafeMemory.unsafeGetDouble(object, getOffset())` where `object` is no longer declared. Compilation fails.",
+      "finding_id": "mf-45dde033b9599c33a3b2"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/IntFieldInfo.java",
+      "line": 48,
+      "summary": "Compilation error: parameter renamed from 'object' to 'target' but body still references undeclared 'object' in UnsafeMemory.unsafeGetInt() call",
+      "failure_scenario": "Same pattern as DoubleFieldInfo -- `javac` rejects the file. `getInt(Object target)` tries to use `UnsafeMemory.unsafeGetInt(object, ...)` with an undeclared symbol.",
+      "finding_id": "mf-3dbf6370d448e5fe088a"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/LongFieldInfo.java",
+      "line": 48,
+      "summary": "Compilation error: parameter renamed from 'object' to 'target' but body still references undeclared 'object' in UnsafeMemory.unsafeGetLong() call",
+      "failure_scenario": "Same pattern -- `javac` rejects the file. `getLong(Object target)` tries to use `UnsafeMemory.unsafeGetLong(object, ...)` with an undeclared symbol.",
+      "finding_id": "mf-1870ab7f8c113eb4b3fe"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/CharFieldInfo.java",
+      "line": 49,
+      "summary": "Compilation error: parameter renamed from 'object' to 'target' but body still references undeclared 'object' in UnsafeMemory.unsafeGetChar() call",
+      "failure_scenario": "Same pattern -- `javac` rejects the file. `getChar(Object target)` tries to use `UnsafeMemory.unsafeGetChar(object, ...)` with an undeclared symbol.",
+      "finding_id": "mf-850c1724e31d0f691a89"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/internal/fieldinfo/ObjectFieldInfo.java",
+      "line": 51,
+      "summary": "Compilation error: parameter renamed from 'object' to 'target' but body still references undeclared 'object' in UnsafeMemory.unsafeGetObject() call",
+      "failure_scenario": "Same pattern -- `javac` rejects the file. `get(Object target)` tries to use `UnsafeMemory.unsafeGetObject(object, ...)` with an undeclared symbol.",
+      "finding_id": "mf-eb8a055e89c3a242863b"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/Wires.java",
+      "line": 1982,
+      "summary": "TupleFieldInfo.set() primitive overloads (char/int/long/double) call set(name, ...) instead of set(target, ...), dropping the target object and using the String field name as the target -- causes Proxy.getInvocationHandler() to throw on every primitive set",
+      "failure_scenario": "Calling `TupleFieldInfo.set(someProxy, 42)` on an int field enters `set(Object target, int value)` which calls `set(name, (Object) value)`. The inherited `set(Object, Object)` then calls `getMap(name)` which invokes `Proxy.getInvocationHandler(\"someFieldName\")` on a plain String -- throws `IllegalArgumentException` because String is not a proxy. All primitive set operations on TupleFieldInfo crash at runtime. (This is a pre-existing bug that the diff touches but does not fix.)",
+      "finding_id": "mf-15a66c1edbf2d781b2aa"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/FieldInfo.java",
+      "line": 35,
+      "summary": "Javadoc corruption from over-aggressive search-and-replace: 'write field newValues' should be 'write field values'; 'FieldInfo targets/FieldInfo target' should be 'FieldInfo objects/FieldInfo object'; 'Returns the newValue of the field' should be 'Returns the value of the field'; 'source target to the destination target' should be 'source object to the destination object'",
+      "failure_scenario": "Javadoc generation produces nonsensical documentation (e.g., 'and write field newValues' at line 35, 'FieldInfo targets' at line 71, 'Returns the newValue of the field' at line 137, 'source target to the destination target... targets will be copied' at lines 237-238, 'in two targets' at line 283). Readers are confused by documentation that reads like a failed find-and-replace.",
+      "finding_id": "mf-63d6cd044015bc793ff6"
+    },
+    {
+      "file": "src/main/java/net/openhft/chronicle/wire/Wires.java",
+      "line": 1944,
+      "summary": "Javadoc `@param o` does not match the renamed parameter `target` in getMap(Object target) -- produces Javadoc warnings and misleading documentation",
+      "failure_scenario": "The method signature is `getMap(Object target)` but the Javadoc says `@param o The object whose fields map needs to be fetched.` Javadoc toolchain (javadoc -Xdoclint) emits a warning about unmatched @param tag. The documentation references a parameter name `o` that no longer exists.",
+      "finding_id": "mf-b4e7a2d6f9109b8d5047"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "mlflow/ml-package-versions.yml",
+      "line": 773,
+      "summary": "pip_release is 'autogen-agentchat' but version constraints target 0.2.x; 'autogen-agentchat' only has 0.4.x+ releases",
+      "failure_scenario": "CI version matrix (dev/set_matrix.py) calls get_released_versions('autogen-agentchat') which returns only >=0.4.0 versions, then min=0.2.36/max=0.2.40 plus unsupported=['>=0.4'] filter out everything, yielding zero test configurations and silently skipping autogen CI. Also, user-facing version-warning messages in mlflow/utils/autologging_utils/__init__.py:391 tell users to upgrade/downgrade 'autogen-agentchat' when they actually need 'autogen'. The generated ml_package_versions.py:297 has the same wrong pip_release. The requirements/extra-ml-requirements.txt correctly uses 'autogen' (0.2.x), confirming this yml entry is stale.",
+      "finding_id": "mf-3693cdaece5fe373dddd"
+    },
+    {
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 126,
+      "summary": "_get_top_level_retrieval_spans excludes a retriever span when walking the parent chain hits a missing ancestor, even though no retriever ancestor was found",
+      "failure_scenario": "A retriever span has a non-retriever parent whose own parent_id references a span outside this trace (e.g. a cross-trace reference or pruned upstream span). The while loop at line 126 does all_spans.get(parent_id), gets None, breaks out, and the for-else does not add the span. The retriever span — which has genuine document outputs — is silently dropped from extract_retrieval_context_from_trace. Fix: treat a missing ancestor as reaching the root (append the span) rather than breaking.",
+      "finding_id": "mf-99f44828efbef1c4e6e2"
+    },
+    {
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 70,
+      "summary": "parse_inputs_to_str returns list(inputs.values())[0] for single-key dicts, which may be a non-string type, violating the -> str return annotation",
+      "failure_scenario": "Caller passes parse_inputs_to_str({'query': ['multi', 'part', 'prompt']}) expecting a string for judges API compatibility. The function returns the list ['multi', 'part', 'prompt'] instead of its JSON serialization. Downstream code that builds HTTP request bodies with the result would serialize incorrectly or raise a TypeError when the non-string is used where a string is expected.",
+      "finding_id": "mf-2fee843d3d44b5c4dfb2"
+    },
+    {
+      "file": "mlflow/tracing/utils/__init__.py",
+      "line": 335,
+      "summary": "set_span_chat_messages type hint narrowed from list[Union[dict, ChatMessage]] to Union[dict, ChatMessage] despite all 15+ callers passing a list",
+      "failure_scenario": "Static type checkers (mypy/pyright) will report errors at every call site (e.g. mlflow/anthropic/autolog.py:110, mlflow/bedrock/_autolog.py:188, mlflow/crewai/chat.py:24, mlflow/dspy/callback.py:121, mlflow/gemini/autolog.py:63, mlflow/groq/_groq_autolog.py:50, mlflow/langchain/langchain_tracer.py:231, etc.) because they pass list[dict] to a parameter typed as Union[dict, ChatMessage]. No runtime impact since types are not enforced, but this breaks type-checking CI and IDE assistance.",
+      "finding_id": "mf-1867cdedb411fb599fe7"
+    },
+    {
+      "file": "mlflow/genai/utils/trace_utils.py",
+      "line": 79,
+      "summary": "extract_retrieval_context_from_trace docstring says 'Only consider the last retrieval span' but the implementation returns all top-level retrieval spans",
+      "failure_scenario": "A caller reading the docstring expects a single retrieval context (the last one) but receives a dict mapping multiple span_ids to their documents, causing downstream code that assumes a single context to process more data than expected or to mishandle the multi-key dict. The test at tests/genai/utils/test_trace_utils.py:211 also has a contradictory comment ('only take the last top-level one') while asserting both spans are included.",
+      "finding_id": "mf-2d99c729ecf9349af376"
+    }
+  ]
+}

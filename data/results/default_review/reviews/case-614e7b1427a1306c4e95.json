@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 219,
+      "summary": "replaceAuctionPrice not called on bid response ad/vastUrl fields -- price macros like ${AUCTION_PRICE} are left unreplaced",
+      "failure_scenario": "Server returns vastUrl: 'https://vast.server.com/win?price=${AUCTION_PRICE}'. The createBid function passes it through literally. Prebid renders the win URL with the literal macro string instead of the actual CPM, breaking win-price reporting and auction clearing. The old code called replaceAuctionPrice on adm and nurl; this was removed without replacement. Every other adapter in this codebase (a1Media, adot, adxcg, alkimi, apacdex, axonix, bidtheatre, etc.) still uses replaceAuctionPrice on bid responses.",
+      "finding_id": "mf-b9ab48123c1d90961cbb"
+    },
+    {
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 265,
+      "summary": "getViewableDistance compares viewport-relative elementMiddle against page-relative (window.scrollY + viewportHeight), mixing coordinate systems",
+      "failure_scenario": "Viewport is 800px tall, user has scrolled 1000px down the page. An element has getBoundingClientRect().top = 1200 (i.e., 1200px below the viewport top -- clearly out of view). elementMiddle = 1250 (viewport-relative), while window.scrollY + viewportHeight = 1800 (page-relative). The comparison 1250 > 1800 is false, so the 'below viewport' branch is never entered. The element is incorrectly classified and DistanceToView receives 1250 instead of 450 (the actual distance past viewport bottom). Conversely, an element fully visible in the viewport (elementMiddle = 300, viewport-relative) is correctly compared against 1800 (page-relative), 300 > 1800 is false, falls through to 'return Math.round(300)' -- a positive value reported for an element already in view when it should be 0. The correct comparison is elementMiddle > viewportHeight without adding window.scrollY.",
+      "finding_id": "mf-c3bb0928e60a2ce26b76"
+    },
+    {
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 52,
+      "summary": "withCredentials: true removed from request options -- cross-origin cookies no longer sent with bid requests",
+      "failure_scenario": "The old code set options: { withCredentials: true } on every outgoing request, allowing session cookies to be sent cross-origin. The new buildRequests omits this entirely, so the browser defaults to withCredentials: false for cross-origin POST requests. If the bidmatic server uses cookies for user identification, frequency capping, or session state, these features silently break -- the server sees every request as anonymous.",
+      "finding_id": "mf-04fb41d7cb6952f9c58c"
+    },
+    {
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 35,
+      "summary": "isBidRequestValid logs a warning but still returns true when bid.params.bidfloor is not a number",
+      "failure_scenario": "Publisher configuration has bidfloor: 'five' (a string). isBidRequestValid enters bid.params.bidfloor && !isNumber(...) branch, logs a warning, then returns isNumber(source) which is true. The invalid bid request passes validation. Downstream, getBidFloor's catch block calls isNumber('five') which returns false, so the floor is silently undefined and stripped by cleanObj. The bid goes to auction with no floor, potentially winning at any price below the publisher's intended floor.",
+      "finding_id": "mf-27cd755d1790e2f8c284"
+    },
+    {
+      "file": "modules/bidmaticBidAdapter.js",
+      "line": 156,
+      "summary": "remapBidRequest accesses bidRequests[0] without checking array length -- Schain/UserEids/UserIds silently dropped on empty input",
+      "failure_scenario": "remapBidRequest is called with an empty bidRequests array (e.g., a no-bid scenario or test edge case). bidRequests[0] is undefined, so deepAccess(undefined, ...) returns undefined for Schain, UserEids, and UserIds. cleanObj strips all undefined values, so the server request is sent without supply chain data (Schain), violating supply chain transparency requirements.",
+      "finding_id": "mf-3cf431907ff67c9d0438"
+    },
+    {
+      "file": "test/spec/modules/bidmaticBidAdapter_spec.js",
+      "line": 362,
+      "summary": "Test name says 'should return empty array' but assertion expects undefined from getUserSyncsFn",
+      "failure_scenario": "The test description on line 361 says 'should return empty array when no syncs enabled', but line 363 asserts expect(result).to.be.undefined. The function getUserSyncsFn does return undefined when no syncs are enabled (empty return on line 109 of the adapter). Either the test name is wrong (it should say 'should return undefined') or the function should return [] instead of undefined to match Prebid.js conventions. This mismatch masks a potential inconsistency where the function returns [] in some branches and undefined in others.",
+      "finding_id": "mf-5c91655e9b43ba98b777"
+    }
+  ]
+}

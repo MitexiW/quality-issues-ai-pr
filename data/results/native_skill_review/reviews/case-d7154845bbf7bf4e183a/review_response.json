@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run the standard whylogs_profiler step without a dataset_timestamp argument (dataset_timestamp=None): `dataset_timestamp or utc_now()` evaluates to a naive datetime (utc_now defaults to tz_aware=False), and whylogs' set_dataset_timestamp -> validate_timestamp raises ValueError('Timestamp must have a timezone'). Before this change the fallback was datetime.datetime.now(datetime.timezone.utc), which is aware, so the default profiler path worked; now every default invocation of the whylogs data validator/profiler crashes.",
+      "file": "src/zenml/integrations/whylogs/data_validators/whylogs_data_validator.py",
+      "line": 101,
+      "summary": "utc_now() returns a timezone-naive datetime by default, so the default data_profiling path now passes a naive timestamp to whylogs' set_dataset_timestamp, which rejects naive datetimes."
+    },
+    {
+      "failure_scenario": "On a host in UTC+2, a token expiring at 15:00 UTC: datetime.datetime.fromtimestamp(token.expires_on) yields naive 17:00 (local); to_utc_timezone relabels it as 17:00 UTC without shifting, so AzureAccessTokenConfig.expires_at is 2 hours too late. The connector then keeps serving an actually-expired token for 2 extra hours (and on UTC-5 hosts treats valid tokens as expired 5 hours early, forcing spurious re-authentication). The replaced code `expires_at.astimezone(datetime.timezone.utc)` performed the local->UTC conversion; the comment ('Convert the expiration timestamp from local time to UTC time') no longer matches the behavior.",
+      "file": "src/zenml/integrations/azure/service_connectors/azure_service_connector.py",
+      "line": 1134,
+      "summary": "to_utc_timezone assumes naive datetimes are already UTC, but datetime.fromtimestamp(token.expires_on) returns local naive time, so the local->UTC conversion is silently dropped and expires_at is wrong by the host's UTC offset."
+    },
+    {
+      "failure_scenario": "Deploy a scheduled pipeline on a host whose Airflow default_timezone is not UTC (e.g. America/New_York): `start_date=utc_now() - timedelta(7)` (and the @once branch at line 432) now produces a naive datetime; Airflow 2.x emits NaiveDateTimeWarning and anchors the cron schedule using the local timezone, shifting the DAG's scheduling window relative to the previous explicit-UTC value and misaligning cron-fired runs on non-UTC schedulers.",
+      "file": "src/zenml/integrations/airflow/orchestrators/airflow_orchestrator.py",
+      "line": 412,
+      "summary": "Fallback Airflow start_date changed from timezone-aware UTC to a naive datetime (utc_now() default is naive), so Airflow interprets it in the scheduler's local/default timezone instead of UTC."
+    },
+    {
+      "failure_scenario": "df.iloc[:, -7:].idxmax(axis=1) yields the original integer column labels (27..33) because the DataFrame still has default integer headers at that point; df['target'] therefore contains codes like 31 instead of 'Pastry'/'Z_Scratch' etc. Any consumer (or expectation suite) built against the previous OpenML-based string labels silently receives different values, and any row whose 7 fault indicators are all 0 is mislabeled as the first fault type ('Pastry') since idxmax returns the first column on ties.",
+      "file": "tests/integration/examples/great_expectations/steps/importer.py",
+      "line": 77,
+      "summary": "idxmax over the one-hot fault columns returns the integer column position (27-33), not the fault-type name, so the new target column silently changes encoding from the previous string labels and mislabels all-zero rows."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Every other event subscription in this file (e.g., the checkbox `onChanged` at line 166) and in the sibling `skuDataCollectionToolbar.ts` (all `onDidClick` handlers, lines 89-278) is pushed to `_disposables`, which the page disposes in its `view.onClosed` teardown (lines 211-213). The new handler's disposable is discarded, so the subscription outlives page teardown: the closure keeps the entire SKURecommendationPage and its migrationStateModel (Azure account, session state, assessment results) referenced by the hyperlink's emitter after the wizard closes, and can still fire telemetry for a closed session if the component emits.",
+      "file": "extensions/sql-migration/src/wizard/skuRecommendation/skuRecommendationPage.ts",
+      "line": 99,
+      "summary": "The new `_arcServerLink.onDidClick` subscription is never added to `_disposables`, so it is not disposed when the page's view closes."
+    },
+    {
+      "failure_scenario": "All other `sendSqlMigrationActionEvent` calls (wizardController.ts:199, loginSelectorPage.ts:569, instanceSummary.ts:336, tdeMigrationDialog.ts:328, and the `sendButtonClickEvent` helper in telemetry.ts:140) spread `getTelemetryProps(...)`, giving events subscriptionId, resourceGroup, targetType, tenantId, migrationTracked, and sourceInfrastructureType. The new `OnArcAssessmentLinkClick` event carries none of these — including `isSqlServerTrackedInAzure`, the property added by the same change — so the telemetry meant to measure Arc-tracked assessment-link usage cannot be segmented by Arc-tracking status without cross-event sessionId joins.",
+      "file": "extensions/sql-migration/src/wizard/skuRecommendation/skuRecommendationPage.ts",
+      "line": 104,
+      "summary": "The click event passes only `{ sessionId }` instead of spreading `getTelemetryProps(this.migrationStateModel)` as every other action-event call site in the extension does."
+    },
+    {
+      "failure_scenario": "In `constructDetails` (lines 313-337), when `_isSqlServerEnabledByArc` is false but `_arcSqlServer` is still set — e.g., the user picked an Arc server, then toggled the 'tracked in Azure' radio to No, which sets `_isSqlServerEnabledByArc = false` without clearing `_arcSqlServer` (sourceSelectionSection.ts:304) — the link is shown pointing to `https://portal.azure.com/#resource/${arcSqlServer.id}` (the plain resource page, not the `/migrationAssessment` page). Clicking it fires `OnArcAssessmentLinkClick`, so telemetry counts generic resource-link clicks as assessment-link clicks, inflating the adoption metric this event was added to measure.",
+      "file": "extensions/sql-migration/src/wizard/skuRecommendation/skuRecommendationPage.ts",
+      "line": 102,
+      "summary": "The handler emits `OnArcAssessmentLinkClick` for clicks on the non-assessment Arc-resource link too, over-counting assessment-link clicks."
+    }
+  ],
+  "level": null
+}

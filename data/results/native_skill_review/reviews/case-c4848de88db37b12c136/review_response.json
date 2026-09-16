@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "`get_traces()` in tests/tracing/helper.py returns a fresh list from `TracingClient().search_traces(...)`; calling `.clear()` on it is a no-op on the backend, so cross-test trace isolation that the removed conftest provided is silently lost. In any run where two tests observe the same backend — the tracing-SDK test mode (session-scoped shared experiment, tests/conftest.py:88-99), tests not isolated by `tracking_uri_mock`, or `MLFLOW_TRACKING_URI` pointing at a shared server — traces accumulate and the exact-count assertions in this file (`assert len(get_traces()) == 1` at line 140, `len(spans) == 5` at line 185) fail on the second test. Same defect in test_pydanticai_tracing.py:35-38 and test_pydanticai_mcp_tracing.py:34-37.",
+      "file": "tests/pydantic_ai/test_pydanticai_fluent_tracing.py",
+      "line": 36,
+      "summary": "The reset fixture replaced the deleted conftest's `purge_traces()` (which deleted backend traces) with `get_traces().clear()`, which only empties the throwaway local list returned by `TracingClient().search_traces()` and never deletes anything from the tracking backend."
+    },
+    {
+      "failure_scenario": "Under the session-wide autouse test-mode fixture (`enable_test_mode_by_default_for_autologging_integrations`, tests/conftest.py:183-190), `setup_autologging` in mlflow/tracking/fluent.py:3231-3235 re-raises any flavor's exception. In a full-suite run where another library (sklearn, openai, langchain...) was imported earlier in the session with a version outside the supported range, its autolog raises MlflowException and the pydantic_ai test errors on an unrelated flavor; the call also globally patches every imported flavor's classes mid-suite, so this test's outcome now depends on which modules other test files happened to import.",
+      "file": "tests/pydantic_ai/test_pydanticai_fluent_tracing.py",
+      "line": 117,
+      "summary": "Tests switched from flavor-scoped `mlflow.pydantic_ai.autolog(log_traces=True)` to global `mlflow.autolog(log_traces=True)`, which enables autologging for every flavor whose library is already imported in the process, not just pydantic_ai."
+    },
+    {
+      "failure_scenario": "langgraph 0.2.x still ships the legacy `Graph`/`CompiledGraph` API in `langgraph.graph.graph`, and `CompiledGraph` is the parent of `CompiledStateGraph`, so legacy agents are not instances of the new tuple. A user on langgraph 0.2.x who logs or serves a legacy Graph-based agent now gets `MlflowException: MLflow langchain flavor only supports subclasses of ... found CompiledGraph` from `_validate_and_prepare_lc_model_or_path` (log_model), and `api_request_parallel_processor.py:136` no longer recognizes the model for prediction — both worked before the change because `langgraph.graph.graph.CompiledGraph` covered every compiled graph.",
+      "file": "mlflow/langchain/utils/logging.py",
+      "line": 143,
+      "summary": "`langgraph_types()` now returns only `(CompiledStateGraph,)` from `langgraph.graph.state`, dropping support for legacy `CompiledGraph` instances produced by the `Graph` API on langgraph 0.2.x (the minimum supported version)."
+    },
+    {
+      "failure_scenario": "Any pytest invocation whose working directory is not the repo root — `cd tests/anthropic && pytest test_anthropic_autolog.py`, IDE runners launching from the file's directory, or runners that chdir — hits FileNotFoundError on `open('tests/resources/images/test.png')`, where the previous `Path(__file__)`-based form worked regardless of CWD. Same change in tests/bedrock/test_bedrock_autolog.py:635.",
+      "file": "tests/anthropic/test_anthropic_autolog.py",
+      "line": 221,
+      "summary": "Image loading was changed from the CWD-independent `Path(__file__).parent.parent / 'resources' / 'images'` to the hardcoded relative path `tests/resources/images/test.png`, making the test depend on pytest being launched from the repo root."
+    },
+    {
+      "failure_scenario": "Users of 2.22.1 and tools that render or parse CHANGELOG.md (release notes pages, changelog linters) lose all documentation of that release's features and fixes (#15938, #15485, #15635, and the listed bug-fix credits); the file now jumps from 2.22.0 directly to nothing, inconsistent with the retained release history.",
+      "file": "CHANGELOG.md",
+      "line": 3,
+      "summary": "The diff deletes the entire changelog section for the already-released version 2.22.1 (2025-06-06) while retaining the 2.22.0 section, removing the release notes and bug-fix record for a shipped version."
+    },
+    {
+      "failure_scenario": "Any future fix to the shared fixture behavior — including the no-op `get_traces().clear()` defect above — must be applied in three places, and the copies already differ in fixture definition order (clear_autolog_state appears at different positions relative to reset in test_pydanticai_mcp_tracing.py vs test_pydanticai_fluent_tracing.py), creating drift risk where the modules' autolog-state resetting evolves inconsistently.",
+      "file": "tests/pydantic_ai/test_pydanticai_tracing.py",
+      "line": 33,
+      "summary": "Deleting tests/pydantic_ai/conftest.py replaced one shared set of autouse fixtures with three near-identical copies (mock_openai_creds, mock_gemini_creds, reset_mlflow_autolog_and_traces, clear_autolog_state) pasted into each test module."
+    }
+  ],
+  "level": null
+}

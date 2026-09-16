@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "affinity/src/main/java/net/openhft/affinity/BootClassPath.java",
+      "line": 70,
+      "summary": "Compile error: ProviderNotFoundException is not imported (it lives in java.nio.file.spi, not java.nio.file)",
+      "failure_scenario": "The catch clause at line 70 uses `ProviderNotFoundException` which is declared in `java.nio.file.spi`. The only relevant import is `java.nio.file.*` (line 27), which does NOT cover `java.nio.file.spi`. No explicit import for `ProviderNotFoundException` exists anywhere. This will fail to compile on any JDK version.",
+      "finding_id": "mf-913144f6cc1ab12fbd28"
+    },
+    {
+      "file": "affinity/src/main/java/net/openhft/affinity/lockchecker/FileLockBasedLockChecker.java",
+      "line": 118,
+      "summary": "Resource leak: when obtainLock acquires the first lock but the second lock fails, releaseLock(id) is called before locks[id] is set, so the first lock's FileChannel and FileLock are never cleaned up",
+      "failure_scenario": "Call obtainLock(2, 6, metaInfo) where CPU 2 is free but CPU 6 is held by another process. tryAcquireLockOnFile(2, ...) succeeds (opens a FileChannel, acquires exclusive FileLock, writes metaInfo) and returns a LockReference. tryAcquireLockOnFile(6, ...) returns null (CPU 6 is locked). The code calls releaseLock(2) at line 118, but locks[2] was never assigned (the assignment only happens at lines 109 or 114 on success paths). releaseLock(2) checks locks[2] != null, finds null, and does nothing. The FileChannel and FileLock for CPU 2 are never closed — they leak until JVM exit. The lock file for CPU 2 persists and blocks other processes from acquiring it.",
+      "finding_id": "mf-60f601bab5ab25e19f50"
+    },
+    {
+      "file": "affinity/src/main/java/net/openhft/affinity/LockInventory.java",
+      "line": 85,
+      "summary": "Resource leak: when acquireCore(false) is used (reserve without binding), LockCheck.updateCpu creates lock files for both CPUs but LockInventory.release only cleans up the primary CPU, leaking the HT pair's lock file",
+      "failure_scenario": "Call acquireCore(false) to reserve a whole core without immediate binding. At line 85, LockCheck.updateCpu(cpuId, cpuId2) creates lock files for BOTH logical CPUs. Then assignCurrentThread(false, true) at line 86 sets assignedThread on the primary lock only — bindWholeCore is NOT called because bind=false. Later, calling release() iterates logicalCoreLocks at line 266, finds the primary lock (assignedThread == t) and releases it, but the HT pair lock at logicalCoreLocks[cpuId2] has assignedThread == null (never set because bindWholeCore was never called). The pair's lock file and file channel are never released, blocking other processes from acquiring it.",
+      "finding_id": "mf-6e397f217d1afbadbb9c"
+    },
+    {
+      "file": "affinity/src/main/java/net/openhft/affinity/impl/VanillaCpuLayout.java",
+      "line": 191,
+      "summary": "Sentinel value 0 for 'no hyperthread pair' collides with CPU 0 when it genuinely IS the HT pair, causing FileLockBasedLockChecker.obtainLock(id, 0, ...) to wrongly skip locking the paired CPU",
+      "failure_scenario": "On a system where CPU 0 is the genuine hyperthread pair of another CPU (e.g., a 2-core 2-thread system where CPU 2 has pair(2)=0), calling pair(2) returns 0. When used in obtainLock(2, 0, metaInfo), the check `if (id2 <= 0)` at FileLockBasedLockChecker line 107 treats 0 as 'no second lock' and only locks CPU 2, missing the paired CPU 0. The whole-core reservation is silently incomplete. In standard Linux SMT numbering this is unlikely but not impossible with non-standard /proc/cpuinfo layouts or user-supplied CPU layouts via fromProperties().",
+      "finding_id": "mf-ab236c6af153e3113188"
+    },
+    {
+      "file": "affinity/src/main/java/net/openhft/affinity/impl/VanillaCpuLayout.java",
+      "line": 183,
+      "summary": "Missing bounds check: pair(int cpuId) calls cpuDetails.get(cpuId) without validation, throwing IndexOutOfBoundsException for out-of-range input instead of returning a safe default",
+      "failure_scenario": "User code calls CpuLayout.pair(-1) or pair(n) where n >= cpus(). The method calls cpuDetails.get(cpuId) which throws an uncaught IndexOutOfBoundsException. This public API method should validate input and return a safe sentinel (like -1 or 0) instead of crashing.",
+      "finding_id": "mf-a92976995191417986bf"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "tools/azure-sdk-tools/packaging_tools/generate_utils.py",
+      "line": 425,
+      "summary": "yaml.dump rewrites tspconfig.yaml unconditionally even when the inner guard (line 423) is false and no api-version mutation occurred; the file is reformatted (comments stripped) but the api-version override is silently not applied, with no warning logged",
+      "failure_scenario": "Input data contains apiVersion='2023-01-01' but tspconfig.yaml has no @azure-tools/typespec-python key under options. The file is rewritten by yaml.dump (losing all comments and reformatting), but the api-version is never set. The code generator runs with the wrong (default) api-version, and no warning tells the operator the override was silently dropped.",
+      "finding_id": "mf-53ee4ff66f126a0f82f8"
+    },
+    {
+      "file": "tools/azure-sdk-tools/packaging_tools/generate_utils.py",
+      "line": 422,
+      "summary": "yaml.safe_load returns None for empty or comment-only YAML files; subsequent content.get('options', {}) at line 423 raises AttributeError on NoneType, crashing gen_typespec with a misleading failure message",
+      "failure_scenario": "A tspconfig.yaml file exists but is empty (0 bytes) or contains only comments (e.g., '# WIP'). yaml.safe_load returns None. Line 423 calls content.get('options', {}) on None, raising AttributeError. The error propagates to the caller's except Exception handler, which logs 'fail to generate sdk' even though code generation never started.",
+      "finding_id": "mf-2a5e168a33315c3147c0"
+    }
+  ]
+}

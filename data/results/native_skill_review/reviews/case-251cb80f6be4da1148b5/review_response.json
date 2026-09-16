@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Server responds with a bid whose `bidId` is not present in `bidRequests` (stale, retried, or buggy server response). `((bidRequests) || []).find(...)` returns undefined — the added guard only covers a missing `bidRequests` array — and `rawBid.placement` throws TypeError. bidderFactory catches it and discards every bid from this adapter for the auction.",
+      "file": "modules/hybridBidAdapter.js",
+      "line": 249,
+      "summary": "The new `|| []` guard on the rawBid lookup does not prevent the TypeError at `bid.placement = rawBid.placement` when the server returns a bid whose bidId matches no request bid."
+    },
+    {
+      "failure_scenario": "Server returns a bid with a `bidId` not among `bidRequests`. `((bidRequests) || []).find(...)` yields undefined and `rawBid.placement` throws; the exception propagates out of `interpretResponse`, bidderFactory logs 'failed to interpret the server's response', and all bids from the vox adapter are dropped.",
+      "file": "modules/voxBidAdapter.js",
+      "line": 254,
+      "summary": "Same defect as hybridBidAdapter: `bid.placement = rawBid.placement` throws TypeError when the server's bidId matches no request bid, and the newly added `|| []` guard does not cover it."
+    },
+    {
+      "failure_scenario": "The server returns a banner bid whose `slot` value does not equal any `adUnitCode` in the banner bids array sent in the request (misconfigured server or out-of-band response). `((bidRequest) || []).find(...)` returns undefined, `requestId: request.bidId` throws, and bidderFactory discards all beachfront bids for the auction.",
+      "file": "modules/beachfrontBidAdapter.js",
+      "line": 138,
+      "summary": "The guarded lookup at line 135 can still return undefined (server banner bid with a `slot` matching no request's `adUnitCode`), and the immediate `request.bidId` deref then throws TypeError."
+    },
+    {
+      "failure_scenario": "The server returns a video bid whose `requestId` is not in `JSON.parse(bidderRequest.data).bids` (e.g., a delayed or replayed response with a stale requestId). `find` returns undefined, `const { context, adUnitCode } = undefined` throws, and the adapter loses all bids for that response.",
+      "file": "modules/onetagBidAdapter.js",
+      "line": 188,
+      "summary": "Destructuring the result of `((requestData.bids) || []).find(...)` throws TypeError when the server's video bid `requestId` matches no bid in `requestData.bids`."
+    },
+    {
+      "failure_scenario": "The GPT `impressionViewable` handler runs while the pbjs global has no `getAllWinningBids` (a unit test or page stub of `getGlobal()` that omits it, or the handler firing before prebid core assigns `pbjsInstance` to `window.$$PREBID_GLOBAL$$`). `.find` is invoked on undefined and throws inside the GPT event handler, instead of the old behavior of returning null and logging `logWinningBidNotFound`.",
+      "file": "modules/bidViewability.js",
+      "line": 25,
+      "summary": "This is the one replacement site where the polyfill's falsy-input guard was dropped: `getGlobal().getAllWinningBids().find(...)` throws TypeError if `getAllWinningBids()` returns undefined/null, where the old `find(arr, ...)` returned undefined and the function returned null."
+    },
+    {
+      "failure_scenario": "Dead code: after transpilation this becomes a side-effect `require('../src/polyfill.js')`, so the polyfill module the refactor set out to remove (per its own comment, 'You should not need these for new code') stays in each of the five bundles' dependency graph, and the empty binding list is rejected by pre-ES2015 parsers. The import line should have been removed entirely.",
+      "file": "modules/microadBidAdapter.js",
+      "line": 2,
+      "summary": "Empty named import `import { } from '../src/polyfill.js';` was left in place of the removed `find` import instead of deleting the line (same in onetagBidAdapter.js:6, videoModule/index.js:2, videoModule/videoImpressionVerifier.js:1, yieldlabBidAdapter.js:3)."
+    },
+    {
+      "failure_scenario": "Non-behavioral: `Object.keys()` can never return a falsy value, so the guard is unreachable and only obscures that the value is provably an array; the mechanical transform should have emitted a plain `.find(...)` call here, as it correctly did in gptPreAuction.js.",
+      "file": "modules/nextrollBidAdapter.js",
+      "line": 344,
+      "summary": "Redundant `|| []` guard applied to `Object.keys(osTable)`, which always returns an array, adding dead defensive code (same pattern at stroeerCoreBidAdapter.js:266 on `[defaultFloor].concat(sizeFloors)`)."
+    }
+  ],
+  "level": null
+}

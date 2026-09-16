@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User configures with -DFTXUI_BUILD_MODULES=ON (FTXUI_ENABLE_INSTALL defaults to ON, so this install() is always recorded) and runs `cmake --install build`; the install script aborts with 'file INSTALL cannot find \"<repo>/my_package-config.cmake\"'. The file is a copy-paste artifact — the real package config is the generated cmake/ftxui-config.cmake, already installed by cmake/ftxui_install.cmake.",
+      "file": "cmake/ftxui_modules.cmake",
+      "line": 79,
+      "summary": "install(FILES my_package-config.cmake) references a file that does not exist anywhere in the repository, so `cmake --install` fails for every build with FTXUI_BUILD_MODULES=ON."
+    },
+    {
+      "failure_scenario": "cmake/ftxui_install.cmake already records install(EXPORT ftxui-targets NAMESPACE ftxui:: DESTINATION lib/cmake/ftxui); this new call writes the same export set to the same file lib/cmake/ftxui/ftxui-targets.cmake but with no namespace (recorded later, so it overwrites). The installed ftxui-targets.cmake then defines targets named screen/dom/component/ftxui-modules instead of ftxui::screen etc., so downstream projects doing find_package(ftxui) + target_link_libraries(app ftxui::screen) fail with 'Target \"ftxui::screen\" was not found'.",
+      "file": "cmake/ftxui_modules.cmake",
+      "line": 75,
+      "summary": "Second install(EXPORT ftxui-targets ...) for the same export set, without NAMESPACE, overwrites the namespaced export file written by cmake/ftxui_install.cmake, corrupting the installed CMake package."
+    },
+    {
+      "failure_scenario": "Developer runs ./tools/generate_examples_modules.sh (as the comment at lines 190-191 and the new CI job do), then later configures a regular build `cmake -DFTXUI_BUILD_EXAMPLES=ON ..` with FTXUI_BUILD_MODULES=OFF. The generated examples_modules/CMakeLists.txt links `ftxui-modules` (the sed replaced ${DIRECTORY_LIB}), which is not a target in this configuration, so CMake treats it as -lftxui-modules and the build fails at link time with 'cannot find -lftxui-modules' for every example.",
+      "file": "CMakeLists.txt",
+      "line": 192,
+      "summary": "add_subdirectory(examples_modules) is guarded only by the directory's existence, not by FTXUI_BUILD_MODULES, so a normal (modules-off) build fails after the generation script has been run once."
+    },
+    {
+      "failure_scenario": "A user copies `import ftxui.component.Animation;` from the docs; the compiler fails with 'module \"ftxui.component.Animation\" not found' because the real module is named ftxui.component.animation (same mismatch for every submodule listed on lines 51-84).",
+      "file": "doc/cpp20-modules.md",
+      "line": 51,
+      "summary": "The documented module list uses PascalCase names (ftxui.component.Animation, ftxui.dom.Elements, ...) that do not match the actual module names, which are all lowercase in the .cppm files."
+    },
+    {
+      "failure_scenario": "A user on CMake 3.20-3.28 following the documented instructions runs `cmake -DFTXUI_BUILD_MODULES=ON ..` and gets 'CMake Error at CMakeLists.txt:13 (cmake_minimum_required): CMake 3.28.2 or higher is required' — the documented minimum version cannot build the feature it documents.",
+      "file": "doc/cpp20-modules.md",
+      "line": 39,
+      "summary": "The doc says C++20 modules need 'CMake version 3.20 or higher', but CMakeLists.txt requires 3.28.2 whenever FTXUI_BUILD_MODULES=ON."
+    },
+    {
+      "failure_scenario": "The page is built by Doxygen (doc/ is in INPUT and *.md is in FILE_PATTERNS) and published at cpp20-modules.html, so the placeholder word appears verbatim at the top of the page, indicating the page was committed in an unfinished state.",
+      "file": "doc/cpp20-modules.md",
+      "line": 3,
+      "summary": "Stray placeholder text 'coucou' is left as the first line of the new user-facing documentation page and will be rendered on the published docs site (linked from the README)."
+    },
+    {
+      "failure_scenario": "The diff changes doc/module.md's heading from '# Modules {#modules}' to '# ftxui {#ftxui}', so Doxygen now emits that page as ftxui.html instead of modules.html; the getting-started 'Next' link therefore lands on Doxygen's built-in group index (or a stale target) instead of the FTXUI modules overview page, breaking the docs navigation flow.",
+      "file": "doc/getting-started.md",
+      "line": 59,
+      "summary": "The 'Next' navigation link [Modules](modules.html) was not updated when the PR renamed the page id from {#modules} to {#ftxui}, so it no longer points to the overview page it used to."
+    }
+  ],
+  "level": null
+}

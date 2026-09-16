@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User opens a project with hundreds of models and types the first character (completion fires per keystroke): the single-threaded LSP blocks while SqlModel.columns_to_types/_query_renderer.render() renders every model's query, and column_descriptions does a second render pass - each render executes the project's Jinja/Python macros (arbitrary user code, side effects included). Model instances are rebuilt on every did_save (main.py:312-319 _create_lsp_context) and every _ensure_context_for_document reload, so the tens-of-seconds stall recurs after each save. Before this diff, get_models read a pre-built name map with zero rendering.",
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 63,
+      "summary": "get_models now runs generate_markdown_description for every model on every completion request, triggering full Jinja renders (executing user Python macros) of all SQL models without declared COLUMNS, with no request-level caching."
+    },
+    {
+      "failure_scenario": "7 of the sushi example models (e.g. sushi.latest_order, sushi.top_waiters, sushi.customer_revenue_by_day) have no description in their MODEL block. For these, generate_markdown_description returns \"None\\n\\n| Column | Type | Description |...\" (description.py:28-30 concatenates model.description=None into the f-string), and this diff is the first to surface that value as LSP documentation - typing 'sushi.latest_order' in the editor shows completion documentation literally beginning with 'None' followed by the column table.",
+      "file": "sqlmesh/lsp/main.py",
+      "line": 638,
+      "summary": "Model completion documentation shows the literal string \"None\" for models without a description property, because generate_markdown_description f-strings None into the markdown when columns exist but description is None."
+    },
+    {
+      "failure_scenario": "User is mid-edit with invalid Jinja in one model (or a macro that fails to evaluate). SqlModel.columns_to_types catches the render error and returns None without setting _columns_to_types (definition.py:1349-1354, logging logger.exception each time), QueryRenderer._render raises before populating self._cache, and the cached_property column_descriptions does not cache exceptions - so every subsequent completion request (each keystroke) re-attempts a full render of the broken model and writes a complete traceback to the LSP log, producing unbounded log growth and CPU churn while the user types.",
+      "file": "sqlmesh/lsp/completions.py",
+      "line": 64,
+      "summary": "Render failures are not memoized anywhere in the new per-request description pipeline, so a single broken model is re-rendered and logs a full exception traceback on every keystroke."
+    },
+    {
+      "failure_scenario": "In a project with 1000+ models, each keystroke produces a CompletionList containing all model items plus their generated markdown column tables; the JSON-RPC message balloons to hundreds of KB or more per keystroke and must be serialized by the server and parsed by the client on every keypress, adding latency to plain typing. No prefix filtering or documentation-on-resolve is used, unlike the previous response which carried names only.",
+      "file": "sqlmesh/lsp/main.py",
+      "line": 630,
+      "summary": "Every completion response now embeds full markdown documentation for all project models regardless of what the user typed, inflating the per-keystroke CompletionList payload."
+    },
+    {
+      "failure_scenario": "Maintainability: the expression 'model.description or \"No description available\"' is only evaluated when model.description is truthy, so the fallback string can never be produced; a reader expects missing descriptions to render that message (and, absent the 'None' bug above, empty-description models actually get documentation=None instead), making the intent misleading and the fallback untestable.",
+      "file": "sqlmesh/lsp/main.py",
+      "line": 638,
+      "summary": "The \"No description available\" fallback in the MarkupContent value is dead code, guarded by 'if model.description' which guarantees the value is truthy."
+    }
+  ],
+  "level": null
+}

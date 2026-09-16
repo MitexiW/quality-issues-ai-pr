@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A question where the model keeps choosing search/reflect (never hitting a return path), or keeps returning valid answers without references while allURLs is non-empty, makes the loop run forever: unbounded Gemini API spend, a new prompt-<totalStep>.txt plus five JSON files written to disk every iteration, and the ever-growing diary prompt eventually exceeds the model's input limit and crashes. Reflect-decomposed sub-questions are never asked, and the `else if (evaluation.is_valid_answer)` sub-question branch (line 400) is unreachable because `currentQuestion === question` is permanently true.",
+      "file": "src/agent.ts",
+      "line": 273,
+      "summary": "currentQuestion is computed once before the loop and never reassigned, so the loop condition `gaps.length > 0 || currentQuestion === question` is always true and getResponse can only exit via the answer-branch returns; gap sub-questions pushed into `gaps` are never shifted off and never processed."
+    },
+    {
+      "failure_scenario": "Any run that does not hit an answer-branch return used to stop automatically after 1M tokens; now nothing caps iterations or cumulative API cost. Combined with the always-true loop condition, a stuck run consumes tokens and writes prompt files indefinitely instead of degrading to a bounded run.",
+      "file": "src/agent.ts",
+      "line": 262,
+      "summary": "The `tokenBudget` parameter (default 1,000,000) and all `totalTokens` accounting were removed, deleting the only guaranteed termination bound on the agent loop."
+    },
+    {
+      "failure_scenario": "Gemini returns `{\"action\":\"answer\",\"reasoning\":\"confident\",\"answer\":\"...\"}` with no references array, evaluation is valid, and allURLs is non-empty → `TypeError: Cannot read properties of undefined (reading 'length')` → getResponse rejects, and since the call at line 552 has no catch, the process dies without printing the final answer.",
+      "file": "src/agent.ts",
+      "line": 345,
+      "summary": "`action.references.length` throws a TypeError when the model returns an `answer` action without `references` — getSchema's `required` is only [\"action\", \"reasoning\"], so references is optional at runtime (pre-existing line inside the answer branch this PR modified)."
+    },
+    {
+      "failure_scenario": "The model picks reflect with genuinely new gap questions → the dedup result object has no `.length` → `undefined > 0` is false → control always falls into the 'no new questions' else branch → sub-questions are never pushed into gaps/allQuestions, so reflect can never steer the search, and `gaps.length > 0` in the new loop condition can never become true again.",
+      "file": "src/agent.ts",
+      "line": 422,
+      "summary": "In the reflect branch, `newGapQuestions = await dedupQueries(newGapQuestions, allQuestions)` assigns the `{unique_queries, tokens}` result object to the array variable, so `newGapQuestions.length` is undefined and the `> 0` branch that registers gap questions is dead (pre-existing line in the touched function)."
+    },
+    {
+      "failure_scenario": "The Jina reader returns an error payload (e.g., 429/402) whose `data` lacks `usage` → `TypeError: Cannot read properties of undefined (reading 'tokens')` is thrown inside `res.on('end')` → the exception escapes the callback (the readUrl promise never settles), crashing the agent mid-run instead of surfacing a retryable read failure.",
+      "file": "src/tools/read.ts",
+      "line": 42,
+      "summary": "The rewritten `console.log('Read:', {... tokens: response.data.usage.tokens})` dereferences `usage.tokens` without the optional chaining that line 44 uses, so an error-shaped Jina response without a `usage` field throws inside the `end` callback."
+    }
+  ],
+  "level": null
+}

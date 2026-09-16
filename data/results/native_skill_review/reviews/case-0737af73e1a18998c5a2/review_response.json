@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "PythonTypeToOpenAPI converts the MESSAGES/REQUEST_RESPONSES models in marimo/_cli/development/commands.py, where every alias type (JSONType, errors.Error, data.DataType, ops.MessageOperation, ...) is registered in name_overrides/processed_classes so convert() emits a $ref to a named schema. A NewType registered the same way (e.g. name_overrides={VariableName: 'VariableName'}) never reaches the lookups at lines 62-70 because the check at line 56 returns first — convert() silently emits {\"type\": \"string\"} instead of the registered $ref, producing an OpenAPI schema that disagrees with the registration table. Conversely, any non-NewType model in those lists that happens to define a __supertype__ class attribute (a third-party or user type mirroring typing constructs) is silently unwrapped instead of raising the converter's ValueError for unsupported types, so `marimo development openapi` publishes a schema for the wrong type with no error.",
+      "file": "marimo/_utils/dataclass_to_openapi.py",
+      "line": 56,
+      "summary": "The NewType unwrap uses duck-typed hasattr(py_type, \"__supertype__\") and short-circuits before the processed_classes/name_overrides/optional_name_overrides lookups, so any type exposing a __supertype__ attribute is silently converted as its base type and any NewType registered as a named schema has its $ref override silently ignored."
+    },
+    {
+      "failure_scenario": "DataTable and DataSourceConnection are in the MESSAGES list converted by `marimo development openapi`; before this change their Optional[str] fields converted directly, and after it they only convert because line 56 unwraps the NewType to str — an integration detail not covered anywhere in tests/_utils/test_dataclass_to_openapi.py. Any future edit to convert() (reordering the check below the Union branch, renaming the attribute, refactoring the recursion) breaks NewType conversion and makes the openapi command raise ValueError('Unsupported type: py_type=...') with no test failure to catch it.",
+      "file": "marimo/_utils/dataclass_to_openapi.py",
+      "line": 56,
+      "summary": "The PR adds NewType handling to the schema converter with no accompanying test, leaving the only code path that keeps DataTable.variable_name and DataTable.engine convertible (previously str, now Optional[VariableName]) unverified."
+    }
+  ],
+  "level": null
+}

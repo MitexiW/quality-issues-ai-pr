@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User runs `MlflowClient(tracking_uri='sqlite:///mlruns.db')`, successfully creates a webhook via create_webhook (SqlAlchemyStore implements all other webhook CRUD), then calls `client.test_webhook(webhook_id)` -> AbstractStore.test_webhook (mlflow/store/model_registry/abstract_store.py:1192) raises raw NotImplementedError('SqlAlchemyStore does not support test_webhook') that is not an MlflowException and is not documented as unsupported in the client docstring; the feature only works when talking to a tracking server over REST.",
+      "file": "mlflow/tracking/_model_registry/client.py",
+      "line": 875,
+      "summary": "MlflowClient.test_webhook raises NotImplementedError for every registry store except the plain REST store, so the new public API crashes for local SqlAlchemyStore/FileStore/UC registries even though all other webhook methods work there."
+    },
+    {
+      "failure_scenario": "POST /api/2.0/mlflow/webhooks/{id}/test with body {\"event\": \"MODEL_VERSION_TAG_SETT\"} (typo): parse_dict raises ParseError, which _get_request_message swallows because the schema dict is empty (proto_parsing_succeeded is never checked without validators); HasField('event') is then False, so the server silently fires the webhook with the example payload of webhook.events[0] and returns result.success=true — the caller gets a 200 for the wrong event. Body {\"event\": 999}: the integer parses, WebhookEvent.from_proto(999) calls ProtoWebhookEvent.Name(999) which raises ValueError, which catch_mlflow_exception does not catch, yielding a 500 Internal Server Error instead of a 400 INVALID_PARAMETER_VALUE.",
+      "file": "mlflow/server/handlers.py",
+      "line": 2498,
+      "summary": "_test_webhook calls _get_request_message(TestWebhook()) with no validation schema, so a malformed `event` in the request body is silently ignored (the test is dispatched with the wrong event and reported as success) or produces an uncaught ValueError and a 500."
+    },
+    {
+      "failure_scenario": "`MlflowClient().test_webhook(webhook_id, event='MODEL_VERSION_CREATED')` -> ModelRegistryClient -> RestStore.test_webhook executes `event.to_proto()` (mlflow/store/model_registry/rest_store.py:586) on a str, raising AttributeError: 'str' object has no attribute 'to_proto'. This breaks the client convention established a few lines above, where update_webhook coerces `events = [WebhookEvent(e) if isinstance(e, str) else e for e in events]`; the docstring advertises the same string-or-enum values as other webhook methods.",
+      "file": "mlflow/tracking/client.py",
+      "line": 6031,
+      "summary": "MlflowClient.test_webhook passes the `event` argument through without the string-to-WebhookEvent coercion that create_webhook/update_webhook perform, so passing an event name as a string crashes with AttributeError."
+    }
+  ],
+  "level": null
+}

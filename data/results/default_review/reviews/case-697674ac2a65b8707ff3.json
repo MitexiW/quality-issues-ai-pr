@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 84,
+      "summary": "git-diff mode has no try/catch -- if gitDiff() or parseDiff() throws, the entire transformer pipeline crashes unhandled",
+      "failure_scenario": "A large or edge-case markdown document causes git-diff (which spawns shell processes via shelljs) or parse-diff to throw. The exception propagates out of deriveDiff, crashes executeTransformers, and the scrape request fails with an unhandled error instead of a graceful warning. The json mode code directly below (line 138) does have a try/catch for the same class of errors.",
+      "finding_id": "mf-f15e99944ac7d75de146"
+    },
+    {
+      "file": "apps/js-sdk/firecrawl/src/index.ts",
+      "line": 77,
+      "summary": "SDK declares diff structured data under 'diff.structured' but the server produces it under 'diff.json' -- API contract mismatch",
+      "failure_scenario": "A client using the Firecrawl SDK types accesses diff.structured.files expecting the structured diff results. At runtime diff.structured is undefined because the server returns the data under diff.json. Any code relying on the SDK type shape will fail silently or crash.",
+      "finding_id": "mf-57aac85f586c50bcd59a"
+    },
+    {
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 44,
+      "summary": "compareExtractedData creates properties named 'previous'/'current' but tests expect 'old'/'new'",
+      "failure_scenario": "When a user requests changeTracking with modes=['json'] and provides a schema, the extracted data comparison uses keys 'previous' and 'current' (lines 43-46). The tests at scrape.test.ts lines 171-175 call toHaveProperty('old') and toHaveProperty('new'), which will fail because the actual keys are 'previous' and 'current'. The schema-based extraction feature returns unprocessable output for clients expecting the documented shape.",
+      "finding_id": "mf-d973a365d7d05b398f67"
+    },
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 200,
+      "summary": "changeTrackingOptions schema lacks 'systemPrompt' field -- user-provided systemPrompt is silently accepted (no .strict()) but never read by the implementation",
+      "failure_scenario": "A user passes systemPrompt in changeTrackingOptions (as the new tests do at scrape.test.ts lines 125-126). The zod schema doesn't declare this field but also doesn't reject it (the inner object is not .strict()). The implementation in diff.ts lines 18 and 154 hardcodes its own systemPrompt string, never reading meta.options.changeTrackingOptions.systemPrompt. The user's systemPrompt is silently dropped with no warning -- they get behavior that does not match their request.",
+      "finding_id": "mf-c2c65ccae8b170b015d5"
+    },
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 574,
+      "summary": "The diff change type definition is missing 'add' and 'del' boolean flags that the implementation actually sets on change objects",
+      "failure_scenario": "The type at line 574 only declares normal?, ln?, ln1?, ln2?. But diff.ts lines 116 and 122 set add: true and del: true on add/delete change objects respectively. TypeScript consumers of this API shape will not see these discriminator fields, making it impossible to type-narrow change objects by their change type.",
+      "finding_id": "mf-d369a62dac828ab3b673"
+    },
+    {
+      "file": "apps/api/src/scraper/scrapeURL/transformers/diff.ts",
+      "line": 139,
+      "summary": "Two independent extractDataWithSchema calls for previous and current data run sequentially instead of in parallel (Promise.all)",
+      "failure_scenario": "When schema-based extraction is requested, extractDataWithSchema is called first for previousMarkdown (line 140) then for currentMarkdown (line 143). Each call makes an LLM API request. Since these are independent (neither depends on the other's result), they could run in parallel via Promise.all, cutting latency in half on this hot path.",
+      "finding_id": "mf-5816ad7079803c567b93"
+    }
+  ]
+}

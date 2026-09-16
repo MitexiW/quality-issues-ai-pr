@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "tools/benchmark.py",
+      "line": 179,
+      "summary": "Missing `assert batch_size > 0` guard in Producer.run() causes silent busy-loop with zero throughput when batch_size=0",
+      "failure_scenario": "User runs `benchmark --enqueue-batch-size 0`. Old code would raise AssertionError immediately at the former `assert batch_size > 0` inside `producer()`. New code enters Producer.run(), creates `entrypoints = []` (empty list from `[\"syncfetch\", \"asyncfetch\"] * 0`), and loops calling `self.queries.enqueue([], [], [])` which returns `[]` without error -- a database round-trip doing nothing each cycle. The benchmark completes with 0 steps and 0 rate, misleading the user into thinking the system cannot process jobs.",
+      "finding_id": "mf-f5abbaaf9c239399540f"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": ".github/workflows/preview-comment.js",
+      "line": 18,
+      "summary": "No pagination on comment listing: listComments with only per_page=100 silently truncates at 100 comments, missing the existing marker comment on busy PRs and creating duplicate preview comments on every subsequent run.",
+      "failure_scenario": "A PR accumulates more than 100 comments. The existing <!-- documentation preview --> marker comment falls beyond the first 100 fetched by listComments({ per_page: 100 }). The script finds no existing comment, so it creates a new one. Each subsequent workflow run repeats this, accumulating duplicate preview comments. The codebase standard pattern (used in cancel.js, labeling.js, protect.js, etc.) wraps the REST call with github.paginate() to exhaust all pages; this code does not.",
+      "finding_id": "mf-dc7c937399e82231dd08"
+    },
+    {
+      "file": ".github/workflows/preview-docs.yml",
+      "line": 73,
+      "summary": "jq returns the literal string 'null' when netlify-cli --json output lacks a deploy_url field; the truthy string passes JS validation and produces a broken preview link in the comment.",
+      "failure_scenario": "The netlify-cli deploy --json command succeeds but its JSON output lacks a deploy_url field (e.g., a version change in the CLI). jq -r '.deploy_url' outputs the literal string 'null'. DEPLOY_URL='null' is written as a step output. The deploy step outcome is 'success', so STAGE='completed'. In the JS code, the check !netlifyUrl evaluates to false (the string 'null' is truthy), so validation passes. The resulting PR comment contains 'Documentation preview is available at: - null' -- a broken, non-functional link.",
+      "finding_id": "mf-ec6c7546059e682c960b"
+    }
+  ]
+}

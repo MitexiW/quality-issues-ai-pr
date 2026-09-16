@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/cli/tools/main.py",
+      "line": 176,
+      "summary": "ToolCommand.login() accesses current_organization['uuid']/'name' without checking if the key exists or is None, crashing on valid-but-unexpected login responses.",
+      "failure_scenario": "The login API returns a 200 response that lacks the 'current_organization' key (e.g., backend change or user has no organization). A KeyError propagates as an unhandled exception, producing a full traceback to the user instead of a controlled error message.",
+      "finding_id": "mf-047f0555a8096ee3850c"
+    },
+    {
+      "file": "src/crewai/cli/tools/main.py",
+      "line": 176,
+      "summary": "ToolCommand.login() saves org context to Settings but does not update the already-constructed self.plus_api_client.headers; subsequent API calls in the same process (publish_tool, get_tool) lack the X-Crewai-Organization-Id header.",
+      "failure_scenario": "User runs 'crewai tool publish --public' without a pre-set organization. login() succeeds, writes the returned org UUID to Settings, then publish() calls self.plus_api_client.publish_tool() — but the PlusAPI instance was created before login so its headers dict lacks X-Crewai-Organization-Id. The publish request either fails with a 403 or publishes to an incorrect org scope.",
+      "finding_id": "mf-edf4e2d85652ce3c7ce8"
+    },
+    {
+      "file": "src/crewai/cli/cli.py",
+      "line": 357,
+      "summary": "The org group has invoke_without_command=True but the handler body is just 'pass', so 'crewai org' silently exits with no output instead of showing the current organization.",
+      "failure_scenario": "User runs 'crewai org' (without a subcommand) expecting to see the currently selected organization. The command exits silently with exit code 0 and no output, giving zero feedback.",
+      "finding_id": "mf-da0c1482946f8222b81e"
+    },
+    {
+      "file": "src/crewai/cli/organization/main.py",
+      "line": 44,
+      "summary": "When switch() cannot find the requested organization ID, it prints an error and returns normally (exit code 0) instead of raising SystemExit(1), inconsistent with all other error paths in the codebase.",
+      "failure_scenario": "A script runs 'crewai org switch invalid-id && echo switched'. The switch fails silently (exit 0), the 'echo switched' runs, and the user believes the switch succeeded when it did not.",
+      "finding_id": "mf-d13126d766d82e7fc087"
+    },
+    {
+      "file": "src/crewai/cli/organization/main.py",
+      "line": 28,
+      "summary": "list() and switch() access org['name'] and org['uuid'] with bare bracket notation; if the API returns an incomplete org object, a KeyError produces a misleading error message.",
+      "failure_scenario": "API returns an org dict missing the 'name' field. list() hits a KeyError, the broad except catches it, and the user sees 'Failed to retrieve organization list: 'name'' — the user thinks the API call failed when it actually succeeded but the response format was unexpected.",
+      "finding_id": "mf-557da5a868a52daaaaea"
+    },
+    {
+      "file": "src/crewai/cli/organization/main.py",
+      "line": 46,
+      "summary": "OrganizationCommand.switch() and ToolCommand.login() duplicate the org-setting logic (assign org_name, org_uuid, call dump()), risking drift between the two implementations.",
+      "failure_scenario": "A future maintainer adds org-field validation to switch() but misses the identical logic in login(). The two code paths now enforce different rules, and login()-based flows (tool publish, tool install) accept org states that switch() rejects.",
+      "finding_id": "mf-bc8d61f4932729ecba13"
+    }
+  ]
+}

@@ -6,6 +6,19 @@ requests.  It contains the final analysis code, frozen derived data, human
 validation decisions, model results, and scripts used to render the paper's
 statistical figures.
 
+## Supplementary native-Skill review experiment
+
+The [native-Skill experiment guide](docs/NATIVE_SKILL_REVIEW.md) provides the
+267 final reviews, the root-cause review Skill and rerun commands. The outputs
+contain 1,484 findings, all assessed by human reviewers. Default review recovered
+21/114 primary references; the post-hoc RQ1-guided configuration recovered
+32/114. Broad-tier recovery was 37/187 and 53/187, respectively.
+The complete default dataset contains 267 valid reviews and 1,106 human-assessed
+findings; see [Default review data](docs/DEFAULT_REVIEW.md).
+Recompute the review counts with `python scripts/summarize_native_skill_reviews.py`
+and the recovery tables with `python scripts/analyze_native_skill_recovery.py`.
+The comparison is exploratory: review scope and execution handling differed.
+
 ## Authors
 
 - Qihang Wan — SKLP, Institute of Computing Technology, Chinese Academy of
@@ -74,9 +87,10 @@ python scripts/verify_artifact.py
 
 Expected headline invariants are 7,124 final alert decisions, 2,322 confirmed
 issues (2,194 Quality and 128 Security), 5,404 analyzed PRs, 412 RQ1 root-cause
-clusters covering all 775 AI Quality alerts, and 20/114 RQ3 Quality-reference
-recoveries in the primary analysis and 36/187 in the secondary mechanism
-analysis. The verifier also checks the author-confirmed audit of all 1,016
+clusters covering all 775 AI Quality alerts, and 21/114 RQ3 Quality-reference
+recoveries in the primary analysis and 37/187 in the secondary mechanism
+analysis. It checks all 1,106 current default labels and also retains checks
+of the historical author-confirmed audit of 1,016
 RQ3 semantic relations. Their initial provenance remains 776
 `LLM_assistant` decisions and 240 `deterministic_rule` decisions. One author
 then manually reviewed every relation. This RQ3 relation-review layer did not
@@ -93,7 +107,8 @@ python scripts/reproduce_analysis.py --quick
 
 This wrapper starts from the released alert metadata, final decisions, and
 raw PR-level table. It rebuilds validation summaries, RQ1--RQ3 analyses,
-rule-exclusion checks, and numerical data for all 34 main/supplementary tables.
+rule-exclusion checks, the post-hoc guided-review comparison, and numerical
+data for all 37 main/supplementary tables.
 It renders the current Fig2--Fig5 from the newly computed results.
 It does not download PRs, run
 CodeQL, call a model, or repeat human review. Run it without `--quick` to use

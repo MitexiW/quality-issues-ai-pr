@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "With no max_turns env-arg, MultiTurnEnv.__init__ leaves self.max_turns=10; the rollout loop stops after the 10th model response and never calls env_response for it, so a final assistant message with tool_calls is left unexecuted, the completion ends with unanswered tool calls, and evaluate_tau2_task's new pairing check prints 'Tool calls without responses' and returns 0.0 for the task.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 98,
+      "summary": "Tau2BenchEnv no longer sets self.max_turns (old default 30), so MultiTurnEnv.rollout truncates every rollout at the framework default of 10 model turns, making the new max_steps=200 config ineffective."
+    },
+    {
+      "failure_scenario": "vf-eval tau2_bench -n 20 --env-args '{\"user_llm\": \"gpt-4\"}' (README line 41) makes eval.py call load_environment(user_llm='gpt-4'), which then calls Tau2BenchEnv(..., user_llm=kwargs.get('user_llm', ...), **kwargs); Python raises 'TypeError: got multiple values for keyword argument user_llm' and the entire evaluation aborts before any rollout (same for max_steps/max_errors env-args).",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 1289,
+      "summary": "load_environment passes user_llm/max_steps/max_errors both explicitly and via **kwargs, so the env-args usage documented in the README crashes environment construction with a duplicate-keyword TypeError."
+    },
+    {
+      "failure_scenario": "When tau2's UserSimulator decides the user wants a human, user_msg.content == 'TRANSFER'; the old code returned 'I'd like to speak to a human agent please.' and set termination_reason='user_transfer', but the new code appends {'role':'user','content':'TRANSFER'} to the rollout: the model sees the literal 'TRANSFER' text, is_completed never sets a transfer termination (is_stop only covers STOP), the run drags on until the turn cap, and the raw sentinel is included in the SimulationRun messages given to tau2's evaluator.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 557,
+      "summary": "Removing the STOP/TRANSFER/OUT_OF_SCOPE sentinel handling in _generate_user_response feeds raw sentinel strings to the model and no longer terminates on user transfer."
+    },
+    {
+      "failure_scenario": "The agent accumulates max_errors (10) tool errors, is_completed sets state['termination_reason']='max_errors' and ends the rollout; evaluate_tau2_task's mapping chain (too_many_errors/max_steps/user_stop/agent_stop) matches none of them, so term_reason falls through to TerminationReason.AGENT_STOP and an error-aborted run is mislabeled as an agent-initiated stop in the SimulationRun.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 889,
+      "summary": "is_completed now sets termination_reason='max_errors' but evaluate_tau2_task only maps the old 'too_many_errors' value, so error-aborted runs are recorded as AGENT_STOP."
+    },
+    {
+      "failure_scenario": "_init_state only ever sets agent_state={} and nothing in the rollout updates it, so the 'if agent_state:' guard is always falsy: the agent can never signal stop (runs always continue until the 10-turn framework cap, max_steps, or user stop) and task_completed=state.get('termination_reason')=='agent_stop' evaluates to False for every rollout, so the SimulationRun handed to tau2's evaluate_simulation never reports a completed task.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 180,
+      "summary": "state['agent_state'] is initialized to {} and never populated, so the new LLMAgent.is_stop check is dead and SimulationRun.task_completed is always False."
+    },
+    {
+      "failure_scenario": "Every task whose initial message_history lacks a user message (the normal case) gets str(task.user_scenario) appended to the prompt, so the agent reads the user's ground-truth request directly instead of extracting it through conversation; task difficulty is reduced and the resulting pass rates are not comparable to the original tau2 benchmark numbers the README cites.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 786,
+      "summary": "create_tau2_dataset injects the full user_scenario (the user simulator's persona and private instructions, including order IDs and goals) as the first user message of the agent's prompt, bypassing tau2's information-elicitation protocol."
+    },
+    {
+      "failure_scenario": "The model emits tool arguments like '[1,2]' or 'null' so json.loads returns a list/None; ToolCall(arguments=[1,2]) then raises a pydantic ValidationError in _execute_agent_tools. The old code caught exceptions per tool call and returned 'Error executing {tool_name}' messages with error_count++, but now the exception propagates through env_response and rollout, and tqdm_asyncio.gather aborts the whole vf-eval run.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 370,
+      "summary": "The per-tool try/except around tool execution was removed, so a model tool call whose JSON arguments are not an object now crashes the entire evaluation batch instead of producing an error tool message."
+    },
+    {
+      "failure_scenario": "Running telecom with --env-args '{\"solo_mode\": true}' creates a runtime env without user tools, but the agent's oai_tools come from the solo_mode=False dataset env and evaluate_simulation(..., solo_mode=False) re-simulates the user with user tools, so the recorded run and the evaluation replay disagree and the reward does not reflect the actual solo run.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 1161,
+      "summary": "solo_mode was added to load_environment and Tau2BenchEnv but create_tau2_dataset still builds tools with get_telecom_env(solo_mode=False) and the rubric evaluates with solo_mode=False, so telecom solo-mode runs are evaluated as non-solo."
+    },
+    {
+      "failure_scenario": "If tau2's Environment only exposes tools via the tools attribute (as the previous code accessed) or get_tools() returns the name-to-Tool dict that Tools.get_tools() returns, tau2_env.get_tools() raises AttributeError, or the comprehension accesses .openai_schema on string keys, making load_environment fail and vf-eval crash on startup for all domains.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 722,
+      "summary": "create_tau2_dataset now calls tau2_env.get_tools() unguarded and assumes a list of objects with .openai_schema, replacing the guarded tau2_env.tools.get_tools() dict-to-list conversion."
+    },
+    {
+      "failure_scenario": "A telecom user message with two tool calls produces completion [user(tool_calls), tool1, tool2]; in evaluate_tau2_task, tool1 sees previous role 'user' and gets requestor='user', but tool2's previous message is tool1 (role 'tool') so it gets requestor='assistant'; the SimulationRun handed to tau2's evaluator attributes the user's second tool result to the agent, corrupting the replayed evaluation.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 973,
+      "summary": "When the telecom user emits multiple tool calls in one message, only the first result ToolMessage gets requestor='user'; subsequent ones are inferred as 'assistant' because the previously appended message is already a ToolMessage."
+    },
+    {
+      "failure_scenario": "Every tool execution runs three order-status probe blocks and every dataset build prints full prompts for tasks 5 and 13; _check_task_completion now always returns False and is never called, so these are dead code paths that must be maintained, slow runs, and leak task prompts into logs.",
+      "file": "environments/tau2_bench/tau2_bench.py",
+      "line": 393,
+      "summary": "Debug scaffolding shipped in the env: a hardcoded order id '#W2378156', three no-op order-status probe blocks per tool execution, per-task DEBUG prompt dumps for ids [5,13] at dataset build, and the now-uncalled _check_task_completion/_check_single_goal dead methods."
+    },
+    {
+      "failure_scenario": "A user running vf-eval tau2_bench with no env-args gets the user simulated by gpt-4.1-mini, not the gpt-4.1 the README states; the Tau2BenchEnv constructor default 'gpt-4.1' is dead through the loader path, so documented defaults and actual behavior diverge.",
+      "file": "environments/tau2_bench/README.md",
+      "line": 47,
+      "summary": "The README documents the user_llm default as 'gpt-4.1' but load_environment actually defaults to 'gpt-4.1-mini' and always passes it explicitly, making the constructor's 'gpt-4.1' default unreachable."
+    }
+  ],
+  "level": null
+}

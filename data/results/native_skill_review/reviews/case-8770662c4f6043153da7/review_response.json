@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A user passes Task(guardrail=functools.partial(validate_output, min_words=5)) or any class with __call__ returning (bool, str). The guardrail runs and returns (True, raw), but Task._process_guardrail (src/crewai/task.py:506-513) then constructs LLMGuardrailStartedEvent, whose elif branch calls inspect.getsource(self.guardrail), raising TypeError ('...object was expected, got partial/MyGuardrail'). The exception propagates out of _process_guardrail into _execute_core's except block, so the whole task execution fails with that TypeError even though the guardrail passed — and every future guardrail class the project adds will hit the same crash unless someone edits this list again (fix at the wrong altitude; a getattr(self.guardrail, 'description', None) check would cover all cases).",
+      "file": "src/crewai/utilities/events/llm_guardrail_events.py",
+      "line": 30,
+      "summary": "LLMGuardrailStartedEvent still crashes with TypeError for any callable-instance guardrail not in the hardcoded isinstance list (functools.partial, user-defined callable classes), because inspect.getsource only accepts module/class/method/function/code/frame objects; the PR adds a second hardcoded class instead of generalizing the mechanism."
+    },
+    {
+      "failure_scenario": "A user runs Crew(verbose=False) (the repo convention: crew.py:280 and base_agent.py:208 use Logger(verbose=self.verbose)) with N tasks each using this guardrail: each run prints 2N red ANSI-colored marketing lines to stdout (once at __init__ line 66-71, once per task execution at line 91-95). In a non-TTY context (CI logs, a FastAPI server, an embedding application capturing stdout) these escape-coded banners pollute output and cannot be suppressed, and each retried/re-executed task adds another banner.",
+      "file": "src/crewai/tasks/hallucination_guardrail.py",
+      "line": 66,
+      "summary": "HallucinationGuardrail hardcodes Logger(verbose=True), so red ANSI warning banners print to stdout on every construction and every guardrail invocation, ignoring the user's verbose setting that the rest of the codebase respects."
+    },
+    {
+      "failure_scenario": "A user configures Task(guardrail=HallucinationGuardrail(context='The capital of France is Paris', llm=llm, threshold=8.0)); the agent produces output claiming the capital is London, and it is marked valid (success=True) with no feedback and flows into the next task's context. The user pays the cost of constructing a real LLM object that is never used, and the only runtime signal that detection is disabled is a stdout print — which already fires once at construction time (so it reads as an informational banner), disappears entirely when stdout is redirected, and never surfaces in programmatic/API usage.",
+      "file": "src/crewai/tasks/hallucination_guardrail.py",
+      "line": 96,
+      "summary": "The guardrail silently never validates anything: context, threshold, tool_response and the required llm are stored but never read, and __call__ unconditionally returns (True, task_output.raw), so hallucinated outputs always pass to downstream tasks."
+    },
+    {
+      "failure_scenario": "If a regression removes or breaks the callable-instance path in Task.ensure_guardrail_is_callable or Task._process_guardrail (e.g., _guardrail stays None or the call is dropped), this test still passes because the un-guarded execution path produces the identical TaskOutput and raw string. The guardrail object is never wrapped in a Mock/spy and no LLMGuardrailStartedEvent/CompletedEvent is asserted, so the core wiring this PR adds (Task actually invoking HallucinationGuardrail) has no regression coverage.",
+      "file": "tests/test_task_guardrails.py",
+      "line": 292,
+      "summary": "test_hallucination_guardrail_integration cannot detect the guardrail not being invoked: it asserts only isinstance(result, TaskOutput) and result.raw == 'test result', both of which hold even if Task never calls the guardrail, since the no-op returns the input raw unchanged."
+    }
+  ],
+  "level": null
+}

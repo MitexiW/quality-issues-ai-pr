@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "In the map callback at line 710, value.resolve() is invoked eagerly during array construction, before PbPromise.all is called, so the .catch at line 714 can only handle promise rejections, not synchronous throws. A browser that supports runAdAuction/joinAdInterestGroup (so isFledgeSupported() is true and markForFledge installs the wrappers) but lacks the newer navigator.getInterestGroupAdAuctionData or createAuctionNonce: an adapter returning bidderRequest.paapi.getInterestGroupAdAuctionData(opts) from spec.paapiParameters makes value.resolve() throw 'navigator.getInterestGroupAdAuctionData is not a function' (line 514 wraps navigator[method] without checking it exists). The TypeError propagates out of buildPAAPIParams synchronously: next is never invoked, so parallelPaapiProcessing, adAuctionHeadersHook and the main processBidderRequests body (spec.buildRequests, the HTTP requests, onCompletion) never run for that bidder, no bids are produced, and adapterDone() never fires, stalling the auction. The same escape happens if an adapter's resolver returns a non-thenable (undefined.then throws) or constructs new AsyncPAAPIParam() without a resolver.",
+      "file": "modules/paapi.js",
+      "line": 710,
+      "summary": "buildPAAPIParams only catches rejections; a synchronous throw while resolving an AsyncPAAPIParam escapes the .catch and aborts the entire bidder pipeline because next() is never called"
+    },
+    {
+      "failure_scenario": "Previously ('sync' hook type) a synchronous exception anywhere in the pipeline (e.g. spec.buildRequests throwing at line 389) propagated synchronously out of adapter.callBids into the try/catch at src/adapterManager.js:488-504, which logs 'Bid Adapter emitted an uncaught error when parsing their bidRequest' and calls adapterDone() so the auction completes without that bidder. With the 'async' type, the pipeline runs deferred: buildPAAPIParams (the PR's own hook) calls next inside a .then, so the adapter body executes after the call stack unwinds and its exceptions can no longer reach that try/catch. They surface as unhandled promise rejections (the returned promise is discarded at bidderFactory.js:292) and adapterDone() is never called, so auctionDone() never fires for the bidder and the page's bidsBackHandler is never invoked until the global auction timeout, losing the bids from all bidders.",
+      "file": "src/adapters/bidderFactory.js",
+      "line": 385,
+      "summary": "Changing the processBidderRequests hook from 'sync' to 'async' moves adapter errors out of the synchronous try/catch in adapterManager.callBids, turning them into unhandled promise rejections that leave the bidder's done callback uninvoked"
+    },
+    {
+      "failure_scenario": "expectFledgeFlags awaits testAsyncParams for the appnexus bidder (line 727) but calls testAsyncParams(bidRequests.rubicon) without await, unlike the appnexus branch. The enclosing it() awaits expectFledgeFlags, so it resolves before the rubicon assertions execute; if a regression removed the AsyncPAAPIParam wrappers for the rubicon bidder (e.g. markForFledge only processed the first bidder), bidderRequest.paapi[method]('arg') would throw inside the floating promise after the test already passed, surfacing at most as an unhandled rejection. The test suite therefore passes even when async PAAPI param wiring is broken for every bidder except the first.",
+      "file": "test/spec/modules/paapi_spec.js",
+      "line": 733,
+      "summary": "Missing await on testAsyncParams(bidRequests.rubicon) means the rubicon branch's assertions run as a floating promise and can never fail the test"
+    },
+    {
+      "failure_scenario": "The import added by this change is dead code: no reference to buildActivityParams exists in the file (verified by grep). It appears to be a leftover from an earlier approach to the new tests and will fail the repository's no-unused-vars linting or, at minimum, misleads maintainers into thinking activity-param gating is exercised by these tests when it is not.",
+      "file": "test/spec/modules/paapi_spec.js",
+      "line": 36,
+      "summary": "buildActivityParams is imported from src/activities/params.js but never used anywhere in the spec file"
+    }
+  ],
+  "level": null
+}

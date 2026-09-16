@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/agent.ts",
+      "line": 273,
+      "summary": "currentQuestion is assigned once before the while loop and never reassigned; the loop always processes the same question every iteration",
+      "failure_scenario": "gaps is initialized as ['what is...']. Line 273 shifts it out: currentQuestion='what is...', gaps=[]. Loop condition (line 274) is gaps.length > 0 || currentQuestion === question, which is 0>0 || true = always true. Inside the loop body, gaps may receive new sub-questions via reflect (e.g. ['who founded...', 'what is...']), but currentQuestion is never updated from gaps. Every iteration sends the same original question to the LLM. Sub-questions sit in gaps unprocessed forever. The only exits are the return statements in the answer handler (lines 342, 364). If the LLM never produces a passing answer, the loop runs until API quota is exhausted or the process is killed.",
+      "finding_id": "mf-1bc5db39e4340e1ecb5c"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 422,
+      "summary": "dedupQueries returns { unique_queries, tokens } but reflect handler assigns the full object to newGapQuestions (a string[]), so .length check always fails and sub-questions are never added",
+      "failure_scenario": "Agent takes 'reflect' action with questionsToAnswer=['sub-q1', 'sub-q2']. allQuestions.length is 1 (truthy), so line 422 executes: newGapQuestions = await dedupQueries(['sub-q1','sub-q2'], ['original-q']). dedupQueries returns object { unique_queries: ['sub-q1'], tokens: 42 }. newGapQuestions now holds this object. Line 424: newGapQuestions.length evaluates to undefined (objects lack numeric length). undefined > 0 is false. The else branch (lines 436-446) always executes, reporting 'you have asked them before.' The valid sub-question 'sub-q1' is silently discarded; it is never pushed to gaps or allQuestions. The agent cannot decompose complex questions into sub-questions.",
+      "finding_id": "mf-33882f35fc566696a9be"
+    },
+    {
+      "file": "src/agent.ts",
+      "line": 274,
+      "summary": "tokenBudget loop guard removed without replacement; no upper bound on loop iterations or API token consumption",
+      "failure_scenario": "The old function signature getResponse(question, tokenBudget=1000000) provided a hard cap on total tokens consumed. Combined with finding 1 (infinite loop), the agent will make unlimited Gemini API calls until the process is killed, the API key is rate-limited, or the quota is exhausted. Even after fixing finding 1, there is no programmatic backstop preventing runaway costs from an unbounded reasoning loop.",
+      "finding_id": "mf-7cb67d71cda9dea64fa4"
+    }
+  ]
+}

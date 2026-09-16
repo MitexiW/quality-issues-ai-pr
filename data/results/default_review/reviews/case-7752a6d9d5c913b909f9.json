@@ -1,0 +1,88 @@
+{
+  "findings": [
+    {
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 160,
+      "summary": "Generated image URL from OpenAI is stored permanently in DB but OpenAI-hosted image URLs expire (typically 1-2 hours), causing permanent broken images for previously processed magic diagrams.",
+      "failure_scenario": "User takes a magic diagram photo → background worker calls OpenAI images.edit, gets back a temporary URL → URL stored in generated_image_url column → user views the file later that day or next day → broken image, permanent data loss because the generated image was never re-uploaded to R2.",
+      "finding_id": "mf-5b85b8147f5d8d90f5f6"
+    },
+    {
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 151,
+      "summary": "OpenAI images.edit endpoint is used for generating new diagrams from sketches, but images.edit is designed for inpainting/editing existing images (typically requires a mask); images.generate would be the correct endpoint for creating a new diagram from a prompt.",
+      "failure_scenario": "User captures a sketch for magic diagram processing → backend calls openaiImageClient.images.edit with gpt-image-1 model → API either rejects the call (missing mask), returns a poorly edited original instead of a new diagram, or the model name 'gpt-image-1' is not recognized by OpenAI → processing fails with an API error.",
+      "finding_id": "mf-6e530d93f5364a0568fd"
+    },
+    {
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 692,
+      "summary": "processType is never saved to the metadata object in saveFileLocally and never read back when constructing SharedFile in processSyncQueue, so any file saved locally loses its processType and defaults to standard-ocr when synced.",
+      "failure_scenario": "A magic-diagram SharedFile (with processType='magic-diagram') is passed to saveFileLocally → metadata JSON stored without processType → device goes offline → later when online, processSyncQueue reads metadata, constructs SharedFile without processType → handleFileProcess uses default 'standard-ocr' → the sketch is OCR'd instead of being sent to magic diagram generation.",
+      "finding_id": "mf-8982e5a69876f384c66a"
+    },
+    {
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 104,
+      "summary": "prepareFile default MIME type construction generates non-standard MIME types like 'application/md' or 'application/heif' instead of proper types like 'text/markdown' or 'image/heif'; previously it fell back to 'application/octet-stream' which is at least unambiguous.",
+      "failure_scenario": "A markdown file is shared without an explicit MIME type → prepareFile generates mimeType='application/md' → stored in DB as application/md rather than text/markdown → FileCard renders it as generic file instead of text, and server-side processSingleFileRecord fails to match it as text/plain or text/markdown in the else branch (line 334), treating it as unsupported.",
+      "finding_id": "mf-599abf63f66231910535"
+    },
+    {
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 24,
+      "summary": "Missing R2 environment variables produce a console.error warning but execution continues; the r2Client is constructed with asserted non-null credentials (lines 32-33 using !) that may be undefined, causing confusing runtime errors on first R2 access instead of a clear startup failure.",
+      "failure_scenario": "R2_ACCESS_KEY_ID or R2_SECRET_ACCESS_KEY is missing from environment → warning logged at startup → worker starts, picks up a pending file → first call to downloadFromR2 fails with an opaque AWS SDK error about missing credentials → file marked as error with an unhelpful message, and ALL subsequent files fail the same way.",
+      "finding_id": "mf-4d3f13ee6cd6da9fb245"
+    },
+    {
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 397,
+      "summary": "The pending files query has no ORDER BY clause, so files are processed in non-deterministic database order; combined with the .limit(10), older files can be starved indefinitely if new uploads keep arriving.",
+      "failure_scenario": "10 files are uploaded in quick succession → each cron run picks up 10 pending files in arbitrary order → if a file happens to always be outside the first 10 results, it never gets processed while newer files keep jumping ahead in the indeterminate ordering.",
+      "finding_id": "mf-7fc8b25fb388c67e428c"
+    },
+    {
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 428,
+      "summary": "needsProcessingTrigger is always true because uploadFile always returns status='pending' (never 'completed'), making the entire else-branch (lines 463-474) for direct text upload completion dead code; text files unnecessarily go through the trigger+poll flow.",
+      "failure_scenario": "A text file is uploaded via the presigned URL flow → uploadFile returns status='pending' → needsProcessingTrigger evaluates to true (since status is never 'completed') → text file waits for background worker polling (~90 seconds) instead of being treated as immediately complete, adding unnecessary latency.",
+      "finding_id": "mf-ea19a2154ee3269ac8ab"
+    },
+    {
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 767,
+      "summary": "The console.log that reported why a queued file failed processing (with the error message) was deleted; when a file errors during sync queue processing and is moved to the end of the queue, there is now no log indicating what went wrong.",
+      "failure_scenario": "A queued sync file fails processing (e.g., network error, server 500) → the item is silently moved to the end of the queue → the failure is invisible in logs → developers cannot diagnose why files keep retrying without visible errors.",
+      "finding_id": "mf-3b6b9d4ec83db3b54939"
+    },
+    {
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 66,
+      "summary": "processImageWithGPT4o creates a new OpenAI client instance via createOpenAI on every call; a module-level singleton already exists at line 15 (openaiImageClient), and this per-call instantiation is redundant.",
+      "failure_scenario": "Background worker processes 10 image files in one run → processImageWithGPT4o is called 10 times → each call creates a new createOpenAI instance with the same API key → 10 unnecessary object allocations, though no functional bug.",
+      "finding_id": "mf-5152da9630e2dfc467b1"
+    },
+    {
+      "file": "packages/mobile/components/FileCard.tsx",
+      "line": 12,
+      "summary": "Content moderation logic (profanity word-list filtering) is duplicated between FileCard.tsx:runContentModeration (lines 12-37) and file-handler.ts:moderateContent (lines 39-61); the two implementations differ slightly in return shape and word lists.",
+      "failure_scenario": "Maintenance burden: fixing a bug or adding a new flagged term requires updating two separate implementations; the two functions use different word lists ('vulgar'/'explicit'/'offensive'/'inappropriate' in FileCard vs 'explicit'/'inappropriate'/'offensive'/'banned' in file-handler), leading to inconsistent moderation results depending on which code path runs.",
+      "finding_id": "mf-888af6ca801e81ebd116"
+    },
+    {
+      "file": "packages/mobile/components/file-preview.tsx",
+      "line": 42,
+      "summary": "The FilePreview component computes isPdf, isImage, isText (lines 42-46) and defines handleError (line 56) but none of these are used; renderPreview always renders an Image regardless of mimeType, and error handling is done inline in the onError callback.",
+      "failure_scenario": "Maintenance burden: future developers see the computed isPdf/isText variables and assume the component handles multiple file types, but it only renders images; the handleError function exists but is never called; styles pdfView, genericContainer, fileNameText, mimeTypeText (lines 151-192) are defined but never referenced, increasing bundle size and confusion.",
+      "finding_id": "mf-f3607d6a41e9ae660be3"
+    },
+    {
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 172,
+      "summary": "processMagicDiagram uses a hardcoded token estimate of 5000 regardless of actual API usage; the OpenAI response may include actual token counts but they are not extracted.",
+      "failure_scenario": "User's token usage is over-counted or under-counted for magic diagram generations → billing/rate-limiting based on token counts is inaccurate → user may be charged for more tokens than actually used, or may exceed limits without being throttled.",
+      "finding_id": "mf-6a08469091876095a3e5"
+    }
+  ]
+}

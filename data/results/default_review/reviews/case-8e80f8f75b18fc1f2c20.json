@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/utilities/events/llm_guardrail_events.py",
+      "line": 28,
+      "summary": "Call to inspect.getsource() on a lambda, builtin, or dynamically-created callable guardrail raises OSError in LLMGuardrailStartedEvent.__init__, crashing the guardrail flow even when validation passed successfully.",
+      "failure_scenario": "A user passes guardrail=lambda x: (True, x.raw.upper()) to a Task. The guardrail validates successfully, but during _process_guardrail the LLMGuardrailStartedEvent.__init__ calls getsource(self.guardrail) on the lambda, which raises OSError. This crashes _process_guardrail and propagates up, causing the task to fail with an OSError despite the guardrail having passed validation.",
+      "finding_id": "mf-15be314d31bbb6677423"
+    },
+    {
+      "file": "src/crewai/task.py",
+      "line": 504,
+      "summary": "LLMGuardrailStartedEvent is emitted after the guardrail has already executed (line 502), rather than before, making the started event semantically wrong and preventing pre-execution hooks from running before the guardrail call.",
+      "failure_scenario": "A subscriber registered for LLMGuardrailStartedEvent to add pre-validation logging or set a timeout receives the event only after guardrail execution completes. If the guardrail call hangs or takes 30 seconds, no timeout or pre-execution instrumentation fires. Additionally, if self._guardrail(task_output) on line 502 raises an exception, the started event is never emitted at all.",
+      "finding_id": "mf-e94e1510ec09a804a0ea"
+    },
+    {
+      "file": "src/crewai/tasks/llm_guardrail.py",
+      "line": 83,
+      "summary": "assert isinstance(result.pydantic, LLMGuardrailResult) is silently stripped when Python runs with -O (optimize) flag, allowing a non-matching pydantic response to slip through and cause an opaque AttributeError downstream.",
+      "failure_scenario": "A user deploys with python -O. The LLM returns a malformed response that is parsed as a dict or a different pydantic model instead of LLMGuardrailResult. The assert is stripped, so result.pydantic.valid on line 87 raises AttributeError: 'dict' object has no attribute 'valid' instead of a clear assertion failure, and this is caught by the bare except on line 91, returning a misleading False/error tuple that masks the root cause and triggers unnecessary retries.",
+      "finding_id": "mf-a5120651d34efec82580"
+    }
+  ]
+}

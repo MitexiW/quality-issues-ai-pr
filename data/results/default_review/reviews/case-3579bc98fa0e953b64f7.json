@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 177,
+      "summary": "Search query is silently dropped when credentials contain gmail.metadata scope alongside full-access scopes (e.g., gmail.readonly). The check uses membership (`in`) instead of verifying metadata is the exclusive scope.",
+      "failure_scenario": "GmailReadBlock with query='is:unread', max_results=5; credentials.scopes=['https://www.googleapis.com/auth/gmail.readonly','https://www.googleapis.com/auth/gmail.metadata'] -> query is not added to list() kwargs, the API returns all messages unfiltered instead of only unread.",
+      "finding_id": "mf-30f32a0977aea9d3d747"
+    },
+    {
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 185,
+      "summary": "Message/thread format forced to 'metadata' (stripping email bodies) when gmail.metadata scope is present alongside full-access scopes. Same membership-check flaw: user has full read permission but gets empty bodies.",
+      "failure_scenario": "credentials.scopes=['gmail.readonly','gmail.metadata']; GmailReadBlock or GmailGetThreadBlock calls messages.get() with format='metadata' -> all message bodies return 'This email does not contain a text body.' despite the user having full gmail.readonly access that supports format='full'. Same defect exists in _get_thread at line 592.",
+      "finding_id": "mf-4fc648e96741f6fcc33a"
+    },
+    {
+      "file": "autogpt_platform/backend/backend/blocks/google/gmail.py",
+      "line": 249,
+      "summary": "_get_attachments crashes with KeyError on metadata-format messages because part['body']['attachmentId'] is absent in metadata-format API responses. The PR introduces metadata-format responses but does not guard attachment processing.",
+      "failure_scenario": "Message with attachments fetched with format='metadata' (triggered by the scope-check defect above); _get_attachments iterates parts, finds a part with filename=True, then accesses part['body']['attachmentId'] -> KeyError because metadata-format body dicts only contain 'size', not 'attachmentId'. Same defect in GmailGetThreadBlock._get_attachments at line 658.",
+      "finding_id": "mf-304226469be09976571c"
+    }
+  ]
+}

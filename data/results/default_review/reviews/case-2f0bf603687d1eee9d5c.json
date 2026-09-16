@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 777,
+      "summary": "Duplicate print: new insert/delete messages (lines 765-776) were added but the existing identical messages (lines 777-782) were not removed, so the same notification prints twice",
+      "failure_scenario": "Any seed guess whose length differs from the expected length triggers duplicate output. E.g. if the guess is too short, the user sees 'Seed sentence was too short, inserting 1 word into each guess.' printed twice in a row.",
+      "finding_id": "mf-c34117da37c451c9edaa"
+    },
+    {
+      "file": "btcrecover/test/test_seeds.py",
+      "line": 1807,
+      "summary": "Three test methods (test_seedlist_raw, test_seedlist_pylist, test_seedlist_pytupe) were deleted without replacement, removing coverage for seedlist generator functionality",
+      "failure_scenario": "The test data files SeedListTest.txt, SeedListTest_pylist.txt, and SeedListTest_pytupe.txt still exist on disk at btcrecover/test/test-listfiles/, but no tests exercise them. A regression in seedlist parsing would go undetected.",
+      "finding_id": "mf-d2ab2e3e4f54ef70ad77"
+    },
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 3473,
+      "summary": "SLIP39 share-length auto-detection uses guess_len as expected_len for guesses of 21-28 words, but those are never valid SLIP39 share lengths (only 20, 26, and 33 words are valid)",
+      "failure_scenario": "User provides a 22-word guess for a 20-word share (2 extra words). expected_len is set to 22 (not a valid length), num_inserts=0, num_deletes=0. The search iterates candidates that always fail Share.from_mnemonic() because no 22-word SLIP39 share exists. The user gets 'Seed not found' without a useful error.",
+      "finding_id": "mf-21753054a7b1debbd94d"
+    },
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 3483,
+      "summary": "WalletSLIP39Seed.config_mnemonic does not print informational messages when num_inserts or num_deletes is non-zero, unlike every other wallet type in the codebase",
+      "failure_scenario": "User provides a 19-word guess for a 20-word share. num_inserts=1 is computed internally, but the user never sees a message like 'Seed sentence was too short, inserting 1 word into each guess.' They won't know the tool is trying to insert a word.",
+      "finding_id": "mf-8079437fb98c15834c7b"
+    },
+    {
+      "file": "btcrecover/btcrseed.py",
+      "line": 3505,
+      "summary": "Runtime import 'from shamir_mnemonic.share import Share' executes inside _verify_checksum, which is called for every candidate guess in the hot loop",
+      "failure_scenario": "For every candidate share guess, Python runs the full import machinery. In a search scanning millions of candidates (e.g. --big-typos with insertions over 1024-word wordlist), this adds measurable overhead. The import should be hoisted to module level or lazily cached once.",
+      "finding_id": "mf-049aefde522deb214fa5"
+    }
+  ]
+}

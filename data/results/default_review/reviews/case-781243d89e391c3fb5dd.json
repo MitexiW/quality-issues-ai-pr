@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "src/art/model.py",
+      "line": 36,
+      "summary": "Pydantic silently ignores underscore-prefixed fields in __init__, so _internal_config passed to TrainableModel(...) constructor is discarded and defaults to None",
+      "failure_scenario": "User creates TrainableModel(name='x', project='y', base_model='Qwen/Qwen2.5-7B-Instruct', _internal_config=InternalModelConfig(init_args=InitArgs(gpu_memory_utilization=0.75))) — pydantic's default extra='ignore' silently drops the unrecognized _internal_config kwarg. model._internal_config remains None. When _get_service later calls get_model_config(config=model._internal_config), it falls back to defaults (gpu_memory_utilization=0.79, lora_alpha=16, etc.) instead of the user's custom values. Affects examples/hn_title_generator/train.py:239, examples/2048/2048.ipynb:369, and examples/temporal-clue.ipynb:88.",
+      "finding_id": "mf-6934f142f1675587243a"
+    },
+    {
+      "file": "src/art/model.py",
+      "line": 107,
+      "summary": "The any(isinstance(t, Trajectory) for t in trajectories) call consumes the first element of a generator iterator, causing TrajectoryGroup to miss it",
+      "failure_scenario": "Call model.log(trajectory_generator, 'val') where trajectory_generator yields Trajectory objects. The any() call on line 107 consumes the first Trajectory from the generator (stopping at the first True). Then on line 109, TrajectoryGroup(cast(Iterable[Trajectory], trajectories)) receives the partially-consumed generator and silently skips the first trajectory, producing an incomplete log. Currently masked because gather_trajectory_groups returns a list, not a generator.",
+      "finding_id": "mf-1b428ec90758835508be"
+    },
+    {
+      "file": "src/art/model.py",
+      "line": 122,
+      "summary": "Mutable default argument TrainConfig() is evaluated once at function definition, shared across all train() calls",
+      "failure_scenario": "The parameter config: TrainConfig = TrainConfig() creates one TrainConfig(learning_rate=5e-6, beta=0.0) instance at module load time. All calls to model.train() without an explicit config argument share this same mutable pydantic model instance. If any caller mutates the default instance (e.g., model.train(trajectories) followed by code that inadvertently modifies the returned config's attributes), subsequent calls see the mutated values. The pydantic model is not frozen (no model_config = ConfigDict(frozen=True)).",
+      "finding_id": "mf-4225e9eaf0486e03d823"
+    },
+    {
+      "file": "src/art/model.py",
+      "line": 18,
+      "summary": "Field named 'config' on a pydantic BaseModel is confusingly close to pydantic's reserved 'model_config' class attribute",
+      "failure_scenario": "A maintainer might confuse model_instance.config (the user's config field, type pydantic.BaseModel | None) with Model.model_config (pydantic's ConfigDict class attribute). No runtime error occurs because Python attribute resolution keeps them separate, but the naming makes code review and static analysis harder, especially when pydantic itself uses model_config for configuration.",
+      "finding_id": "mf-f96f8b74cfd2134221c6"
+    },
+    {
+      "file": "src/art/model.py",
+      "line": 52,
+      "summary": "Concurrent calls to TrainableModel.register_for_training can race at await points, leaving inconsistent _api/_openai_client state",
+      "failure_scenario": "Two asyncio coroutines call await model.register_for_training(api_a) and await model.register_for_training(api_b) concurrently. Coroutine A sets self._api = api_a and awaits at line 53. Coroutine B then sets self._api = api_b (overwriting). Both resume, each using their local api variable to create clients. The final self._api is api_b but self._openai_client could be from api_a or api_b depending on scheduling. The model is left in an inconsistent state where self._api points to one API but the cached client belongs to another.",
+      "finding_id": "mf-0572841493eac2be9706"
+    },
+    {
+      "file": "src/art/local/api.py",
+      "line": 67,
+      "summary": "Stale docstring on register_for_training still describes old get_or_create_model behavior instead of current registration-only behavior",
+      "failure_scenario": "The docstring says 'Retrieve an existing model or create a new one' but the method no longer creates or retrieves a model — it only calls os.makedirs() to create the output directory. A developer reading this docstring would be misled about the method's actual responsibility. The method signature also changed: it no longer takes name/project/base_model parameters, yet the docstring describes them.",
+      "finding_id": "mf-18976ea71acbc7b2fba7"
+    }
+  ]
+}

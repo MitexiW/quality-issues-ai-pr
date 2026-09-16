@@ -1,0 +1,109 @@
+{
+  "findings": [
+    {
+      "file": "pkg/provider/modelmgr/requesters/modelscopechatcmpl.py",
+      "line": 166,
+      "summary": "invoke_llm abstract method renamed to call; class cannot be instantiated (TypeError from ABCMeta)",
+      "failure_scenario": "modelmgr.py:83 attempts to instantiate ModelScopeChatCompletions; ABCMeta detects that the abstract method invoke_llm is not implemented (it was renamed to call). Every model using the ModelScope requester fails to load with TypeError: Can't instantiate abstract class ModelScopeChatCompletions with abstract method invoke_llm.",
+      "finding_id": "mf-64844f1df2e4496e96cc"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/modelscopechatcmpl.py",
+      "line": 24,
+      "summary": "__init__ signature changed to accept only ap, but modelmgr.py:83 passes config= keyword argument; TypeError on instantiation",
+      "failure_scenario": "The framework at modelmgr.py:83 calls ModelScopeChatCompletions(ap=self.ap, config=model_info.requester_config). The new __init__(self, ap) does not accept config. TypeError: ModelScopeChatCompletions.__init__() got an unexpected keyword argument 'config'. Every ModelScope model fails to load.",
+      "finding_id": "mf-696bd6fe4c0045110405"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/ppiochatcmpl.py",
+      "line": 16,
+      "summary": "__init__ signature changed to accept only ap, but modelmgr.py:83 passes config= keyword argument; TypeError on instantiation",
+      "failure_scenario": "The framework at modelmgr.py:83 calls PPIOChatCompletions(ap=self.ap, config=model_info.requester_config). The new __init__(self, ap) does not accept config. TypeError: PPIOChatCompletions.__init__() got an unexpected keyword argument 'config'. Every PPIO model fails to load.",
+      "finding_id": "mf-7ff5503d5cc54367ffaa"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/deepseekchatcmpl.py",
+      "line": 50,
+      "summary": "self.requester_cfg['args'] raises KeyError because default_config only has base_url and timeout; the 'args' key does not exist unless manually added",
+      "failure_scenario": "Any request using the DeepSeek requester hits _closure(), which calls self._req(args, extra_body=self.requester_cfg['args']). The requester_cfg is initialized from default_config={'base_url': '...', 'timeout': 120} merged with per-model requester_config. Unless the user manually added an 'args' key to every model config, this raises KeyError: 'args', crashing every DeepSeek request.",
+      "finding_id": "mf-4bac31e656f0a3c4b002"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/giteeaichatcmpl.py",
+      "line": 47,
+      "summary": "self.requester_cfg['args'] raises KeyError; default_config lacks 'args' key",
+      "failure_scenario": "Same pattern as DeepSeek: any GiteeAI request reaches _closure() and tries self.requester_cfg['args'] which does not exist in the default config. KeyError: 'args' on every GiteeAI request.",
+      "finding_id": "mf-74a2ead661289c89786f"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/moonshotchatcmpl.py",
+      "line": 54,
+      "summary": "self.requester_cfg['args'] raises KeyError; default_config lacks 'args' key",
+      "failure_scenario": "Same pattern: any Moonshot request crashes with KeyError: 'args' because the requester_cfg dict (built from default_config + model config) does not contain an 'args' key by default.",
+      "finding_id": "mf-7ae87a3b0abfc2f83fb4"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/geminichatcmpl.py",
+      "line": 62,
+      "summary": "Synchronous google.genai.Client and generate_content call inside async method blocks the event loop",
+      "failure_scenario": "Every Gemini LLM invocation creates a sync google.genai.Client and calls the synchronous generate_content method from within an async def. This blocks the asyncio event loop for the entire duration of the HTTP request to Gemini (potentially seconds or longer), freezing all other concurrent operations in the server.",
+      "finding_id": "mf-b96d2a56f6c15f88d833"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/geminichatcmpl.py",
+      "line": 73,
+      "summary": "Unguarded access to response.candidates[0].content.parts[0].text; IndexError or AttributeError when API returns empty response (e.g. safety filter block)",
+      "failure_scenario": "If Gemini's safety filter blocks the response, candidates is empty or content is None. response.candidates[0] raises IndexError on empty list; .content or .parts access raises AttributeError if None. The generic except Exception at line 76 catches it but produces a misleading error message ('Gemini API 请求错误') that hides the real cause.",
+      "finding_id": "mf-2225f45569cd5edfb74d"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/geminichatcmpl.py",
+      "line": 31,
+      "summary": "Mutable default argument extra_args: dict[str, typing.Any] = {} shared across all calls; Python anti-pattern",
+      "failure_scenario": "If any code path mutates the extra_args dict (e.g., via **extra_args unpacking combined with dict modification), the mutation persists to subsequent calls. Currently the dict is only unpacked (read-only), so this is a latent footgun rather than an active crash, but it violates Python best practices and will cause subtle bugs if any mutation is added later.",
+      "finding_id": "mf-d2e1cefb0067940b21c1"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/modelscopechatcmpl.py",
+      "line": 135,
+      "summary": "self.requester_cfg['args'].copy() raises KeyError if provider_cfg.data['requester']['modelscope-chat-completions'] lacks an 'args' key",
+      "failure_scenario": "The _closure method reads args from a centralized provider config. If that config section does not include an 'args' key, every ModelScope request crashes with KeyError: 'args' at line 135. (Note: the instantiation bug at line 24 prevents reaching this code, but if the __init__ issue is fixed, this becomes the next failure point.)",
+      "finding_id": "mf-5e5c461babc2601ed365"
+    },
+    {
+      "file": "web/src/app/home/models/component/llm-form/LLMForm.tsx",
+      "line": 197,
+      "summary": "URL auto-populate lookup uses config[i].name == 'base_url' but the yaml for ModelScope and PPIO now uses name: base-url; default URL is empty string for those providers",
+      "failure_scenario": "When a user selects '魔搭社区' (ModelScope) or '派欧云' (PPIO) as the model provider, initLLMModelFormComponent iterates the requester config and checks config[i].name == 'base_url'. Since the yaml changed this to base-url, the check returns false, requesterDefaultURLList[index] is empty string, and form.setValue('url', '') clears the URL field instead of populating the correct default.",
+      "finding_id": "mf-1eca72368f9ccff9e4cc"
+    },
+    {
+      "file": "pkg/api/http/service/pipeline.py",
+      "line": 97,
+      "summary": "Removed bot-name sync logic: when pipeline is renamed, bots referencing it retain stale use_pipeline_name in the database",
+      "failure_scenario": "User renames a pipeline from 'Production' to 'Staging'. The old code updated all bots with use_pipeline_uuid matching this pipeline to set use_pipeline_name to the new name. The new code drops this entirely. Bots now display the old pipeline name 'Production' in the UI indefinitely, until the bot's pipeline assignment is manually changed and changed back.",
+      "finding_id": "mf-79db3380db8bf0e7d47c"
+    },
+    {
+      "file": "pkg/provider/modelmgr/requesters/modelscopechatcmpl.py",
+      "line": 110,
+      "summary": "Dead code: unreachable return await self.client.chat.completions.create(**args) after a return statement in the ternary above",
+      "failure_scenario": "The _req method at lines 83-109 constructs a synthetic ChatCompletion from streaming chunks and returns it (or None). Line 110 is unreachable dead code that appears to be a leftover non-streaming fallback. It wastes the API call and silently discards the result if somehow reached, but currently it is never executed. Indicates an incomplete refactor.",
+      "finding_id": "mf-f1fbb5e9909994b8daff"
+    },
+    {
+      "file": "web/src/app/infra/http/HttpClient.ts",
+      "line": 378,
+      "summary": "reorderPlugins changed from PUT {plugins: [...]} to POST bare array; backend endpoint is registered as PUT and expects data.get('plugins')",
+      "failure_scenario": "If any code calls reorderPlugins, the frontend sends POST /api/v1/plugins/reorder with a bare JSON array []. The backend (plugins.py:89) registers this route only for PUT and does data.get('plugins') which returns None for a bare array. The server returns 405 Method Not Allowed. (Currently orphaned: PluginSortDialog.tsx was deleted, so no caller exists in this diff.)",
+      "finding_id": "mf-de4ec7e316421cdcb8a0"
+    },
+    {
+      "file": "pkg/utils/importutil.py",
+      "line": 32,
+      "summary": "Removed Windows path separator normalization (rel_path.replace('\\\\', '.')); import_dir breaks on Windows",
+      "failure_scenario": "On Windows, os.path.dirname returns paths with backslashes. The deleted line rel_path = rel_path.replace('\\\\', '.') converted these to dots for Python import. Without it, importlib.import_module receives a path like 'dir\\subdir\\module' instead of 'dir.subdir.module', raising ModuleNotFoundError on Windows.",
+      "finding_id": "mf-b30324d46bab4679a299"
+    }
+  ]
+}

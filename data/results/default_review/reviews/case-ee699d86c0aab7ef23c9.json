@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "file": "src/elements/content-explorer/ContentExplorer.tsx",
+      "line": 475,
+      "summary": "finishNavigation() uses stale CSS class selector '.bce-item-row' which does not exist in the new Blueprint-based ItemList; focus() silently fails, leaving keyboard focus unset after folder navigation completes",
+      "failure_scenario": "User navigates to a subfolder. After items load (percentLoaded === 100), finishNavigation() calls focus(this.rootElement, '.bce-item-row'). The new ItemList renders rows with class 'be-ItemList-item', not 'bce-item-row', so no element is found and focus is lost. Users must click or tab manually to interact with the list.",
+      "finding_id": "mf-40bd3ba89b570119dacc"
+    },
+    {
+      "file": "src/elements/content-explorer/ContentExplorer.tsx",
+      "line": 1358,
+      "summary": "closeModals() uses stale CSS class selector '.bce-item-row-${focusedRow}' which does not exist in the new Blueprint-based ItemList; focus restoration after closing a modal silently fails",
+      "failure_scenario": "User opens a modal (rename, share, delete, etc.), closes it, and closeModals() tries to restore focus via focus(this.rootElement, '.bce-item-row-3'). The new ItemList does not produce 'bce-item-row-N' classes; focus is not restored and the user is left in an unfocused state.",
+      "finding_id": "mf-d1b12c83901c342a1229"
+    },
+    {
+      "file": "src/elements/content-explorer/ContentExplorer.tsx",
+      "line": 1383,
+      "summary": "Keyboard arrowdown handler introduces a 'document.activeElement &&' guard in grid view that prevents focusing the first item when no element is currently focused (activeElement is null), a regression from the old isFocusOnItem() behavior",
+      "failure_scenario": "Page loads fresh, nothing is focused (document.activeElement is null). The old code's isFocusOnItem() returned false (via !undefined === true), triggering focus on the first item. The new code evaluates 'null && ...' as falsy, so nothing happens on arrowdown. User must click or tab before keyboard navigation works.",
+      "finding_id": "mf-7f839306ff1135362eef"
+    },
+    {
+      "file": "src/elements/content-explorer/ContentExplorer.tsx",
+      "line": 1387,
+      "summary": "Keyboard arrowdown handler introduces a 'document.activeElement &&' guard in list view that prevents focusing the first item when no element is currently focused, same regression pattern as the grid-view case",
+      "failure_scenario": "Same as above but for list view: pressing arrowdown with nothing focused does nothing, whereas the old code unconditionally focused the first row and set focusedRow to 0.",
+      "finding_id": "mf-24fc44b8a10d2861a5dc"
+    },
+    {
+      "file": "test/integration/content-explorer/ContentExplorer.e2e.cy.js",
+      "line": 18,
+      "summary": "getElementBySelector() calls itself recursively instead of calling getElementsBySelector(), causing a stack overflow when invoked",
+      "failure_scenario": "Calling helpers.getElementBySelector('.be-ItemList-item') or helpers.getListItemByIndex(0) triggers infinite recursion: getElementBySelector calls this.getElementBySelector(selector) which is itself. Stack overflow crashes the test runner.",
+      "finding_id": "mf-50022fd5ce84ec2d68a0"
+    },
+    {
+      "file": "src/elements/common/item-list/__tests__/ItemList.test.tsx",
+      "line": 41,
+      "summary": "Duplicate test blocks: two identical tests named 'renders component with correct columns for medium screen devices' at lines 41 and 50, likely an unintentional copy-paste",
+      "failure_scenario": "The same assertions run twice, wasting test execution time. No behavioral impact, but the duplicate suggests the second block may have been intended to test a different scenario (e.g., 'shoulder render grid view mode' was also a copy-paste typo fixed in the same PR).",
+      "finding_id": "mf-b419ebc9b95ce034f2aa"
+    },
+    {
+      "file": "src/elements/content-explorer/Content.tsx",
+      "line": 35,
+      "summary": "ContentProps.focusedRow is declared as a required prop but is never destructured or used in the component body after the refactor; ContentExplorer still passes it but it is silently dropped",
+      "failure_scenario": "The focusedRow value, which ContentExplorer sets when a user clicks an item or presses arrowdown, no longer reaches the ItemList component (the old react-virtualized Table used it for scrollToRow). Keyboard-based row tracking is broken, and scroll-to-focused-row no longer functions.",
+      "finding_id": "mf-96e5462db09b4de0e35d"
+    }
+  ]
+}

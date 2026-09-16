@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Agent(reasoning=True) leaves max_reasoning_attempts=None (agent.py:126). If the model answers 'I am ready to proceed.' or returns empty content (see the function-calling defect), the marker check at line 295 never matches, `while not ready and (max_attempts is None or attempt < max_attempts)` never exits, and the task hangs with unbounded API spend; because this block runs before _execute_with_timeout (agent.py:374-386), max_execution_time cannot interrupt it.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 110,
+      "summary": "The refinement loop has no upper bound when max_reasoning_attempts is None (the default), so any model that never emits the exact literal marker string causes an infinite loop of paid LLM calls."
+    },
+    {
+      "failure_scenario": "A function-calling model (e.g. gpt-4o) that answers the create_reasoning_plan tool with a tool call: LLM._handle_non_streaming_response sets text_response = response_message.content or '' (src/crewai/llm.py:739) and returns it unchanged because available_functions is None (src/crewai/llm.py:758), dropping tool_calls[0].function.arguments. The handler receives '', json.loads('') raises JSONDecodeError, and it returns ('', False): the plan appended to the task is empty and 'ready' stays False forever, which also drives the unbounded loop above.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 190,
+      "summary": "The function-calling branch passes only tools= and no available_functions, so CrewAI's LLM.call returns message.content (None -> '') for a tool-call answer and the plan/ready JSON the schema requests can never be read."
+    },
+    {
+      "failure_scenario": "Agent(reasoning=True, max_retry_limit=2): a tool raises a non-litellm error during execution, execute_task recurses (agent.py:422) and appends a second 'Reasoning Plan:' block; guardrail retries recurse through Task._execute_core (src/crewai/task.py:452) and do the same. Repeated crew.kickoff() with no inputs also accumulates, because interpolate_inputs_and_add_conversation_history returns early without resetting description when inputs is falsy (src/crewai/task.py:570-578). Each run's prompt carries all previous plans (token cost growth) and TaskOutput.description/downstream context tasks echo the duplicated text.",
+      "file": "src/crewai/agent.py",
+      "line": 244,
+      "summary": "The reasoning plan is appended in place to the shared Task.description on every execution, so retries and repeated kickoffs accumulate duplicate plans instead of replacing them."
+    },
+    {
+      "failure_scenario": "A custom BaseLLM whose call(..., tools=...) returns a dict or None (allowed by the BaseLLM.call signature, src/crewai/llms/base_llm.py:43-50) makes `response[:100]` raise TypeError, caught by the broad except at line 199; the fallback then re-issues the entire prompt without tools at line 209. Likewise json.loads(non-str) raises TypeError, which is not in the caught tuple (json.JSONDecodeError, KeyError) at line 193, so the str(response) normalization at line 196 is skipped.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 187,
+      "summary": "Slicing and parsing the raw response assumes str, but BaseLLM.call may legally return Any; a non-str response raises TypeError outside the inner except and silently triggers a second, full-price fallback LLM call."
+    },
+    {
+      "failure_scenario": "Agent(reasoning=True, max_rpm=2) in a crew: the executor enforces the limit via request_within_rpm_limit (src/crewai/agents/crew_agent_executor.py:153) and counts tokens through TokenCalcHandler callbacks (agent.py:538), but every reasoning call from the handler is made with no callbacks and no check_or_wait. The agent can exceed max_rpm, and crew.usage_metrics under-reports tokens by the amount consumed during reasoning (one or more calls per task execution).",
+      "file": "src/crewai/agent.py",
+      "line": 236,
+      "summary": "Reasoning calls self.llm.call directly, bypassing the agent's RPM controller and token callback, so max_rpm is not enforced and reasoning tokens are missing from usage metrics."
+    },
+    {
+      "failure_scenario": "max_reasoning_attempts=2 and the model returns READY on the refine call: after `attempt += 1` the counter is 2, `attempt >= max_attempts` is true, and the code logs 'Agent reasoning reached maximum attempts (2) without being ready. Proceeding with current plan.' although ready is True — a misleading error-level signal for a successful refinement.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 132,
+      "summary": "The 'reached maximum attempts without being ready' warning is gated only on the attempt counter, so it fires even when the last allowed attempt made the agent ready."
+    },
+    {
+      "failure_scenario": "Agent(tools=[SerperDevTool()], reasoning=True) with a Task that does not restrict tools: the plan prompt renders 'Available tools: ' (', '.join([]) == ''), even though Agent.execute_task executes with self.tools (agent.py:354). The plan is written as if the agent has no tools, and the fallback string at line 259 is unreachable because an empty list yields '' rather than an exception.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 257,
+      "summary": "__format_available_tools only inspects task.tools, so the plan prompt advertises no tools whenever the agent or the execute_task tools argument supplies them, and the 'No tools available' fallback never triggers for an empty list."
+    },
+    {
+      "failure_scenario": "The model returns {\"plan\": \"...\", \"ready\": \"false\"}: line 192 returns the string 'false', `while not ready` sees a truthy value and exits, so refinement stops although the model declared it was not ready; ReasoningPlan(ready='false') later coerces to False, so the stored output contradicts the loop decision.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 192,
+      "summary": "The ready flag parsed from JSON is returned raw, so a string such as 'false' is truthy and stops plan refinement."
+    },
+    {
+      "failure_scenario": "function_schema is a flat dict with name/description/parameters (lines 153-170), while src/crewai/cli/crew_chat.py:270-280 builds {'type': 'function', 'function': {...}} for the same llm.call(tools=...) API. A provider/litellm path that validates the tools payload raises, the broad except at line 199 swallows it, and the handler spends a second, un-tooled call — the JSON plan/ready path is never exercised and every reasoning step costs an extra request.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 153,
+      "summary": "The hand-rolled tool schema omits the OpenAI {'type': 'function', 'function': {...}} wrapper used by the repo's other tools= call site, so providers that validate tool entries reject the call and reasoning silently degrades to the text fallback."
+    },
+    {
+      "failure_scenario": "No call site references ReasoningFunction (only its definition exists), while __call_with_function hand-writes the identical plan/ready schema at lines 153-170, so the two definitions can drift; _handle_agent_reasoning (line 300) is likewise never called in the repository or tests, leaving untested maintenance surface.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 24,
+      "summary": "ReasoningFunction and the deprecated _handle_agent_reasoning alias are dead code, and the schema ReasoningFunction describes is duplicated as a hand-written dict."
+    },
+    {
+      "failure_scenario": "Every execute_task call for a reasoning agent constructs AgentReasoning, whose __init__ runs I18N() and reads src/crewai/translations/en.json from disk, although BaseAgent already exposes self.agent.i18n (src/crewai/agents/agent_builder/base_agent.py:124). An agent configured with I18N(prompt_file=...) still gets the bundled English prompts, and repeated executions pay the file read each time.",
+      "file": "src/crewai/utilities/reasoning_handler.py",
+      "line": 42,
+      "summary": "AgentReasoning constructs a new I18N() instead of reusing agent.i18n, re-reading and re-parsing en.json on every task execution and ignoring any agent-configured prompt file."
+    },
+    {
+      "failure_scenario": "BaseAgent declares _logger as a PrivateAttr with a default factory (src/crewai/agents/agent_builder/base_agent.py:83), so hasattr is always True and the else: print(...) branch at line 249 can never execute; the check implies a missing-logger state that cannot occur and the dead branch would print raw errors to stdout if it ever did.",
+      "file": "src/crewai/agent.py",
+      "line": 246,
+      "summary": "The hasattr(self, '_logger') guard is always true, making the print fallback unreachable dead code in the error path."
+    }
+  ],
+  "level": null
+}

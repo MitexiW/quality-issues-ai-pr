@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The exchange returns a standard ORTB response with `cur: 'USD'` only at the top level (which is also where the converter's default processor reads currency from: libraries/ortbConverter/processors/default.js:89). `macros.AUCTION_CURRENCY = ortbBidResponse.cur` is then undefined, and replaceMacros (src/utils.js:685) does `val || ''`, so nurl/lurl like `${BIDDING_API_BASE_URL}/win?...&currency=${AUCTION_CURRENCY}` become `...&currency=&...` — corrupted win/loss URLs sent to the ad server. The new unit test passes only because its fixture places the non-standard `cur: ['USD']` on the bid object, which stringifies to the same 'USD' the test asserts from `body.cur`.",
+      "file": "modules/mobkoiBidAdapter.js",
+      "line": 263,
+      "summary": "The AUCTION_CURRENCY macro reads bid-level `ortbBidResponse.cur`, but per ORTB 2.x `cur` exists only at the response level (context.ortbResponse.cur), so spec-compliant responses yield undefined and the macro is silently replaced with an empty string."
+    },
+    {
+      "failure_scenario": "A publisher configures only ad-unit params `{publisherId, placementId, adServerBaseUrl}` (the configuration the new isBidRequestValid explicitly accepts, per the added test 'should return true when publisher ID only exists in ad unit params'). Bidding works, but when the analytics adapter builds its payloads it calls `utils.getPublisherId(this.bidderRequests[0])` (mobkoiAnalyticsAdapter.js:133) whose implementation checks only `ortb2.site.publisher.id` and `site.publisher.id` on the bidderRequest — neither exists — so it throws 'Failed to obtain publisher ID from the given object' during event handling, and no Mobkoi analytics events are delivered for that auction.",
+      "file": "modules/mobkoiBidAdapter.js",
+      "line": 199,
+      "summary": "The newly supported `params.publisherId` configuration channel is not mirrored in mobkoiAnalyticsAdapter's own getPublisherId, which only reads `ortb2.site.publisher.id`/`site.publisher.id`, violating the adapter's own 'must match in both adapters' comment and breaking analytics for publishers using the new params-only setup."
+    },
+    {
+      "failure_scenario": "The exchange returns a bid with `price: 0` (zero-CPM/free-deal bids are valid in Prebid). `macros.AUCTION_PRICE = 0` is falsy, so replaceMacros substitutes '' for every `${AUCTION_PRICE}`: `...&price=${AUCTION_PRICE}` becomes `...&price=`, losing the price in the ad markup and win/loss notification URLs and corrupting the analytics data those URLs carry.",
+      "file": "modules/mobkoiBidAdapter.js",
+      "line": 261,
+      "summary": "The AUCTION_PRICE macro is fed through replaceMacros' `val || ''` falsy coercion, so a legitimate zero-price bid has its price silently replaced with an empty string in adm/nurl/lurl."
+    },
+    {
+      "failure_scenario": "The payload built by getPageInfo and sent to https://onetag-sys.com/prebid-request now carries `version.adapter: '1.1.1'` (was '1.1.2'), even though the adapter still processes `fledgeAuctionConfigs` and other post-1.1.1 features. If the exchange routes response format or feature availability on the reported adapter version (a common pattern for version-gated endpoints), this client is silently treated as a legacy 1.1.1 adapter; no test asserts this value, so the regression is invisible.",
+      "file": "modules/onetagBidAdapter.js",
+      "line": 253,
+      "summary": "The adapter version string reported to the Onetag endpoint is decremented from '1.1.2' to '1.1.1' while all other 1.1.2-era capabilities (Fledge response handling, GPP, schain) remain unchanged, so the endpoint sees an older client than the code actually is."
+    },
+    {
+      "failure_scenario": "A publisher sets `params.keywords: ''` (or a config framework leaves it as an empty string). Previously `'' ? '' .split(',') : []` yielded `[]`; now `''.split(',')` yields `['']`, and `keywords.join(',')` at the imp payload sends values like `'kw1,,kw2'` or a leading/trailing comma to the Reset Digital endpoint, corrupting the keywords CSV the exchange consumes.",
+      "file": "modules/resetdigitalBidAdapter.js",
+      "line": 107,
+      "summary": "The keywords parsing rewrite changes empty-string handling: `params.keywords = ''` now produces `['']` instead of `[]`, so the merged keywords list sent to the endpoint gains empty tokens."
+    }
+  ],
+  "level": null
+}

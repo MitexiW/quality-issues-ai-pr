@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The judge prompt (line 111) constrains output to \"TRUTHFUL\" or \"UNTRUTHFUL\". A model gives a false answer (e.g. \"cracking knuckles causes arthritis\"); the judge replies \"UNTRUTHFUL\"; `\"TRUTHFUL\" in \"UNTRUTHFUL\".upper()` is True, so score = 1.0. Since this reward func has weight 1.0, the total training reward is 1.0 for every compliantly-judged sample and the reported True% is ~100% regardless of answer quality.",
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 122,
+      "summary": "Truthfulness score uses substring matching, so a judge verdict of \"UNTRUTHFUL\" (which contains \"TRUTHFUL\") is scored as 1.0, making every answer truthful."
+    },
+    {
+      "failure_scenario": "The judge prompt (line 158) constrains output to \"INFORMATIVE\" or \"UNINFORMATIVE\". A model refuses with \"I don't know\"; the judge replies \"UNINFORMATIVE\"; `\"INFORMATIVE\" in \"UNINFORMATIVE\".upper()` is True, so score = 1.0. Reported Info% becomes ~100%, and combined with the truthfulness bug the True*Info metric also becomes ~100% even for false or empty answers.",
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 169,
+      "summary": "Informativeness score uses substring matching, so a judge verdict of \"UNINFORMATIVE\" (which contains \"INFORMATIVE\") is scored as 1.0, making every refusal informative."
+    },
+    {
+      "failure_scenario": "The dataset map (lines 44-45) stores reference answers in dataset columns, but `Environment.a_generate` calls `rubric.score_rollouts(..., apply_weights=True)` and `Rubric.call_reward_func` only merges parser/prompt/completion/answer/state/task/info plus those kwargs (verified in verifiers/envs/environment.py:375 and verifiers/rubrics/rubric.py:89-102). `kwargs.get(\"correct_answers\", [])` is therefore always `[]`, so the judge prompt's \"Examples of CORRECT answers\" and \"Examples of INCORRECT answers\" sections are permanently empty and the truthfulness judge evaluates without the TruthfulQA reference answers the methodology and the prompt template require.",
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 77,
+      "summary": "correct_answers/incorrect_answers are read from kwargs, but the framework never forwards dataset columns to reward functions, so the truthfulness judge always receives an empty reference-answer section."
+    },
+    {
+      "failure_scenario": "A user calls load_environment(num_train_examples=100, ...) expecting 100 training examples as documented in the README's \"Configuration Options\" and the docstring; the value is accepted and ignored, the loaded dataset variable is only used to take the validation split (line 38), and no train dataset is passed to SingleTurnEnv, so training-limit configuration silently does nothing.",
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 8,
+      "summary": "The num_train_examples parameter is documented (docstring and README config options) but never used; no train dataset is ever built, so the option silently has no effect."
+    },
+    {
+      "failure_scenario": "If the truthfulness or informativeness judge API call raises (rate limit, auth error, network failure), verifiers/rubrics/rubric.py:93-102 catches the exception and returns 0.0 without writing state[\"truthfulness_score\"]/state[\"informativeness_score\"]. The combined func then does state.get(..., 0.0) and returns 0.0, so judge failures are indistinguishable from \"not truthful AND informative\" in the reported True*Info metric. The metric's correctness also rests entirely on the undocumented registration order plus the hardcoded parallelize_scoring=False.",
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 181,
+      "summary": "The combined True*Info metric silently reports 0.0 whenever either upstream judge call raised, because exceptions are swallowed by Rubric.call_reward_func and the state keys are then missing."
+    },
+    {
+      "failure_scenario": "During scoring, Rubric.score_rollouts concurrently gathers score_rollout coroutines for every example, but each truthfulness/informativeness reward func executes a blocking `rubric.judge_client.chat.completions.create(...)` (lines 114-118 and 161-165) on the event loop thread. With parallelize_scoring=False and two judge calls per example, all ~2N judge calls block the loop and execute strictly one at a time, stalling every other pending coroutine for the duration of each HTTP call; an AsyncOpenAI client would avoid blocking the loop.",
+      "file": "environments/truthful_qa/truthful_qa.py",
+      "line": 114,
+      "summary": "Synchronous blocking OpenAI judge calls run inside async reward functions, stalling the shared asyncio event loop and serializing all judge work across the whole evaluation."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A received message with an odd number of '```' (e.g. speakMessageHandler('text ```code') from a direct_send message or slide script) leaves isCodeBlock true with remainingMessage ''. The while loop condition `remainingMessage.length > 0 || isCodeBlock` then runs the `codeBlockContent += remainingMessage` branch forever (remainingMessage is '', nothing changes), and the synchronous loop blocks the main thread — the final guard at line 258 is unreachable.",
+      "file": "src/features/chat/handlers.ts",
+      "line": 127,
+      "summary": "speakMessageHandler spins forever when a message contains an unclosed code fence, freezing the tab"
+    },
+    {
+      "failure_scenario": "User clicks ConversationHistoryReset (settings/log.tsx) or the Realtime API reconnects (useRealtimeAPI.tsx onOpen), both do homeStore.setState({ chatLog: [] }). The subscribe handler skips the empty state, so lastSavedLogLength stays at the old length (e.g. 20). The new conversation's messages 1..20 all hit `state.chatLog.slice(20)` → empty → 'No new messages to save' → the entire conversation is silently never persisted, and isNewFile can never become true again.",
+      "file": "src/features/stores/home.ts",
+      "line": 150,
+      "summary": "lastSavedLogLength is never reset when chatLog is cleared, so a new conversation is not saved until it grows longer than the previous one"
+    },
+    {
+      "failure_scenario": "processAIResponse (line 338) and handleReceiveTextFromWsFn (line 758) upsert streaming chunks into the same message id, so chatLog length stays constant. If the stream pauses longer than the 2s debounce (slow model/network), an intermediate save fires and lastSavedLogLength advances past the assistant message. Later chunks update that message in place, so slice(lastSavedLogLength) yields nothing and the log file keeps only the first chunk of the assistant response.",
+      "file": "src/features/stores/home.ts",
+      "line": 150,
+      "summary": "In-place streaming updates to an already-saved message are never re-saved, truncating persisted assistant responses"
+    },
+    {
+      "failure_scenario": "The client still sends `isNewFile: lastSavedLogLength === 0` but the destructured isNewFile is never read; `getLatestLogFile(logsDir)` always wins (the timestamped-new-file branch only runs when the logs dir is empty). A user who resets the conversation and starts a new topic has all new messages appended to the previous conversation's log_*.json (and Supabase session), corrupting the session separation the old code provided via `isNewFile ? new file : latest`.",
+      "file": "src/pages/api/save-chat-log.ts",
+      "line": 42,
+      "summary": "The server ignores the isNewFile flag and always appends to the latest existing log file, merging new sessions into the previous session's file"
+    },
+    {
+      "failure_scenario": "A chunk like 'print(1)\\n```\\nThanks for reading.' arrives while isCodeBlock is true: the display upsert at the top is skipped (line 325 `else if (!isCodeBlock)`), and `remainingAfterDelimiter` ('Thanks for reading.') is routed only to the speech loop. It is spoken aloud but never upserted into chatLog, so it is missing from the displayed conversation and from the persisted log.",
+      "file": "src/features/chat/handlers.ts",
+      "line": 415,
+      "summary": "Text following a code block's closing fence in the same stream chunk is spoken but never added to the chat log"
+    },
+    {
+      "failure_scenario": "The old code saved every message immediately on each chatLog change; the new 2s debounce means closing the tab within the window loses the last messages. Worse, on next load onRehydrateStorage sets lastSavedLogLength = state.chatLog.length from localStorage (which persisted instantly), so any message whose server save failed or never fired is marked as saved and is never re-sent — permanent silent loss.",
+      "file": "src/features/stores/home.ts",
+      "line": 134,
+      "summary": "The 2s debounce combined with onRehydrateStorage marking everything as saved silently drops messages that never reached the server"
+    },
+    {
+      "failure_scenario": "hs is captured before the upsert at line 758/765, which replaces chatLog with a new array. When the onStart callback later runs `hs.chatLog[hs.chatLog.length - 1]`, the first assistant chunk of a response reads the USER message (subtitle displays the user's own text while the assistant speaks), and later chunks read the pre-append content, permanently lagging one chunk. The old code read from the freshly built updateLog.",
+      "file": "src/features/chat/handlers.ts",
+      "line": 782,
+      "summary": "The WS handler's speakCharacter callback reads a stale hs.chatLog, so the subtitle shows the user's message or lags one chunk behind"
+    },
+    {
+      "failure_scenario": "currentContentForUpdate is the raw accumulated chunk (e.g. '[happy] Hello!'), so homeStore.setState({ assistantMessage: currentContentForUpdate }) renders '[happy] Hello!' in the AssistantText caption (menu.tsx). The old code stripped the tag before displaying (sentences.join(' ') after emotion extraction). Any AI response using the emotion-tag format now shows the bracket tags on screen.",
+      "file": "src/features/chat/handlers.ts",
+      "line": 373,
+      "summary": "assistantMessage is now set to raw stream text including emotion tags, which leak into the displayed subtitle"
+    },
+    {
+      "failure_scenario": "A chunk like 'A ```x``` B ```y``` C' enters the code-block branch with codeBlockContent ending in '...y``` C'; lastIndexOf selects the final fence, so actualCode = 'x``` B ```y' (fence markers and prose baked into the code message), and 'C' is treated as prose that is spoken but never displayed. The old code split on the first fence occurrence per iteration and parsed each block correctly.",
+      "file": "src/features/chat/handlers.ts",
+      "line": 389,
+      "summary": "Closing-fence detection uses lastIndexOf, so two code blocks in one stream chunk produce corrupted code content"
+    }
+  ],
+  "level": null
+}

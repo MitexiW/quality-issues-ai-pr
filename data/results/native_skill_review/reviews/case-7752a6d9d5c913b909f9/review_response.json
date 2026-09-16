@@ -1,0 +1,77 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Any logged-in user sends POST /api/trigger-processing with Host: attacker.example. Next.js constructs request.url from that header, so the server fetches http://attacker.example/api/process-pending-uploads with header Authorization: Bearer <CRON_SECRET>. The attacker's server logs the secret and can then invoke or forge the cron worker directly.",
+      "file": "packages/web/app/api/trigger-processing/route.ts",
+      "line": 19,
+      "summary": "The route builds the worker URL from request.url, which is derived from the attacker-controllable Host header, so any authenticated user can make the server send the CRON_SECRET to an arbitrary host (SSRF + secret exfiltration)."
+    },
+    {
+      "failure_scenario": "On a fresh database, `pnpm db:migrate` (run on every build per packages/web/package.json) applies only the journaled migrations; 0019 (ALTER TABLE uploaded_files ADD COLUMN r2_key) is no longer referenced, so the column never exists. Every POST /api/record-upload then fails with `column \"r2_key\" of relation \"uploaded_files\" does not exist` (500), breaking all uploads, and the worker's select of uploadedFiles also errors. Databases that already applied the old 0019 also hold a migration hash with no matching file, risking migrator hash-validation failures on upgrade.",
+      "file": "packages/web/drizzle/meta/_journal.json",
+      "line": 139,
+      "summary": "The migration journal entry idx 19 was overwritten in place (tag 0019_bizarre_night_thrasher replaced by 0020_silent_baron_zemo), removing the r2_key migration from the history so fresh databases never create the r2_key column that the new code depends on."
+    },
+    {
+      "failure_scenario": "A user opens any note whose mimeType contains 'pdf' (e.g., a PDF shared into the app via the share sheet still arrives with mimeType application/pdf, or a legacy record) and taps the Document tab; renderDocumentView renders <Pdf> with no binding for Pdf, throwing ReferenceError: Pdf is not defined and crashing the screen.",
+      "file": "packages/mobile/app/file-viewer.tsx",
+      "line": 253,
+      "summary": "The diff removed `import Pdf from 'react-native-pdf'` and dropped the react-native-pdf dependency, but renderDocumentView still renders `<Pdf>` for PDF mime types, causing a ReferenceError crash."
+    },
+    {
+      "failure_scenario": "Every Magic Diagram upload reaches processMagicDiagram, calls images.edit with model gpt-image-1, and gets a response whose data[0].url is undefined (b64_json is the supported return format) -> the code throws 'Image generation failed, no URL returned in the response.' and the file is marked error. Even if a URL were returned, it expires after ~60 minutes per the OpenAI API contract, while generated_image_url is persisted forever and rendered by the mobile FileCard, so previews break after expiry; the image should be downloaded and stored in R2 instead.",
+      "file": "packages/web/app/api/process-pending-uploads/route.ts",
+      "line": 160,
+      "summary": "processMagicDiagram reads response.data[0]?.url from a gpt-image-1 images.edit call, but gpt-image-1 returns base64 (b64_json) and does not support URL responses, so the URL is undefined and magic diagram processing always errors; any URL returned would also be transient (~60 min) yet is stored permanently in the DB."
+    },
+    {
+      "failure_scenario": "An R2 upload fails or polling times out: handleFileProcess returns {status:'error'} as a resolved promise, so uploadFiles' .then runs (processedCount++), .catch never runs (errorCount stays 0), and the final check `if (errorCount === 0) setStatus(\"completed\")` fires. The user sees 'Processing complete for 1 file.' with no error surfaced, even though the file failed.",
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 497,
+      "summary": "The new handleFileProcess catches every failure and resolves with status 'error' instead of rejecting, but the pre-existing HomeScreen uploadFiles counts failures only via .catch (errorCount), so a failed upload makes the overall status report 'completed'."
+    },
+    {
+      "failure_scenario": "An authenticated user POSTs key='uploads/<victim-user-id>/<uuid>-name' (derivable from the public blobUrl returned by get-upload-status and shown in share flows) with processType 'magic-diagram'. The worker downloads the victim's object from R2 and generates an image stored in the attacker's own record, processing arbitrary third-party objects and spending image-generation credits; there is no ownership check tying the key to the caller's uploads.",
+      "file": "packages/web/app/api/record-upload/route.ts",
+      "line": 22,
+      "summary": "record-upload validates only that key/publicUrl are non-empty, never that the R2 key belongs to the authenticated user's own uploads, and the new magic-diagram flow makes a forged key actionable (the worker downloads the object by key and runs paid gpt-image-1 generation on it)."
+    },
+    {
+      "failure_scenario": "An attacker loops POST /api/trigger-processing; each call makes the server synchronously run process-pending-uploads, which processes up to 10 pending files belonging to any user (OCR via gpt-4.1 or gpt-image-1 generation). Repeated calls force concurrent worker runs and burn OpenAI credits on other users' queued files.",
+      "file": "packages/web/app/api/trigger-processing/route.ts",
+      "line": 9,
+      "summary": "The new endpoint lets any authenticated user synchronously invoke the global background worker with no rate limiting and no scoping to the caller's own files, enabling AI-cost amplification on other users' pending uploads."
+    },
+    {
+      "failure_scenario": "A developer builds the app after the tunnel is closed: EXPO_PUBLIC_API_URL is baked into the client bundle, so all API calls hit the dead ngrok URL and uploads/file lists fail out of the box. While the tunnel is live, authentication tokens for any user of a build made from this commit transit the tunnel operator's infrastructure.",
+      "file": "packages/mobile/.env",
+      "line": 3,
+      "summary": "EXPO_PUBLIC_API_URL is committed pointing at a personal ephemeral ngrok tunnel, so every build of the mobile app targets a third-party tunnel that will die, and all API traffic including Clerk bearer tokens transits the tunnel operator's server."
+    },
+    {
+      "failure_scenario": "A user completes a Magic Diagram upload; the worker stores generated_image_url in the DB, but fetchFiles (which hits GET /api/files, a nonexistent route) and get-upload-status never return the column, so file.generatedImageUrl is always undefined on the mobile side and the new preview UI in FileCard is unreachable dead code.",
+      "file": "packages/mobile/components/FileCard.tsx",
+      "line": 102,
+      "summary": "The new magic-diagram preview branch renders file.generatedImageUrl, but no server endpoint returns generatedImageUrl or processType to the client (get-upload-status selects a fixed column list without them, and the /api/files list route has no handler), so the feature added by this diff can never display."
+    },
+    {
+      "failure_scenario": "A .txt or .md file arrives via the share sheet without a mimeType (the index.tsx handler only repairs image extensions): prepareFile derives 'application/txt'/'application/md', record-upload stores it, and processSingleFileRecord's text branch (which requires text/plain or text/markdown) falls to 'Unsupported file type/processType' -> status error. Text files that previously extracted their content now fail.",
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 107,
+      "summary": "prepareFile's removed txt/md cases are replaced by a default of `application/${fileExtension}`, so shared .txt/.md files without an explicit mimeType are recorded as application/txt and rejected by the worker instead of being processed as text."
+    },
+    {
+      "failure_scenario": "FilePreview is used with a text/markdown file (textContent set, no image fileUrl): the guard `!fileUrl && !textContent` is false, so it renders <Image source={{uri: undefined}}>, which cannot load — the loading spinner stays up indefinitely (or an error is set), and the text content that previously rendered via TextDocumentViewer is never displayed.",
+      "file": "packages/mobile/components/file-preview.tsx",
+      "line": 67,
+      "summary": "renderPreview now unconditionally renders <Image uri={fileUrl}> and drops the TextDocumentViewer branch, so the component's textContent contract is broken: text-only input renders an image with undefined uri and never shows the text."
+    },
+    {
+      "failure_scenario": "A magic diagram is uploaded while several files are pending; the worker processes up to 10 files serially and gpt-image-1 generation itself takes tens of seconds, so the file completes after the mobile's ~92-second poll window. pollForResults returns 'Timed out waiting for processing results' and the user sees an error even though the file is later processed successfully.",
+      "file": "packages/mobile/utils/file-handler.ts",
+      "line": 462,
+      "summary": "Magic-diagram uploads reuse the default poll budget (2s initial + 30 x 3s ≈ 92s), which is shorter than the worker's serial batch plus gpt-image-1 generation latency, so slow-but-successful processing is reported to the user as a timeout error."
+    }
+  ],
+  "level": null
+}

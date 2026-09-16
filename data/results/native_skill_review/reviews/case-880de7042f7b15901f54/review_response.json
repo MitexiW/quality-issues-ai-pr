@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Run `python tools/benchmark.py --enqueue-batch-size 0`: `entrypoints = [\"syncfetch\", \"asyncfetch\"] * 0` is `[]`, `random.sample([], k=0)` returns `[]`, and `queries.enqueue([], [], [])` executes the qb.create_enqueue_query SQL with empty arrays, inserting zero rows while the `while not shutdown.is_set()` loop repeats the no-op DB round-trip as fast as possible until the timer expires. Previously this aborted immediately with `AssertionError: batch_size > 0`. With `--enqueue-batch-size -1`, `random.sample([], k=-1)` raises a confusing ValueError instead of the old clear assertion.",
+      "file": "tools/benchmark.py",
+      "line": 180,
+      "summary": "Producer.run no longer validates batch_size > 0 (the old producer's `assert batch_size > 0` was deleted and Settings adds no positive-value constraint), so `--enqueue-batch-size 0` makes the producer silently busy-loop issuing zero-row `INSERT ... VALUES (UNNEST($1::int[]), ...)` statements to PostgreSQL for the entire benchmark run, and negative values crash with an obscure `ValueError: Sample larger than population or is negative` from random.sample."
+    },
+    {
+      "failure_scenario": "Run `python tools/benchmark.py --help`: every option (--driver, --time, --dequeue, --dequeue-batch-size, --enqueue, --enqueue-batch-size, --requests-per-second, --concurrency-limit, --output-json) is printed without any description, since the diff stripped the help= arguments from main()'s typer.Option calls; the help texts retained on the Settings pydantic fields (e.g. `dequeue: int = typer.Option(5, help=\"Number of concurrent dequeue tasks.\")`) are unreachable FieldInfo defaults that no longer document anything, leaving the CLI flags documented only in docs/benchmark.md.",
+      "file": "tools/benchmark.py",
+      "line": 278,
+      "summary": "All typer.Option help= texts were removed from main(), so `python tools/benchmark.py --help` now lists bare option names with no descriptions, and the help= strings still present on the Settings model fields are dead metadata that never surfaces in CLI output because Settings is not a typer command."
+    }
+  ],
+  "level": null
+}

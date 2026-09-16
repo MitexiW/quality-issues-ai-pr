@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 34,
+      "summary": "Hash fragment silently stripped from URLs that contain query parameters, while URLs without query parameters preserve their hash",
+      "failure_scenario": "A user submits `https://example.com/page?ref=search#section-anchor` -- the preprocess returns `https://example.com/page?ref=search` with the hash fragment dropped. But `https://example.com/page#section-anchor` (no query params) falls through to `return x` on line 39 and keeps its hash. For SPAs using hash routing (React Router hash history) or pages where the hash anchors to a specific element, the scraper navigates to the wrong content.",
+      "finding_id": "mf-619a5f9794a756618cc5"
+    },
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 34,
+      "summary": "Embedded authentication credentials (user:password@) silently stripped because urlObj.origin excludes username and password",
+      "failure_scenario": "A user submits `http://scraper-token:secret-key@protected.example.com/data?format=json` to access a basic-auth-protected endpoint via URL credentials. The preprocess returns `http://protected.example.com/data?format=json` -- the credentials are dropped. The downstream HTTP request fails with 401 Unauthorized.",
+      "finding_id": "mf-acfc5a04c490cbfa2f02"
+    },
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 33,
+      "summary": "URLSearchParams adds '=' to query parameters that have no explicit value, changing semantics for some server-side parsers",
+      "failure_scenario": "A user submits `https://api.example.com/endpoint?debug&compact` where the target server treats bare keys as boolean flags (presence = true). After the preprocess, the URL becomes `https://api.example.com/endpoint?debug=&compact=`. Server frameworks like Express parse `?debug` as `undefined` (key present, no value) but `?debug=` as `\"\"` (empty string). The scraped response differs because the server interprets the normalized parameters differently.",
+      "finding_id": "mf-2a781417389326b186aa"
+    },
+    {
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 36,
+      "summary": "Empty catch block swallows all exceptions from the try block, hiding errors from new URL() parsing failures and any programming mistakes",
+      "failure_scenario": "A future code change introduces a typo or type error inside the try block (e.g., a mistyped property access on urlObj). The error is silently discarded by `catch (e) {}` with no logging, and the original `x` is returned. The bug goes undetected -- zod validation may or may not catch it downstream, and there is no error trace for debugging.",
+      "finding_id": "mf-e9637b78a3d68abe2207"
+    }
+  ]
+}

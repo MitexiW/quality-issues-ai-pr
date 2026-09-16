@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "mlflow/pyfunc/__init__.py",
+      "line": 2425,
+      "summary": "MapType batch result wrapped in `pandas.DataFrame([result])` collapses multiple rows into one, causing row-count mismatch when batch_size > 1",
+      "failure_scenario": "With `result_type=MapType(StringType(), StringType())`, a model receiving a 2-row batch returns `[{'a': 'b'}, {'c': 'd'}]`. `pandas.DataFrame([result])` creates a single-row DataFrame with the entire list as its value. When `result[result.columns[0]]` yields a 1-element Series but the pandas_udf iterator expects a Series of length 2, Spark raises a row-count mismatch error. The fix is `pandas.DataFrame({0: result})` to produce one row per input element.",
+      "finding_id": "mf-16f51214adbfcbbdc983"
+    },
+    {
+      "file": "mlflow/types/type_hints.py",
+      "line": 601,
+      "summary": "`element_type is dict` uses identity comparison against the bare `dict` class, which fails for parameterized types like `dict[str, str]` in Python 3.9+",
+      "failure_scenario": "A model with type hint `list[dict[str, str]]` routed through `_convert_data_to_type_hint` with a pandas DataFrame input. `_get_element_type_of_list_type_hint` returns `dict[str, str]` (a `typing.GenericAlias`), and `dict[str, str] is dict` evaluates to `False`. The function falls into the else branch, calling `data.iloc[:, 0].tolist()` instead of `data.to_dict(orient='records')`, potentially dropping columns or mis-handling the conversion. Should use `typing.get_origin(element_type) is dict` instead.",
+      "finding_id": "mf-58160e783b7f6cc3afd6"
+    },
+    {
+      "file": "mlflow/bedrock/chat.py",
+      "line": 43,
+      "summary": "`tool_call['input']` replaced defensive `tool_call.get('input')`, risking KeyError if the Bedrock API response omits the 'input' key",
+      "failure_scenario": "If a Bedrock API response contains a `toolUse` content block where the `'input'` key is missing (valid per the AWS 'Any Document' spec for empty inputs), `convert_message_to_mlflow_chat` raises an unhandled `KeyError` during trace span attribute extraction. The old code silently produced `'null'` via `.get()` + `json.dumps(None)`.",
+      "finding_id": "mf-0ee5380b18c38208ab0a"
+    },
+    {
+      "file": "mlflow/pyfunc/__init__.py",
+      "line": 1577,
+      "summary": "Removed `@lru_cache` from `_get_spark_primitive_types()` and `_get_spark_primitive_type_to_np_type()`, causing repeat object creation on every type check in spark_udf",
+      "failure_scenario": "Each call to `_check_udf_return_type` and `_convert_struct_values` within spark_udf re-creates the same tuples and dicts. For struct types with many fields, this adds measurable overhead per batch iteration. The new `_get_spark_primitive_type_to_python_type()` also lacks caching.",
+      "finding_id": "mf-7275e64387783ef801c7"
+    },
+    {
+      "file": "mlflow/bedrock/_autolog.py",
+      "line": 57,
+      "summary": "Inlined `_skip_if_trace_disabled` decorator missing the original `capture_exception` guard that the streaming wrappers previously provided via deleted `mlflow/bedrock/utils.py`",
+      "failure_scenario": "The deleted `capture_exception` decorator in `mlflow/bedrock/utils.py` suppressed exceptions during span event handling and raised them only when `_MLFLOW_TESTING` was set. Its removal means unhandled exceptions in span-finalization paths (previously inside `ConverseStreamWrapper._close` and `InvokeModelStreamWrapper._handle_event`) now propagate. Since the streaming wrappers are also deleted this has no current impact, but the guard pattern is lost and any future span-finalization code added to the patched converse/invoke_model functions will lack this safety net.",
+      "finding_id": "mf-72af3ff6086f600b4450"
+    },
+    {
+      "file": "mlflow/types/type_hints.py",
+      "line": 637,
+      "summary": "`_try_import_numpy` returns `None` implicitly (bare `return`) on ImportError; callers use walrus-operator `if np := _try_import_numpy()` which correctly short-circuits, but callers that directly call `_try_import_numpy()` without the guard would get `None` instead of `numpy`",
+      "failure_scenario": "If any future caller calls `np = _try_import_numpy()` without a guard and then accesses `np.ndarray`, it raises `AttributeError: 'NoneType' object has no attribute 'ndarray'`. Currently only `_sanitize_data` calls it with the walrus guard, so this is latent.",
+      "finding_id": "mf-925e361c7fd8c9bbc517"
+    }
+  ]
+}

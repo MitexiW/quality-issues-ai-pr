@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "pyproject.toml declares `\"psutil >=7.0.0,<8.0; sys_platform == 'win32'\"` and nothing else in the runtime dependency set pulls psutil in (uv.lock confirms). A user on Linux/macOS who installed reflex normally and writes `from reflex.testing import AppHarness` in their test suite now gets `ModuleNotFoundError: No module named 'psutil'` at import time. Before this diff the psutil import was lazy (`reflex/utils/exec.py:140` inside `kill()` and inside the old `stop()`), so the module imported fine without the dependency; the file even guards selenium with `has_selenium`, so making psutil a hard module-level import contradicts the module's own convention.",
+      "file": "reflex/testing.py",
+      "line": 27,
+      "summary": "reflex.testing now imports psutil at module scope, but psutil is declared in pyproject.toml only for Windows, so the public testing entry point becomes unimportable on Linux/macOS installs."
+    },
+    {
+      "failure_scenario": "The `while` at line 375 has no `time.sleep`/`_poll_for` between iterations, so from the moment `reflex run` is spawned until both ports are LISTEN, the pytest process runs `psutil.Process.children(recursive=True)` plus `proc.net_connections()` (a /proc/net/tcp + socket-inode scan for every descendant) as fast as it can. On any run where startup takes more than a few milliseconds the parent pins a CPU core while competing for CPU with the very child it is waiting on (node/vite, uvicorn/granian workers), which lengthens startup and makes the 30 s timeout at line 371 more likely to fire; the old code polled via `_poll_for` at POLL_INTERVAL (0.25 s).",
+      "file": "reflex/testing.py",
+      "line": 380,
+      "summary": "_wait_for_servers busy-spins with no sleep, calling psutil children()/net_connections() in a tight loop for up to 30 seconds."
+    },
+    {
+      "failure_scenario": "`app._api.add_route(\"/lifespan_globals\", lambda req: JSONResponse({...}), methods=[\"GET\"])` registers an endpoint whose parameter `req` has no annotation and no default. FastAPI's analyze_param classifies such a parameter as a required query parameter (this is the same gotcha as forgetting to annotate `Request`), so `GET http://localhost:<port>/lifespan_globals` without `?req=` returns 422 with body `{\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"req\"]}]}`; the test at lines 181-186 does `response.json()` and then `backend_values[\"context_global\"]`, raising KeyError instead of asserting the lifespan counters.",
+      "file": "tests/integration/test_lifespan.py",
+      "line": 99,
+      "summary": "The new /lifespan_globals route uses an unannotated lambda parameter, which FastAPI turns into a required query parameter, so the endpoint the test calls returns 422."
+    },
+    {
+      "failure_scenario": "In dev the subprocess must import reflex, reload the config, compile/validate the app, run `setup_frontend`, start the node/react-router dev server and bind the backend before `_wait_for_servers` returns. On a cold CI cache or a loaded machine this exceeds 30 s, and the harness aborts every such test with `Timeout waiting for servers. Frontend ready: False, Backend ready: True` even though the app is healthy; the previous implementation waited for the backend with `_poll_for_servers(timeout=30)` and then for the frontend with no timeout in `_wait_frontend`.",
+      "file": "reflex/testing.py",
+      "line": 371,
+      "summary": "A single fixed 30 s timeout now covers the entire dev startup (child import, compile/validate, node dev server, backend bind), whereas previously only the backend socket poll was bounded and the frontend wait had no timeout."
+    },
+    {
+      "failure_scenario": "`_start_subprocess` spawns `python -m reflex run` (line 341) and only then calls `_wait_for_servers`; if that raises, the exception propagates out of `start()`/`__enter__`, so the `with AppHarness.create(...)` body and its `__exit__`/`stop()` never run and `_stop_reflex()` is never reached. The reflex process plus its node and uvicorn/granian descendants keep running and holding ports 43000/48000 for the rest of the pytest session, so a suite with a handful of slow startups accumulates orphaned server processes and the next harness `handle_port(..., auto_increment=True)` starts drifting to new ports.",
+      "file": "reflex/testing.py",
+      "line": 378,
+      "summary": "When _wait_for_servers times out or fails, the just-spawned reflex subprocess tree is never killed and keeps running."
+    },
+    {
+      "failure_scenario": "`_stop_reflex` runs `finally: self.reflex_process = None` whenever it killed a live process (the normal case), so after `with AppHarness.create(root=tmp_path, app_source=BasicApp) as harness:` exits, `harness.reflex_process` is None. The changed line at tests/units/test_testing.py:38, `assert harness.reflex_process.poll() is not None`, therefore raises `AttributeError: 'NoneType' object has no attribute 'poll'` instead of checking the exit status (currently masked only because that test carries `@pytest.mark.skip`, and the same pattern makes the harness unable to report the killed process's exit status).",
+      "file": "reflex/testing.py",
+      "line": 475,
+      "summary": "After the kill branch, stop() clears self.reflex_process, so the updated post-context assertion in test_testing.py dereferences None."
+    },
+    {
+      "failure_scenario": "`AppHarnessProd.stop()` calls `super().stop()` (which now raises `ReflexProcessLoggedErrorError` here) before `self.frontend_server.shutdown()` / `self.frontend_thread.join()` (lines 958-961). Any prod-harness test whose app logs a console.error (e.g. an exception-handler test that forgot the workaround at tests/integration/test_exception_handlers.py:88) fails teardown with the non-daemon thread from line 934 still in `serve_forever()`, so the interpreter cannot exit and the pytest session hangs after the failure instead of reporting it.",
+      "file": "reflex/testing.py",
+      "line": 489,
+      "summary": "Raising from _stop_reflex when the error log is non-empty aborts AppHarnessProd cleanup, leaving its non-daemon frontend HTTP server thread running."
+    },
+    {
+      "failure_scenario": "Downstream test suites that drive app state today with `await harness.set_state(token, **kwargs)` or `async with harness.modify_state(f\"{token}_{state_name}\") as state:` (the exact calls the in-repo tests used before this diff, e.g. old test_input.py/test_client_storage.py) now fail with `AttributeError: 'AppHarness' object has no attribute 'modify_state'`. The only replacement offered is generating app UI buttons and clicking them (as test_input.py and test_client_storage.py were rewritten to do), so external suites silently break on a minor version bump with no shim or documented migration.",
+      "file": "reflex/testing.py",
+      "line": 641,
+      "summary": "The public AppHarness.set_state() and AppHarness.modify_state() helpers were deleted with no deprecation path or replacement."
+    },
+    {
+      "failure_scenario": "The diff removes the marker-based opt-out (`pytest.mark.ignore_console_error` plus the `raise_console_error` autouse fixture that was deleted from tests/integration/conftest.py) and makes `_stop_reflex` raise `ReflexProcessLoggedErrorError` for any content in REFLEX_ERROR_LOG_FILE. The only way to keep a test that intentionally exercises an error path (this file's whole purpose) from failing at teardown is `harness.reflex_process_error_log_path = None` on a private dataclass field after `create()` has already returned; external suites that previously used `@pytest.mark.ignore_console_error` have no public way to reproduce that behavior and will now fail their teardown.",
+      "file": "tests/integration/test_exception_handlers.py",
+      "line": 88,
+      "summary": "The new harness-wide error-log check has no supported opt-out, so the repo's own test has to mutate a private attribute after start."
+    }
+  ],
+  "level": null
+}

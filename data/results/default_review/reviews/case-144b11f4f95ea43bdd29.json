@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "marimo/_runtime/threads.py",
+      "line": 96,
+      "summary": "THREADS.remove(thread_id) is never reached if super().run() raises an exception, causing a permanent TID leak in the THREADS set",
+      "failure_scenario": "A mo.Thread is started whose target function raises an unhandled exception (e.g., ValueError). The thread's run() method calls THREADS.add(thread_id) at line 94, then super().run() at line 95 propagates the exception, skipping line 96 entirely. The TID stays in THREADS forever. Over repeated thread failures, THREADS accumulates stale entries. If the OS later reuses a leaked TID for an unrelated Python thread, print_override will incorrectly take the mo.Thread code path for that non-marimo thread, calling get_context() and potentially broadcasting CellOps with a stale or mismatched cell_id. Fix: wrap lines 95-96 in try/finally.",
+      "finding_id": "mf-882daccc297e73554d13"
+    },
+    {
+      "file": "marimo/_messaging/print_override.py",
+      "line": 48,
+      "summary": "print_override silently ignores the 'file' keyword argument; prints directed to explicit file handles are instead broadcast as cell console output",
+      "failure_scenario": "User code inside a mo.Thread target function calls print('important data', file=open('output.csv', 'w')). The print_override function checks tid in THREADS (True), gets the execution context (success), then extracts only 'sep' and 'end' from kwargs. The 'file' argument is discarded, and the data is sent as a CellOp to the cell's console output instead of being written to output.csv. The file remains empty and the user's data is lost. Fix: at the start of the thread-aware path (after confirming tid in THREADS), add: if 'file' in kwargs: _original_print(*args, **kwargs); return.",
+      "finding_id": "mf-c6b36525718a74a5d5e4"
+    }
+  ]
+}

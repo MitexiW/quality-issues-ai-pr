@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "packages/init-stack/index.mjs",
+      "line": 451,
+      "summary": "Missing import: writeNextHandlerFile generates a Next.js handler that uses <StackHandler> JSX without importing StackHandler from @stackframe/stack",
+      "failure_scenario": "Run the init wizard on a Next.js project. The generated handler file at app/handler/[...stack]/page.tsx contains <StackHandler fullPage app={stackServerApp} routeProps={props} /> but only imports stackServerApp — StackHandler is undefined. TypeScript build fails with 'Cannot find name StackHandler' or JS runtime throws ReferenceError.",
+      "finding_id": "mf-5f501cde9faa742a3177"
+    },
+    {
+      "file": "packages/init-stack/index.mjs",
+      "line": 698,
+      "summary": "Quiet-mode regression: shellNicelyFormatted does not consume child process stdout/stderr pipes when quiet is true, risking child process hang on buffer fill",
+      "failure_scenario": "Any future caller passing { quiet: true } with a command that outputs >~1MB of combined stdout+stderr will cause the child process to block on a full pipe buffer, hanging the wizard indefinitely. Currently only --version commands use quiet mode, but the function is a latent trap.",
+      "finding_id": "mf-e7396f3a2e46712b101f"
+    },
+    {
+      "file": "packages/init-stack/package.json",
+      "line": 10,
+      "summary": "Broken npm script: 'init-stack' points to node init-stack/index.mjs but no init-stack/ subdirectory exists in packages/init-stack",
+      "failure_scenario": "Running pnpm -C packages/init-stack run init-stack fails with Error: Cannot find module '.../packages/init-stack/init-stack/index.mjs'. The script worked before (node index.mjs) but the path was wrongly changed while the file stayed at the original location.",
+      "finding_id": "mf-14d460adf4ec001337f1"
+    },
+    {
+      "file": "packages/init-stack/index.mjs",
+      "line": 253,
+      "summary": "Wasted work: Steps.maybeGetNextProjectInfo (which does heavy filesystem I/O and parses the layout file) is called twice in the Next.js flow — once from getProjectType where the result is thrown away, and again from getNextProjectInfo",
+      "failure_scenario": "For every Next.js install, the wizard reads package.json, checks next.config, scans src/app, reads AND parses the entire root layout file twice. The first call's expensive result (including the parsed layout indentation and file extension) is silently discarded, doubling validation time.",
+      "finding_id": "mf-f76d7a2601ff487b192c"
+    },
+    {
+      "file": "packages/init-stack/index.mjs",
+      "line": 726,
+      "summary": "Error masking: in shellNicelyFormatted's catch block, if ui.updateBottomBar() throws while trying to display the failure message, the original command error is swallowed",
+      "failure_scenario": "A command like npm install fails with exit code 1. The catch block tries to update the BottomBar with a red X, but if the BottomBar is in a corrupted state (e.g., after a SIGTERM), updateBottomBar throws, replacing the useful 'Command ... failed with code 1' error with an opaque 'Cannot read property write of undefined'.",
+      "finding_id": "mf-45cdeadf24d44f43aebb"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "libs/core/kiln_ai/adapters/model_adapters/litellm_adapter.py",
+      "line": 86,
+      "summary": "COT two-call strategy discards token usage and cost from the first API call; only the final call's usage is captured",
+      "failure_scenario": "A task using a non-reasoning-capable model with chain-of-thought prompting (run_strategy='cot_two_call') makes two LLM API calls. The first call's response (line 86, cot_response) contains usage data (e.g., 500 input tokens, 200 output tokens, $0.005 cost) but that data is never passed to usage_from_response(). Only the second call's response (line 111) has its usage extracted at line 175. The resulting TaskRun.usage under-reports total token counts and cost by approximately half.",
+      "finding_id": "mf-dd7ed2d3c0fd8fd79070"
+    },
+    {
+      "file": "app/web_ui/src/routes/(app)/dataset/[project_id]/[task_id]/[run_id]/run/+page.svelte",
+      "line": 65,
+      "summary": "JavaScript falsy-zero bug: cost of exactly 0 is hidden from the display because 0 is falsy in the ternary check",
+      "failure_scenario": "A TaskRun has usage.cost = 0.0 (free-tier API call or local Ollama run). The expression `run?.usage?.cost ? ...` evaluates to false for a zero value, producing undefined instead of '$0.000000'. The user sees no Cost field for a legitimate zero-cost run. The same pattern applies to total_tokens on line 66, where 0 tokens would also be hidden. The fix is to check for null/undefined explicitly: `run?.usage?.cost != null ? ...`",
+      "finding_id": "mf-d650f5c922f573d9d692"
+    },
+    {
+      "file": "libs/core/kiln_ai/adapters/model_adapters/litellm_adapter.py",
+      "line": 403,
+      "summary": "Dot-access on private litellm attribute _hidden_params is fragile and will silently lose cost data if the internal field name changes",
+      "failure_scenario": "litellm library changes the internal attribute name from _hidden_params to something else in a future version. The AttributeError on response._hidden_params propagates up through _run(), crashing invoke_returning_run_output() and causing all model invocations to fail. Even if the attribute exists but the 'response_cost' key is renamed, cost tracking silently breaks with only a warning log — no cost data is ever recorded for any run.",
+      "finding_id": "mf-efdec81d5276eb99c448"
+    }
+  ]
+}

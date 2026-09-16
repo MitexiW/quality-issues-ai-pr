@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "extra/onnx_ops.py",
+      "line": 542,
+      "summary": "QLinearGlobalAveragePool removed support for channels_last=1, replacing it with an assertion that crashes",
+      "failure_scenario": "Any ONNX model that passes channels_last=1 to QLinearGlobalAveragePool will now hit `assert channels_last == 0` and crash with AssertionError. The old code handled channels_last=1 by permuting the input from NHWC to a spatial-first format before pooling.",
+      "finding_id": "mf-d8820e84f7593b7b4028"
+    }
+  ]
+}

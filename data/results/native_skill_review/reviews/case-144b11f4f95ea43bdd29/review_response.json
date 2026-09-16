@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "mo.Thread(target=crash).start() where crash raises ZeroDivisionError: the exception propagates out of the overridden Thread.run past THREADS.remove, so the id stays in THREADS forever (unbounded growth across repeated failures). CPython recycles thread identifiers, so when the leaked id is later reused by a thread that has a marimo context installed — e.g., a run-mode session thread created in marimo/_server/sessions.py:236 via threading.Thread(target=launch_kernel_with_cleanup), which installs a KernelRuntimeContext — that thread's print() calls are misidentified as mo.Thread prints and broadcast as CellOps to the frontend (where run mode otherwise hides console output), instead of writing to stdout.",
+      "file": "marimo/_runtime/threads.py",
+      "line": 96,
+      "summary": "THREADS.remove(thread_id) is not exception-safe: when a mo.Thread's target raises, the thread id leaks permanently in the process-global THREADS set, and stale ids can later be matched by recycled OS thread ids, causing prints in unrelated threads to be intercepted."
+    },
+    {
+      "failure_scenario": "User code inside a mo.Thread does print('log line', file=open('app.log', 'a')): the builtin print contract is to write only to app.log, but the override reads only sep/end, so nothing is ever written to the log file and the text silently appears in the notebook console instead — silent log loss. Likewise print('x', sepp=' ') (typo) no longer raises TypeError as builtin print would, because unknown kwargs are swallowed rather than validated.",
+      "file": "marimo/_messaging/print_override.py",
+      "line": 48,
+      "summary": "The thread path of print_override silently ignores the file and flush keyword arguments (and any misspelled kwargs), so print(..., file=f) inside a mo.Thread never writes to f and misroutes the text to the cell console."
+    },
+    {
+      "failure_scenario": "print('a', 'b', sep=None) works with builtin print (treated as ' ') but in a mo.Thread evaluates sep = kwargs.get('sep', ' ') -> None, then None.join(['a', 'b']) raises AttributeError: 'NoneType' object has no attribute 'join'. Similarly print('a', end=None) evaluates 'a' + None and raises TypeError. The exception then also propagates out of the thread target, triggering the THREADS leak above.",
+      "file": "marimo/_messaging/print_override.py",
+      "line": 50,
+      "summary": "Explicit sep=None or end=None — legal builtin print values meaning 'use the default' — crash inside a mo.Thread because the override uses kwargs.get() without normalizing None."
+    },
+    {
+      "failure_scenario": "A mo.Thread executes print(large_dataframe) producing a 100MB string: the override serializes the full message into a CellOp and sends it through the stream pipe untruncated, causing a large memory spike in the kernel and frontend freeze, whereas the identical print on the main thread is truncated to 1MB with a warning. The existing CellOp.broadcast_console_output(channel=CellChannel.STDOUT, mimetype='text/plain', data=msg, cell_id=..., status=None, stream=ctx.stream) helper (marimo/_messaging/ops.py:235) and CellOutput.stdout(msg) factory already provide this behavior including truncation.",
+      "file": "marimo/_messaging/print_override.py",
+      "line": 52,
+      "summary": "print_override bypasses the console-output truncation applied by every other output path (ThreadSafeStdout truncates at 1MB STD_STREAM_MAX_BYTES; CellOp.broadcast_console_output truncates at 5MB OUTPUT_MAX_BYTES) and re-implements that existing helper, so a thread can emit unbounded messages."
+    }
+  ],
+  "level": null
+}

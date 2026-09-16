@@ -1,0 +1,71 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "In OgaGenerator_GetLogits (src/ort_genai_c.cpp:395) the logits are copied into a fresh Tensor whose only owner is its ExternalRefCounted external_owner_. In GetLogits, `ToNumpy(*generator_->GetLogits())` builds a pybind11::array over the tensor's raw pointer with no owner capsule, then the temporary unique_ptr<OgaTensor> destructs, calling OgaDestroyTensor -> ExternalRelease, which nulls the only shared_ptr and frees the OrtValue buffer. Any Python use of the returned array (e.g. `logits = generator.get_logits(); print(logits)` or a subsequent generation reusing the arena block) reads freed/reused memory, yielding corrupted logits or a segfault. The old binding kept the span alive in a member (py_logits_), so this is a regression.",
+      "file": "src/python/python.cpp",
+      "line": 236,
+      "summary": "PyGenerator::GetLogits returns a numpy array referencing a buffer that is freed when the temporary OgaTensor is destroyed at the end of the return statement (use-after-free)."
+    },
+    {
+      "failure_scenario": "OgaGenerator_GetOutput clones the output into a fresh Tensor held only by its external_owner_ ref. In `ToNumpy(*generator_->GetOutput(name.c_str()))` the array wraps the tensor's data pointer, then the temporary unique_ptr<OgaTensor> is destroyed at the end of the full expression, which drops the last shared_ptr and frees the OrtValue. The old code pointed into the generator state's CPU buffer (kept alive by the generator), so `out = generator.get_output(\"logits\")` previously stayed valid; now the returned array dangles immediately and shows garbage or crashes when read.",
+      "file": "src/python/python.cpp",
+      "line": 224,
+      "summary": "PyGenerator::GetOutput returns a numpy array referencing a buffer freed when the temporary OgaTensor returned by OgaGenerator_GetOutput is destroyed (use-after-free)."
+    },
+    {
+      "failure_scenario": "`auto sequences = OgaSequences::Create(); t.Encode(s.c_str(), *sequences); return ToPython(sequences->Get(0));` — Get(0) returns a span into the std::vector<std::vector<int32_t>> owned by the OgaSequences object. ToPython creates a pybind11::array_t referencing that pointer with no owner capsule, and the local unique_ptr<OgaSequences> is destroyed when the lambda returns, freeing the token vector. `tokenizer.encode(\"hello\")` in Python returns an array over freed memory; printing or indexing it yields garbage tokens or a crash. The old binding returned std::vector<int32_t> by value (copied by pybind11), so this is a regression.",
+      "file": "src/python/python.cpp",
+      "line": 351,
+      "summary": "Tokenizer.encode returns a numpy array over an OgaSequences object that is destroyed when the binding lambda returns (use-after-free)."
+    },
+    {
+      "failure_scenario": "Calling the new C API OgaTokenizerEncodeBatch(tokenizer, {}, 0, &out) or Python `tokenizer.encode_batch([])` produces an empty `encoded` vector and evaluates `encoded.size() / strings.size()` = 0/0, which is undefined behavior (SIGFPE) and hard-crashes the process instead of returning an error result. The C API entry point performs no count validation before reaching this expression.",
+      "file": "src/models/model.cpp",
+      "line": 222,
+      "summary": "Tokenizer::EncodeBatch(std::span<const char*>) divides by strings.size() with no empty-batch guard, so encoding zero strings is a division by zero."
+    },
+    {
+      "failure_scenario": "OgaTokenizerDecodeBatch (src/ort_genai_c.cpp:491) passes shape[0] as count after only checking the tensor is 2D. A tensor with shape {0, N} (or any empty tensor) reaches `sequences.size() % 0`, which is UB and typically a SIGFPE crash of the caller's process rather than the OgaResult error the API is supposed to return.",
+      "file": "src/models/model.cpp",
+      "line": 230,
+      "summary": "Tokenizer::DecodeBatch computes `sequences.size() % count` without guarding count == 0, a modulo by zero reachable through the new C API."
+    },
+    {
+      "failure_scenario": "On a fresh generator, search_->GetLogits().size() == 0, so the `if (logits.size() == 0)` branch allocates element_count floats and never executes the `else if (new_logits_span.size() != logits.size())` mismatch check. With batch_size=4, vocab_size=5, passing a logits tensor of only 10 elements is accepted; the next GenerateNextToken/SelectTop computes `next_token_scores_.Span().subspan(batch_id * vocab_size, vocab_size)` for batch rows 2 and 3, which is out-of-range for a 10-element buffer (std::span::subspan has no bounds check) and reads past the allocation. Previously every SetLogits mismatch threw a clear error; now the first call silently corrupts generation or crashes.",
+      "file": "src/ort_genai_c.cpp",
+      "line": 423,
+      "summary": "OgaGenerator_SetLogits skips the logits size validation on the new first-call path, silently accepting a wrong-sized tensor."
+    },
+    {
+      "failure_scenario": "The diff deletes `if (search.temperature <= 0.0f) throw std::runtime_error(\"temperature must be greater than 0\")`. With do_sample=true, top_k>1 and temperature=-1.0, GenerateNextToken now proceeds to SampleTopKTopP, and SoftMax computes exp((score - max_score)/temperature) with a negative divisor, making the lowest-logit tokens the most probable. The user gets text sampled from the model's least likely tokens with no error, where the previous code rejected the configuration.",
+      "file": "src/generators.cpp",
+      "line": 468,
+      "summary": "Removing the `temperature <= 0` validation lets negative temperatures silently invert the sampling distribution instead of raising an error."
+    },
+    {
+      "failure_scenario": "The diff deletes the `if (audio_paths.empty()) throw std::runtime_error(\"No audios provided\")` check in the Python Audios.open binding, and LoadAudios has no empty check (LoadImages and LoadImagesFromBuffers in this same diff both gained one). `og.Audios.open()` now calls OrtxLoadAudios(audios.ToBeAssigned(), nullptr, 0); behavior of the ort-extensions function with a null pointer is undefined — either a crash inside the extension or a nondescript error, replacing the previous clean Python-side error.",
+      "file": "src/models/processor.cpp",
+      "line": 42,
+      "summary": "The empty-inputs guard removed from Python Audios.open was not re-established in LoadAudios (the parallel LoadImages change added the equivalent check), so an empty audio list is passed to OrtxLoadAudios with a null data pointer."
+    },
+    {
+      "failure_scenario": "`OgaStringArray::Create()` or `OgaStringArray::Create(strings, count)` fails to compile with \"cannot call member function without object\", and no call site in the repo invokes them on an instance — the added public API surface is dead/broken code. Any consumer following the pattern established by OgaSequences/OgaTensor/OgaImages Create() hits a compile error.",
+      "file": "src/ort_genai.h",
+      "line": 110,
+      "summary": "The new OgaStringArray::Create factory methods are declared without `static`, so the named-constructor API cannot be called the way every other wrapper's Create (e.g. OgaSequences::Create) is used."
+    },
+    {
+      "failure_scenario": "`generator.append_tokens(og.Tensor(np.zeros((4,), dtype=np.int64)))` — in a release (NDEBUG) build of the Python module the assert at python.cpp:40 is removed, and the int64 data is reinterpret_cast to int32_t* and appended as token IDs. The generator then consumes garbage token ids (e.g. low halves of int64 zeros misread across elements), producing corrupt sequences, whereas the numpy-array overload properly enforces the dtype.",
+      "file": "src/python/python.cpp",
+      "line": 40,
+      "summary": "ToSpan(OgaTensor&) validates the element type with an assert, which is compiled out of release builds, so AppendTokens(OgaTensor&) silently reinterprets a wrong-dtype tensor as int32."
+    },
+    {
+      "failure_scenario": "Every string returned by the refactored OgaModelGetType, OgaModelGetDeviceType, OgaTokenizerDecode, and OgaProcessorDecode paths is freed via OgaDestroyString's `delete p` on a buffer allocated with `new char[]`. Under AddressSanitizer (or any allocation-size-aware runtime) freeing the array allocation with scalar delete reports an alloc-dealloc-mismatch and aborts, and the mismatch is formally UB on every platform.",
+      "file": "src/ort_genai_c.cpp",
+      "line": 25,
+      "summary": "AllocOgaString allocates with `new char[]` (make_unique<char[]>) but the matching OgaDestroyString frees with scalar `delete`, a new[]/delete mismatch that is undefined behavior."
+    }
+  ],
+  "level": null
+}

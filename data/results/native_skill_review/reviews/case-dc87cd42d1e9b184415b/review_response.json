@@ -1,0 +1,95 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "With METAFLOW_SERVICE_URL set, client code (client/core.py:1213, e.g. Run['Flow/run']['step'].foreach_tasks) receives the tuple (paths_list, True); iterating it yields the whole list as a single pathspec, producing Task objects with garbage pathspecs and silently wrong query results. Before the change the code did 'resp, _ = cls._request(...)'.",
+      "file": "metaflow/plugins/metadata_providers/service.py",
+      "line": 361,
+      "summary": "filter_tasks_by_metadata assigns the _request() tuple (data, True) to resp and returns it, so callers get a tuple instead of the task pathspec list."
+    },
+    {
+      "failure_scenario": "ArgoWorkflows.create() only sets the 'metaflow/parameters' annotation when the flow has parameters (argo_workflows.py:718), so Deployer('argo-workflows').get_workflow(...) on a parameter-less or event-triggered template raises TypeError: the JSON object must be str, bytes or bytearray, not dict.",
+      "file": "metaflow/plugins/argo/argo_workflows_deployer_objects.py",
+      "line": 276,
+      "summary": "json.loads() is now called with a dict default instead of the string \"{}\", crashing when the metaflow/parameters annotation is absent."
+    },
+    {
+      "failure_scenario": "A 500/503 response or connection error from the metadata service (ServiceException with http_code != 404) is caught and ignored; execution falls to 'return resp' where resp was never assigned, raising UnboundLocalError instead of the real error. Additionally, callers using the default field_name=None now send 'metadata_field_name=None' in the query string, so the service filters on a field literally named 'None' and returns no tasks where it previously returned all.",
+      "file": "metaflow/plugins/metadata_providers/service.py",
+      "line": 370,
+      "summary": "filter_tasks_by_metadata swallows all non-404 request exceptions and then returns the unbound variable resp, converting real service errors into UnboundLocalError; it also now always URL-encodes None as 'metadata_field_name=None'."
+    },
+    {
+      "failure_scenario": "On a persistent S3 outage or SlowDown, retry_count/transient_retry_count climb toward S3_RETRY_COUNT/S3_TRANSIENT_RETRY_COUNT (20): the client sleeps 2^20 (about 12 days) on a single retry — transient_retry_count even reaches 21 (2^21s, about 24 days) before the loop resets. Before the change the sleep was capped at 360 seconds.",
+      "file": "metaflow/plugins/datatools/s3/s3.py",
+      "line": 1394,
+      "summary": "_jitter_sleep lost its 360s cap and now sleeps 2**trynum seconds, so persistent S3 failures cause multi-day hangs."
+    },
+    {
+      "failure_scenario": "d = config_expr('cfg'); a = d.foo; b = d.bar — a and b are the same object with _access ['foo','bar'], so a() and b() both evaluate 'cfg.foo.bar' instead of 'cfg.foo' and 'cfg.bar'. Likewise x = cfg.foo; x(); x() evaluates 'cfg.foo' then 'cfg.foo.foo' (wrong value or AttributeError). The removed __copy__ semantics and _cached_expr prevented both.",
+      "file": "metaflow/user_configs/config_parameters.py",
+      "line": 178,
+      "summary": "DelayEvaluator.__getitem__/__getattr__ now mutate self._access and return self, and __call__ overwrites self._config_expr without clearing _access, so reusing one evaluator for multiple branches or evaluating it twice produces wrong expressions."
+    },
+    {
+      "failure_scenario": "A conda environment creation failure (e.g. disk full, corrupted package) or a storage.save_bytes cache-upload failure inside the ThreadPoolExecutor threads is never surfaced: 'with ThreadPoolExecutor' only waits, it does not re-raise. The flow prints 'Virtual environment(s) bootstrapped!' and proceeds, and remote tasks later fail mysteriously with a missing or broken environment.",
+      "file": "metaflow/plugins/pypi/conda_environment.py",
+      "line": 209,
+      "summary": "The future.result() loops that raised exceptions from conda create, pypi create, and package-cache tasks were removed, so those failures are silently swallowed."
+    },
+    {
+      "failure_scenario": "A single transient error such as an S3 'InternalError' (500-class), an SSL error, or a botocore RetriesExceededError during a 100-file get_many/put_many raises out of worker(), the process exits with 'Worker process failed', and the parent aborts every file in the batch, then restarts from scratch with the uncapped exponential backoff. Before the change these were written as -ERROR_TRANSIENT per input and only that input was retried.",
+      "file": "metaflow/plugins/datatools/s3/s3op.py",
+      "line": 271,
+      "summary": "S3 worker processes now 'raise' for any error that is not 404/403/503 — including InternalError (dropped from the 503 list) and the SSL/timeout errors previously handled as transient — killing the whole worker and aborting the entire batch."
+    },
+    {
+      "failure_scenario": "A deployed flow with a parameter like 'num-workers' is retrieved via Deployer('argo-workflows').get_workflow(): the generated file contains 'num-workers = Parameter(...)', and executing it (Deployer(fake_flow_file.name, ...)) raises SyntaxError. The baseline version used param_details['python_var_name'] for the variable name.",
+      "file": "metaflow/plugins/argo/argo_workflows_deployer_objects.py",
+      "line": 23,
+      "summary": "generate_fake_flow_file_contents uses the CLI parameter name (which may contain dashes) as the Python variable name in the generated fake flow file, and _process_parameters no longer provides the sanitized python_var_name."
+    },
+    {
+      "failure_scenario": "A user sets METAFLOW_DATATOOLS_CLIENT_PARAMS (or passes client_params to get_aws_client('s3', ...)) with a 'config' dict such as {\"connect_timeout\": 60}: AttributeError: 'dict' object has no attribute 'retries'. The removed code (Config(**client_params['config'])) existed specifically to support dict configs.",
+      "file": "metaflow/plugins/aws/aws_client.py",
+      "line": 38,
+      "summary": "The dict-to-Config conversion was removed, so a client_params dict containing 'config' as a plain dict crashes on the 'client_params[\"config\"].retries' attribute access."
+    },
+    {
+      "failure_scenario": "When a worker process dies without consuming its share of the input queue (now common, since unclassified errors 'raise' out of workers), the multiprocessing queue's feeder thread cannot flush and the parent process hangs indefinitely at exit instead of reporting 'Worker process failed'. The removed comment explicitly documented this hang.",
+      "file": "metaflow/plugins/datatools/s3/s3op.py",
+      "line": 383,
+      "summary": "The queue.cancel_join_thread() call was removed, reintroducing the documented deadlock where the parent process hangs on exit after a worker dies with buffered queue items."
+    },
+    {
+      "failure_scenario": "During startup, one network blip or 503 from the metadata service ping (previously retried SERVICE_RETRY_COUNT times with backoff) now immediately raises ValueError 'Metaflow service [...] unreachable' and aborts the flow run.",
+      "file": "metaflow/plugins/metadata_providers/service.py",
+      "line": 81,
+      "summary": "ServiceMetadataProvider.compute_info lost its retry loop, so a single transient ping failure makes flow startup fail hard."
+    },
+    {
+      "failure_scenario": "Runner(flow_file='flows/myflow.py', cwd='/other/dir').run() builds the API in the current directory but executes the CLI subprocess with cwd='/other/dir', where the relative path 'flows/myflow.py' does not exist: the run fails with FileNotFoundError or executes a different same-named flow. The removed os.path.abspath(flow_file) conversion (and the removed with_dir(self.cwd) wrapper) prevented this.",
+      "file": "metaflow/runner/metaflow_runner.py",
+      "line": 289,
+      "summary": "Runner (and Deployer/DeployerImpl) no longer convert flow_file to an absolute path, so a relative flow_file combined with a cwd argument resolves against the wrong directory in the subprocess."
+    },
+    {
+      "failure_scenario": "With --config-value cfg=null (or a parser returning None), process_configs stores ConfigValue(None); user code such as 'if ctx.configs.cfg:' in a DeployTimeField function, or next(flow.configs)[1].steps in a CustomFlowDecorator.evaluate, raises TypeError ('NoneType' object has no len() / is not subscriptable) instead of the falsy None behavior the baseline provided (same guards were removed in cli.py:497 and config_decorators.py:203).",
+      "file": "metaflow/user_configs/config_options.py",
+      "line": 355,
+      "summary": "Three 'if ... is not None else None' guards were removed, so an unset or JSON-null config now produces ConfigValue(None), whose len()/bool()/attribute access raise TypeError where None semantics were expected."
+    },
+    {
+      "failure_scenario": "A flow using config_expr('my_helper()') with my_helper defined at module level previously resolved via the captured frame globals; now eval runs with config_parameters' own globals, raising NameError that is re-reported as the misleading MetaflowException \"Config 'my_helper' not found in the flow (maybe not required and not provided?)\".",
+      "file": "metaflow/user_configs/config_parameters.py",
+      "line": 265,
+      "summary": "config_expr no longer captures the caller's module globals, so user-defined helper functions referenced in config expressions raise NameError."
+    },
+    {
+      "failure_scenario": "Generating stubs for a function whose default is a string containing an apostrophe (e.g. help text or a separator like \"don't\") emits \"'don't'\", a SyntaxError in the generated stub; mypy and editors then fail to parse the installed metaflow-stubs package. The removed code used repr() for proper escaping.",
+      "file": "metaflow/cmd/develop/stub_generator.py",
+      "line": 1191,
+      "summary": "String default values are emitted with single quotes without escaping, so defaults containing a quote produce syntactically invalid .pyi stubs."
+    }
+  ],
+  "level": null
+}

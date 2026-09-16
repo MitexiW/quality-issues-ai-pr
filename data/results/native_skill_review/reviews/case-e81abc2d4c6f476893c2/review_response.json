@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A publisher configures the pubProvidedId userId submodule shipped in this repo (modules/pubProvidedIdSystem.js decodes to {pubProvidedId: [...]}); Prebid populates bidderRequest.userId.pubProvidedId, but the adapter now emits user: {ext: {consent: ...}} only (grep confirms no other code path reads bidderRequest.userId or writes user.eids), so every POST to dsp.adotmob.com loses the publisher-provided EIDs and identity-based targeting/match is silently degraded; PR_REVIEW.md ('Eids object is to be preferred to Userids object in the bid request') indicates the data should have been moved to user.eids rather than deleted.",
+      "file": "modules/adotBidAdapter.js",
+      "line": 152,
+      "summary": "getOpenRTBUserObject no longer forwards publisher-provided IDs, so the Adot request payload silently loses bidderRequest.userId.pubProvidedId with no replacement via user.eids."
+    },
+    {
+      "failure_scenario": "All three buildRequests tests (banner/native/video, lines 31/61, 80/109, 128/169) removed userId: {pubProvidedId: 'userId'} from bidderRequest and pubProvidedId from the expected user.ext, so the adapter's user-id handling has zero test coverage; a future regression or re-introduction of any bidderRequest.userId/publisher-ID handling is undetectable by this suite.",
+      "file": "test/spec/modules/adotBidAdapter_spec.js",
+      "line": 61,
+      "summary": "The spec drops the only userId fixture and rewrites the expectations to assert pubProvidedId is absent, converting the previous coverage of user-id forwarding into an assertion that locks in the removal."
+    }
+  ],
+  "level": null
+}

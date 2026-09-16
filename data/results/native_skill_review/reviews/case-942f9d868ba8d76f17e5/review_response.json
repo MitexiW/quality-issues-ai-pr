@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "OpenAIChatCompletionClient(model=\"gpt-4o\", api_key=\"k\").create(messages, tools=[image_tool], extra_create_args={\"tool_choice\": \"required\"}) — exactly the pattern used in python/packages/autogen-core/docs/src/user-guide/core-user-guide/design-patterns/group-chat.ipynb and autogen_ext/agents/web_surfer/_multimodal_web_surfer.py. create_args is seeded from extra_create_args at line 489 and was previously forwarded verbatim to the API via **create_params.create_args (line 670); line 626 now overwrites it with convert_tool_choice(tool_choice), whose default is \"auto\". The request goes out with tool_choice=\"auto\", the model may reply with plain text, and the notebook's `assert isinstance(completion.content, list)` fails. A constructor-level tool_choice stored in self._create_args is clobbered the same way.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/openai/_openai_client.py",
+      "line": 626,
+      "summary": "Whenever tools are passed, the new tool_choice parameter overwrites create_args[\"tool_choice\"] unconditionally, silently discarding a tool_choice that the caller supplied through extra_create_args or the client config."
+    },
+    {
+      "failure_scenario": "cache = ChatCompletionCache(OpenAIChatCompletionClient(...), InMemoryStore()); await cache.create(msgs, tools=[t], tool_choice=\"none\") stores the text answer under the key built at lines 120-127 from messages/tools/json_output/extra_create_args only. A later await cache.create(msgs, tools=[t], tool_choice=t) recomputes the identical key (lines 152 and 188) and returns the cached text answer with cached=True — the forced tool call is never made. Before this change tool_choice could only arrive through extra_create_args, which is part of the key, so the mismatch is newly introduced.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/cache/_chat_completion_cache.py",
+      "line": 120,
+      "summary": "ChatCompletionCache forwards the new tool_choice to the wrapped client but omits it from the cache key, so a response cached under one tool_choice is returned for a call that asked for a different one."
+    },
+    {
+      "failure_scenario": "client.create(messages, tools=[t], extra_create_args={\"tool_choice\": ChatCompletionsToolChoicePreset.REQUIRED}): extra_create_args is merged at line 375 and was previously forwarded through **create_args at line 393 (create_kwargs is derived from ChatCompletionsClient.complete, line 67, which accepts tool_choice). Line 390 now overwrites it with \"auto\"; the same happens in create_stream at line 490. The caller's forced tool call is silently downgraded.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/azure/_azure_ai_client.py",
+      "line": 390,
+      "summary": "The Azure client applies the same unconditional override: for any call with tools, create_args[\"tool_choice\"] is replaced by the new parameter (default \"auto\"), dropping a value supplied via extra_create_args or the client config."
+    },
+    {
+      "failure_scenario": "client.create(messages, tools=[], tool_choice=some_tool) on a client whose model_info[\"function_calling\"] is False: the check at line 585 only fires when len(tools) > 0, so it is bypassed, line 593 builds converted_tools=[some_tool], and line 638 sends that tool to Ollama anyway. A second effect: create(messages, tools=[add_tool], tool_choice=multiply_tool) silently sends multiply_tool, whereas the OpenAI client (openai _openai_client.py:620-621) and Anthropic client (_anthropic_client.py:631-632) raise ValueError for the same call.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/ollama/_ollama_client.py",
+      "line": 593,
+      "summary": "When tool_choice is a Tool, the Ollama client replaces the caller's tool list with just that tool and skips the function-calling capability guard, because the guard is keyed on len(tools) and this branch runs after it."
+    },
+    {
+      "failure_scenario": "client.create(messages, tools=[t], tool_choice=\"none\") (documented in the base class as \"none to disable tool usage\") hits the warning at lines 308-314 and then falls through to the branch at lines 316-322, which still calls create_chat_completion(..., tools=convert_tools(tools)). With function_calling=True the model receives the tool definitions and can answer with a tool call, so the caller asking for a plain text answer gets function_calls instead.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/llama_cpp/_llama_cpp_completion_client.py",
+      "line": 308,
+      "summary": "LlamaCppChatCompletionClient warns that tool_choice is ignored but never acts on it, so tool_choice=\"none\" still sends tools to the model and can still produce tool calls."
+    },
+    {
+      "failure_scenario": "SKChatCompletionAdapter(...).create(messages, tools=[t], tool_choice=\"none\") emits the warning at line 479 and continues; _build_execution_settings (line 488) and _sync_tools_with_kernel (line 491) still install the tools, so the model can emit FunctionCallContent and the method returns content as a list of FunctionCall with finish_reason \"function_calls\" — contradicting the documented \"none to disable tool usage\" contract.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/semantic_kernel/_sk_chat_completion_adapter.py",
+      "line": 478,
+      "summary": "SKChatCompletionAdapter warns that tool_choice may be unsupported and then ignores it entirely, leaving the tools registered in the kernel."
+    },
+    {
+      "failure_scenario": "test_ollama_create_stream_tools (line 658) uses the ollama_client fixture (lines 476-489), which returns a real OllamaChatCompletionClient and only skips when no local Ollama/model is reachable. Lines 685-687 assert prompt_tokens == 10 and completion_tokens == 12 — the exact values returned by the mock's prompt_eval_count=10 / eval_count=12 in the monkeypatched tests. For a real model the prompt includes the rendered tool schema, so prompt_eval_count is far above 10 and the assertion fails as soon as the test is not skipped. The added `content[0].arguments == json.dumps({\"x\": 2, \"y\": 2})` at lines 593 and 683 has the same copy-from-mock problem.",
+      "file": "python/packages/autogen-ext/tests/models/test_ollama_chat_completion_client.py",
+      "line": 686,
+      "summary": "A live Ollama integration test now asserts hard-coded token counts copied from the mocked tests, so it fails whenever it actually runs."
+    },
+    {
+      "failure_scenario": "self._create_calls.append({...}) at lines 193-201 stores messages, tools, json_output, extra_create_args and cancellation_token but not tool_choice. The property is used by autogen-agentchat tests (test_assistant_agent.py, test_group_chat.py:747) to assert what an agent sent to the model; a test verifying that a wrapper forwards tool_choice finds no such key, so the forwarding cannot be asserted through this standard test double.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/replay/_replay_chat_completion_client.py",
+      "line": 193,
+      "summary": "ReplayChatCompletionClient records every create() argument except the newly added tool_choice, so create_calls no longer mirrors the create signature."
+    },
+    {
+      "failure_scenario": "client.create(messages, tools=[], tool_choice=pass_tool) silently issues a request with no tool_choice, so the caller gets a normal text answer while believing the named tool was forced. The same call against the OpenAI client raises ValueError(\"tool_choice specified but no tools provided\") (openai _openai_client.py:607-608) and against Anthropic raises the same class of error (_anthropic_client.py:613-614), so provider-agnostic caller code behaves inconsistently across clients in this one PR.",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/azure/_azure_ai_client.py",
+      "line": 384,
+      "summary": "The Azure client never validates or reports a Tool passed as tool_choice when tools is empty; the whole tool_choice block is skipped, unlike the OpenAI and Anthropic clients which raise."
+    }
+  ],
+  "level": null
+}

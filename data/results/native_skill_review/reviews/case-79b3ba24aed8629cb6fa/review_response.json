@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User pages through a chat with unread messages (PageDown/space, where each jump is ~one viewport height) or drags the scrollbar and stops: the final resting screenful is never evaluated, so the unread messages visibly on screen stay unread (locally and on the backend) until another scroll event occurs. In an active chat auto-scrolled to the bottom, each new message arrival marks the previous message read but the newest visible message remains unread after messages stop arriving. On the very first scroll event after mount, 'top' is still its initial value 0, so the window [0, containerHeight] is evaluated instead of the actual position.",
+      "file": "src/ts/component/block/chat.tsx",
+      "line": 631,
+      "summary": "onScroll computes the read-marking viewport with the previous scroll event's position because this.getMessagesInViewport() is now called before 'this.top = st' (which previously ran first), so the viewport window always lags one event behind."
+    },
+    {
+      "failure_scenario": "Scrolling through a chat with 200 unread messages now fires ~200 sequential dispatcher.request calls to the local middleware (each a gRPC-web HTTP round trip plus a per-message read-marking on the backend) instead of the previous single range call after scrolling stopped; all calls in the session pass the identical lastStateId captured at the first scroll event, so if the backend treats lastStateId as a state-change guard, the calls after the first state mutation may be ignored.",
+      "file": "src/ts/component/block/chat.tsx",
+      "line": 628,
+      "summary": "The debounced batch (one ChatReadMessages range call per scroll-stop) was replaced with one gRPC-web ChatReadMessages round trip per unread message, each reusing the same lastStateId snapshot, causing a burst of redundant backend calls on every scroll."
+    },
+    {
+      "failure_scenario": "onReadStop and this.scrolledItems are now only written by scrollToBottom (which maps the entire viewport without the !isRead filter), while onScroll marks per message with the filter — the fields timeoutScrollStop is never set again (only cleared on unmount) and onReadStop's early-return guard implies a batching flow that no longer exists, making future edits to either path easy to misread and the two paths inconsistent (scrollToBottom marks user-set-unread messages read again).",
+      "file": "src/ts/component/block/chat.tsx",
+      "line": 633,
+      "summary": "The scroll-stop batching machinery (timeoutScrollStop, scrolledItems, onReadStop) is left half-dead: onScroll no longer populates scrolledItems or schedules onReadStop, leaving two parallel read-marking paths with different semantics."
+    }
+  ],
+  "level": null
+}

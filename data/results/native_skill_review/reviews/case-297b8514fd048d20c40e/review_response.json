@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "ZipTaxRate.combined_rate is a decimal column, so price_cents * india_tax_rate yields BigDecimal; `(BigDecimal(\"0.18\")*1000).round.to_s` is \"0.18e3\" and `round - 180` is \"0.0\". `row.to_csv` stringifies via to_s, so every row of the GST report has columns 8-11 filled with values like \"0.18e3\" and \"0.0\" (unreadable for the tax filing), and the PR's own spec assertions `eq(\"180\")`, `eq(\"0\")` (spec lines 143-146, 183-186) fail in CI. The template jobs avoid this by formatting via Money.new(...).format or to_s('F').",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 60,
+      "summary": "Expected Tax and Tax Difference columns are computed as BigDecimal and written to CSV raw, so they render as scientific notation (e.g. \"0.18e3\", \"0.0\") instead of \"180\"/\"0\"."
+    },
+    {
+      "failure_scenario": "refund_partial_purchase! (app/modules/purchase/refundable.rb:237-246) sets stripe_refunded = true only on full refund; a purchase partially refunded keeps stripe_refunded = false, so the `next if purchase.stripe_refunded == true` skip does not exclude it, and raw price_cents/gumroad_tax_cents are used. A 1000-cent India sale with 180 cents GST that is half refunded (500+90) appears as Taxable Value 1000 / Tax 180 instead of 500 / 90, overstating the GST filing. Both template jobs (create_canada_monthly_sales_report_job.rb:31-33, create_us_state_monthly_sales_reports_job.rb:78-79) use Purchase::Reportable's price_cents_net_of_refunds / gumroad_tax_cents_net_of_refunds.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 50,
+      "summary": "The report uses raw price_cents and gumroad_tax_cents instead of the net-of-refunds values, so partially refunded purchases are reported at their full pre-refund amounts."
+    },
+    {
+      "failure_scenario": "Charge::CreateService rescues ChargeProcessorCardError and sets purchase.stripe_transaction_id = e.charge_id (app/services/charge/create_service.rb:116-121) even when the card is declined; for a preorder, Purchase::BaseService#mark_items_failed then transitions the purchase to 'preorder_authorization_failed' (app/services/purchase/base_service.rb:61-66, app/models/purchase.rb:274-275). That state string != 'failed', so a declined preorder appears in the GST report as a sale with price_cents > 0 and tax 0, producing false under-collection rows. The template jobs use `Purchase.successful.not_fully_refunded.not_chargedback_or_chargedback_reversed` (app/models/purchase.rb:427, 453, 461) instead.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 40,
+      "summary": "The filter `purchase_state != 'failed'` is a raw string comparison that includes failed states with other names (preorder_authorization_failed, gift_receiver_purchase_failed, preorder_concluded_unsuccessfully) plus in_progress and test_successful purchases that carry a stripe_transaction_id."
+    },
+    {
+      "failure_scenario": "ip_state is populated from MaxMind's `most_specific_subdivision.iso_code` (lib/utilities/geo_ip.rb:26), i.e. ISO 3166-2 codes, and the Compliance layer uses the `countries` gem whose IN subdivisions include TG, OD and LA. A buyer in Hyderabad (ip_state \"TG\") hits `!VALID_INDIAN_STATES.include?(\"TG\")` and the GST report's core 'Place of Supply (State)' column is blank for that sale; the \"UT\"/\"OR\" entries never match current data.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 7,
+      "summary": "VALID_INDIAN_STATES is missing current ISO 3166-2:IN codes TG (Telangana) and LA (Ladakh) and contains non-ISO entries (UT, and the retired OR for Odisha, now OD), so purchases from those states get an empty Place of Supply."
+    },
+    {
+      "failure_scenario": "If the IN rate row is missing or soft-deleted (the `alive` scope from Deletable excludes deleted_at rows, e.g. while an operator replaces the rate), `.last` returns nil and `nil.combined_rate` raises; Sidekiq retries once (retry: 1) and then the job dies without uploading a report or posting to Slack, so the missing monthly GST report goes unnoticed.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 34,
+      "summary": "`ZipTaxRate.where(country: \"IN\", ...).alive.last.combined_rate` crashes with NoMethodError on nil when no alive India rate row exists, and failures are silent because Slack is only notified on success."
+    },
+    {
+      "failure_scenario": "The job accepts year back to 2014 and is invoked with explicit month/year for regeneration; India GST only began in 2017 and the IN combined rate has changed over time, so running perform(6, 2021) after a rate change recomputes every Expected Tax / Tax Difference column with today's rate, producing fabricated discrepancies in the report. Per-purchase historical rates exist in purchase_taxjar_info, which the US/Canada template jobs use instead.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 34,
+      "summary": "The job computes Expected Tax columns against the single current IN rate regardless of the year/month being reported, so backfilled months get wrong expected-tax figures."
+    },
+    {
+      "failure_scenario": "perform(1) on Jan 15, 2023 takes year from `1.month.ago` (Dec 2022), so it generates and posts to Slack a report labeled \"India 2022-01\" — 11 months off — instead of January 2023 or raising for the ambiguous call. Only the cron (no args) path is correct.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 15,
+      "summary": "Passing only month (or only year) silently mixes the supplied argument with the previous month's counterpart, producing a report for an unintended month."
+    },
+    {
+      "failure_scenario": "The job is executed with a real Aws::S3::Object (spec lines 67, 130, 173, 199), so the specs require live AWS credentials and network access; in a CI environment without credentials they error out, and when run they are slow/flaky and leak CSVs into the shared gumroad-specs bucket. The equivalent Canada spec wraps the same flow in `describe \"happy case\", :vcr` (spec/sidekiq/create_canada_monthly_sales_report_job_spec.rb:17).",
+      "file": "spec/sidekiq/create_india_sales_report_job_spec.rb",
+      "line": 67,
+      "summary": "The new spec performs real AWS S3 operations (upload_file, presigned_url, get against the shared 'gumroad-specs' bucket) without the :vcr metadata that the sibling report-job specs use."
+    },
+    {
+      "failure_scenario": "Every other report job reads its override via RedisKey (e.g. RedisKey.create_canada_monthly_sales_report_job_max_execution_time_seconds in app/services/redis_key.rb:36, used at create_canada_monthly_sales_report_job.rb:15), but this job hardcodes \"create_india_sales_report_job_max_execution_time_seconds\" with a different delimiter convention (underscores, no namespace), so the key is undiscoverable in the registry and ops cannot find or audit it alongside the others.",
+      "file": "app/sidekiq/create_india_sales_report_job.rb",
+      "line": 37,
+      "summary": "The max-execution-time override uses an ad-hoc raw Redis key string instead of a RedisKey constant, bypassing the repository's centralized key registry."
+    }
+  ],
+  "level": null
+}

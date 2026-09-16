@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Open the composer Apply view: the floating Reject/Accept button bar renders shifted right by half its own width (its left edge sits at the screen center) instead of being centered, as it was before the migration when `-translate-x-1/2` offset the `left-1/2` positioning.",
+      "file": "src/components/composer/ApplyView.tsx",
+      "line": 241,
+      "summary": "The fixed bottom Accept/Reject bar lost its `-translate-x-1/2` class during the Tailwind prefix migration, so `left-1/2` now puts the bar's left edge at the viewport center instead of centering the bar (dialog.tsx correctly migrated the same pattern as `-tw-translate-x-1/2`)."
+    },
+    {
+      "failure_scenario": "On desktop (`!Platform.isMobile`), hover any chat message: Copy/Edit/Delete/Show-sources buttons were previously invisible until hovering the message row (`tw-group`). With `prefix: \"tw-\"` enabled, the unprefixed `opacity-0` and `group-hover:opacity-100` classes match no generated CSS, so the buttons render permanently visible, cluttering every message row.",
+      "file": "src/components/chat-components/ChatButtons.tsx",
+      "line": 44,
+      "summary": "The conditional classes `\"group-hover:opacity-100 opacity-0\"` were left unprefixed while tailwind.config.js now generates only `tw-`-prefixed utilities, so on desktop the per-message action buttons are always visible instead of hidden until hover."
+    },
+    {
+      "failure_scenario": "While a project context loads (`isProjectLoading`), the overlay now covers the textarea with an opaque page-background-colored layer and renders the cycling loading message plus spinner at 80% opacity (opacity applies to children, not just the background); before the change the overlay stayed translucent so the input and its status text remained visible at full opacity.",
+      "file": "src/components/chat-components/ChatInput.tsx",
+      "line": 473,
+      "summary": "The project-loading overlay was rewritten from a translucent `bg-background/80 backdrop-blur-sm` to `tw-bg-primary tw-opacity-80`, painting a solid --background-primary panel over the chat input and applying 80% opacity to the entire element, dimming the loading message and spinner."
+    },
+    {
+      "failure_scenario": "Hover a project card in the Projects panel: the subtle accent-tinted background highlight no longer appears, the border jumps to full-strength accent color, and the folder icon is now rendered in the theme accent color instead of blue (line 48) — visible styling regressions versus the pre-migration UI, with the `hover:text-accent` recoloring having no visible effect since child spans set explicit text colors.",
+      "file": "src/components/chat-components/ProjectList.tsx",
+      "line": 44,
+      "summary": "The project-card hover style was changed from a subtle `hover:bg-interactive-accent/5` background tint with 30%-opacity border to a full-strength `hover:tw-border-interactive-accent` plus `hover:tw-text-accent` (which the children's explicit text colors override), and the folder icon's `text-blue-400` became `tw-text-accent`."
+    },
+    {
+      "failure_scenario": "Open the API-key dialog and expand a provider: the model dropdown (`ObsidianNativeSelect`) renders without the forced `!important` shadow that its two sibling select implementations still apply, so Obsidian's theme CSS for `<select>` elements overrides the utility — inconsistent shadow appearance among three copies of the same control that were previously identical.",
+      "file": "src/components/ui/obsidian-native-select.tsx",
+      "line": 29,
+      "summary": "The important modifier was dropped from `!shadow` (now `tw-shadow`) in ObsidianNativeSelect, while the identical select markup in setting-item.tsx:187 and InlineEditCommandSettingsModal.tsx:127 correctly kept `!tw-shadow`, so this select's box-shadow now loses to Obsidian's native select styles."
+    },
+    {
+      "failure_scenario": "Click a different tab in Copilot settings: the previously selected tab's icon container keeps class `tw--translate-x-4`, which matches no generated utility, so the icon no longer slides 1rem to the left during the collapse animation (it only fades via the opacity transition), breaking the animated behavior that worked before the prefix migration.",
+      "file": "src/components/ui/setting-tabs.tsx",
+      "line": 59,
+      "summary": "`tw--translate-x-4` places the negative sign after the `tw-` prefix, but Tailwind generates `-tw-translate-x-4` for negative utilities with a prefix, so the unselected tab's icon slide-out transform no longer applies."
+    },
+    {
+      "failure_scenario": "Open the Add Prompt modal: the syntax hint under the Prompt label renders 4px lower than intended because `tw--mt-1` matches no generated CSS, leaving an extra gap between the label and the hint compared to the pre-migration `-mt-1` layout.",
+      "file": "src/components/modals/AddPromptModal.tsx",
+      "line": 101,
+      "summary": "`tw--mt-1` uses the wrong negative-value ordering for a prefixed utility (Tailwind generates `-tw-mt-1`), so the negative top margin on the 'Use the following syntax in your prompt:' hint no longer applies."
+    },
+    {
+      "failure_scenario": "With a project open, the header now renders Edit as a prominent filled secondary button and the close X as a faint ghost2 icon button — the inverse of the pre-change hierarchy — and hovering Edit no longer shows the 'Edit Current Project' tooltip; the asymmetric treatment of two adjacent header controls looks like an accidental swap introduced alongside the class migration.",
+      "file": "src/components/chat-components/ProjectList.tsx",
+      "line": 264,
+      "summary": "During the migration the Edit and Close buttons in the active-project header swapped visual variants (Edit: ghost2/size-fit → secondary, Close: secondary → ghost2) and the Edit button was moved out of its Tooltip, losing the 'Edit Current Project' tooltip while Close keeps its 'Close Current Project' tooltip."
+    }
+  ],
+  "level": null
+}

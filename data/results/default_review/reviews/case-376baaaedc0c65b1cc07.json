@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "apps/studio/electron/main/index.ts",
+      "line": 98,
+      "summary": "cleanup() returns immediately before executing any cleanup logic, leaving injected data-onlook-id attributes in user source files, orphaned child processes (dev servers), lingering PTY terminal processes, and an unterminated Supabase auth auto-refresh loop on every app exit and auto-update",
+      "failure_scenario": "User opens a project (which injects data-onlook-id tracking attributes into source files and starts a dev server via PTY), then clicks 'Update and Restart'. updater.quitAndInstall() calls cleanup() which returns at line 98 without calling run.stopAll() (to remove injected IDs and close file watchers), terminal.killAll() (to kill the dev server PTY process), or cleanupAuthAutoRefresh() (to stop token refresh). The injected attributes persist permanently in the user's source files, the dev server remains alive occupying its port, and the Supabase auto-refresh continues making API calls. When the new app version starts, it fails to bind the dev server port (already in use by the orphaned process from the previous instance).",
+      "finding_id": "mf-d563079ed4f665380bd2"
+    }
+  ]
+}

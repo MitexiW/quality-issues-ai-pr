@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "apps/api/src/controllers/v2/batch-scrape.ts",
+      "line": 159,
+      "summary": "Computed `jobPriority` is never used; all jobs are enqueued with hardcoded priority 20 instead of the dynamically computed priority for large crawls (>1000 URLs).",
+      "failure_scenario": "A batch scrape with 5000 URLs calls `getJobPriority()` which returns priority 35 (based on team plan and queue depth), but all 5000 BullMQ jobs are created with `priority: 20`. This defeats the dynamic priority system: low-tier teams get the same priority as high-tier teams, and queue-depth-based deprioritization never activates.",
+      "finding_id": "mf-1f497b6902878db4e8ef"
+    },
+    {
+      "file": "apps/api/src/controllers/v2/batch-scrape.ts",
+      "line": 103,
+      "summary": "`getCrawl(req.body.appendToId)` may return null (expired crawl), but the result is cast as `StoredCrawl` without a null check; downstream access at line 154 (`sc.internalOptions`) throws TypeError.",
+      "failure_scenario": "A client sends `appendToId` with a UUID of a crawl that expired from Redis (>24h old). `getCrawl` returns null. The cast `as StoredCrawl` suppresses the null type. At line 154, `sc.internalOptions` throws `TypeError: Cannot read properties of null (reading 'internalOptions')`, returning a 500 error with no clear error message.",
+      "finding_id": "mf-e9213729ab8f05a716a0"
+    },
+    {
+      "file": "apps/api/src/controllers/v2/crawl-status.ts",
+      "line": 178,
+      "summary": "When the Supabase query to resolve unknown job statuses errors, the code `continue`s the pagination loop, silently skipping 1000 rows of data and leaving job statuses unresolved.",
+      "failure_scenario": "A batch scrape status check encounters an unknown job status (BullMQ lost the job key). The fallback DB query at line 169 errors transiently. The `continue` at line 180 increments `rangeStart += 1000` (line 166 loop step), permanently skipping those 1000 job IDs. Unknown jobs remain as 'unknown' and are silently filtered out at line 213-218, causing those jobs' results to be permanently missing from the status response.",
+      "finding_id": "mf-4810031f7ec6f3885e07"
+    },
+    {
+      "file": "apps/api/src/controllers/v2/crawl-status.ts",
+      "line": 279,
+      "summary": "When `scrapeJobCounts` is an empty array with no error, the condition enters the error branch and `throw scrapeJobError` throws `null` (or `undefined`), which the `wrap` function passes to `next(null)`, causing Express to treat it as 'no error' and silently fail.",
+      "failure_scenario": "The Supabase RPC `count_jobs_of_crawl_team` returns `{ data: [], error: null }` because the crawl ID exists but has no matching scrape jobs for this team. `scrapeJobError` is `null` (falsy), but `scrapeJobCounts.length === 0` is true, entering the error branch. `throw null` propagates through the async function; `wrap` catches it as `err = null` and calls `next(null)`, which Express treats as 'no error'. No error response is sent, and the client receives a misleading 404 from Express default handling instead of a clear error.",
+      "finding_id": "mf-73fdbfa6bb5a61d9e0a6"
+    },
+    {
+      "file": "apps/api/src/controllers/v2/crawl-status.ts",
+      "line": 326,
+      "summary": "When the crawl parent record is missing from the database but scrape job records exist, `doneJobsOrder` is set to an empty array, causing the response to report `totalCount > 0` but return empty `data`.",
+      "failure_scenario": "A crawl's Redis record expires but its scrape job records remain in Supabase. The status check enters the DB-only fallback (line 272). `crawlJobs` is empty (parent record also expired) but `scrapeJobCount` is 50 (child records exist). Status is set to `\"completed\"`, `doneJobsLength = 50`, but `doneJobsOrder = []` (line 326). The `data` array in the response is empty despite showing `total: 50` and `completed: 50`. Pagination `next` URL points to `skip=0`, creating a client-side infinite loop.",
+      "finding_id": "mf-e1c5d2a244d8bd4d1f88"
+    },
+    {
+      "file": "apps/api/src/controllers/v2/crawl-status.ts",
+      "line": 442,
+      "summary": "`getCrawlExpiry` queries Redis `pttl` which returns -2 when the crawl key doesn't exist; in the DB-only fallback path this produces an `expiresAt` date in the past, misleading the client.",
+      "failure_scenario": "A batch scrape's Redis key expires but the status check reaches the DB-only fallback. `getCrawlExpiry` computes the expiry as `new Date() + (-2ms)`, yielding an `expiresAt` ISO string approximately equal to the current time (already expired). The client sees a job that appears to have already expired, even though the underlying DB records still exist and the job data is accessible.",
+      "finding_id": "mf-add5c5be8f1ffeae502c"
+    }
+  ]
+}

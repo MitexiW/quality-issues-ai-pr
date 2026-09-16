@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User calls client.responses.create(model=..., tools=[...]) non-streaming; the model returns output=[function_call(arguments='\"Option B\"')]. json.loads returns a str, args.get('reasoning') raises AttributeError; responses_stream_wrapper's except block records the error on the span and re-raises, so the user's call raises AttributeError: 'str' object has no attribute 'get' even though the API returned a valid Response (same for arguments='null' or '[1,2]'). Only json.JSONDecodeError is caught (line 174).",
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 169,
+      "summary": "json.loads() results are assumed to be dicts, so a function_call whose arguments parse to valid non-object JSON (bare string, array, null, number) crashes the wrapper with AttributeError and the exception is re-raised to the caller of a successful API call."
+    },
+    {
+      "failure_scenario": "client.responses.create(model='gpt-4o', input='Say hi') non-streaming: response_dict['output'] message item content is [{'type': 'output_text', 'text': 'Hi!'}]; the check content_item.get('type') == 'text' never matches, text_parts stays empty, and the span gets no completion content/role — the core telemetry the PR adds is silently missing. The same wrong literal appears in the response.completed handler at stream_wrapper.py:727 (dead branch) and in examples/openai/o3_responses_example.py:180 (reasoning_text always empty). The repo's own working code uses 'output_text' (agentops/instrumentation/agentic/openai_agents/attributes/completion.py:99).",
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 146,
+      "summary": "Completion text is never extracted because the code checks content type == 'text', but Responses API output parts have type 'output_text', so non-streaming responses record no gen_ai.completion.*.content or .role attributes at all."
+    },
+    {
+      "failure_scenario": "Streaming o3 call that emits a reasoning output item: response.completed handler appends str(output_item.summary) — e.g. \"[Summary(text='Let me break this down...', type='summary_text')]\" — to _reasoning_chunks, so the span's completion content attribute becomes 'Reasoning: [Summary(text=..., type=\\'summary_text\\')]' instead of the actual reasoning; the elif hasattr(output_item, 'content') fallback is unreachable because 'summary' always exists. The non-streaming twin in wrappers/responses.py:184 does the same thing with the dumped list-of-dicts used directly as a span attribute value.",
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 713,
+      "summary": "Reasoning content is recorded as Python repr junk because ResponseReasoningItem.summary is a list of Summary objects (not a string), so str(output_item.summary) yields '[Summary(text=..., type=\"summary_text\")]' or 'None' instead of the reasoning text."
+    },
+    {
+      "failure_scenario": "Any client.responses.create(...) call with tools in the Responses API format (the flat shape used by the PR's own examples/openai/o3_responses_example.py, lines 85-103): 'function' in tool is always False, so no gen_ai.request.functions.*.name/description/parameters attributes are ever set on the span, silently losing the tool definitions the feature is meant to capture.",
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 74,
+      "summary": "Tool attributes are never recorded for the Responses API because the extraction requires the Chat Completions nested shape {\"type\": \"function\", \"function\": {...}}, while Responses API tools are flat dicts {\"type\": \"function\", \"name\": ..., \"parameters\": ...}."
+    },
+    {
+      "failure_scenario": "client.responses.create(model='gpt-4o', max_output_tokens=512): the SDK never puts 'max_tokens' in kwargs (it is not a Responses parameter), so LLM_REQUEST_MAX_TOKENS is never set even though the user explicitly capped output; frequency_penalty/presence_penalty checks are dead for this API. The existing extractor in agentops/instrumentation/providers/openai/attributes/response.py:87 already maps LLM_REQUEST_MAX_TOKENS to 'max_output_tokens', confirming the correct parameter name.",
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 39,
+      "summary": "The wrapper checks Chat Completions-only kwargs (max_tokens, frequency_penalty, presence_penalty) and ignores the Responses API's max_output_tokens, so gen_ai.request.max_tokens is never recorded for Responses calls."
+    },
+    {
+      "failure_scenario": "Response output = [reasoning_item, function_call] where the function call's arguments lack a 'reasoning' key: reasoning content is written to gen_ai.completion.0.content, completion_idx becomes 1, but the function_call's tool_calls.0.* attributes are written to gen_ai.completion.1 — a phantom completion holding tool calls with no content/role; conversely a later message item writes its content into completion.1, merging unrelated tool calls and text into one completion entry and corrupting the dashboard view.",
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 178,
+      "summary": "Tool-call details are indexed by the output-list position (i) while completion content/role use the separate completion_idx counter, so tool calls land on the wrong or phantom gen_ai.completion.N entry whenever output items interleave."
+    },
+    {
+      "failure_scenario": "OpenAIAsyncStreamWrapper._process_chunk (lines 304-389) and _finalize_stream (391-449) are line-for-line copies of OpenaiStreamWrapper's (87-232); any future bug fix to one copy (e.g., the usage-only chunk handling or first-token detection) must be applied manually in both places, and the classes already differ in state (sync sets _current_tool_call_index) — a maintainability regression with no behavioral benefit over the previous delegation.",
+      "file": "agentops/instrumentation/providers/openai/stream_wrapper.py",
+      "line": 304,
+      "summary": "The diff replaces the async wrapper's reuse of the synchronous implementation (OpenaiStreamWrapper._process_chunk(self, chunk) / _finalize_stream(self)) with ~290 verbatim duplicated lines, creating two copies of streaming logic that will silently diverge."
+    },
+    {
+      "failure_scenario": "The existing typed extractor captures instructions, metadata, max_output_tokens, cached_tokens, web_search/file_search/computer tools, output annotations, and plain-string input; the new dict-based copy captures none of these and disagrees on key mappings ('max_tokens' vs 'max_output_tokens', 'text' vs 'output_text'), so the same responses.create call yields different span attribute sets depending on which instrumentation path processes it, and every future fix must be made in two places.",
+      "file": "agentops/instrumentation/providers/openai/wrappers/responses.py",
+      "line": 21,
+      "summary": "handle_responses_attributes re-implements response/tool/usage extraction that already exists in agentops/instrumentation/providers/openai/attributes/response.py (get_response_kwarg_attributes, get_response_response_attributes, get_response_output_attributes, get_response_usage_attributes) with weaker and divergent coverage."
+    }
+  ],
+  "level": null
+}

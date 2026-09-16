@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "A well-formed sitemap containing <url><loc>/about-us</loc></url>: Url::parse(\"/about-us\") returns RelativeUrlWithoutBase, the URL is dropped with no log and no denial reason, and process_sitemap omits it entirely. The old JS path passed \"/about-us\" through to urlsHandler, where filterURL (crawler.ts:443-457, new URL(href, initialUrl)) resolved it and crawled https://example.com/about-us. Because the Rust parse succeeds, the xml2js fallback never runs — so the same sitemap loses relative URLs when well-formed but crawls them via the fallback when malformed elsewhere.",
+      "file": "apps/api/sharedLibs/crawler/src/lib.rs",
+      "line": 329,
+      "summary": "The new Rust sitemap processor silently discards any <loc> URL that fails Url::parse (relative or scheme-less URLs), so pages the previous JavaScript pipeline resolved against the base URL and crawled are now omitted from crawls."
+    },
+    {
+      "failure_scenario": "Any malformed sitemap (e.g. an unescaped & in a <loc>, common in real-world sitemaps): processSitemap rejects with the roxmltree error, then parseSitemapXml rejects with the identical error from the identical parse, and only parseStringPromise ever yields a result. The Rust parse branch can never contribute; it adds a second rejected FFI call and a duplicated parse per fallback, and misleads maintainers into thinking Rust parsing participates in the fallback.",
+      "file": "apps/api/src/scraper/WebScraper/sitemap.ts",
+      "line": 110,
+      "summary": "The fallback's first parse attempt (parseSitemapXml) fails for every content-determined error that triggers the fallback, because _process_sitemap runs the same _parse_sitemap_xml first and every subsequent step is infallible — making the branch dead code that doubles FFI round-trips on each fallback."
+    },
+    {
+      "failure_scenario": "Maintainability cost: two identical struct definitions must be kept in sync, and every instruction-construction site redundantly sets count: urls.len() and aggregates total_count even though the JS consumer (sitemap.ts:177-191) recomputes counts from instruction.urls.length and never reads total_count — derivable fields that can silently diverge from the actual URL list.",
+      "file": "apps/api/sharedLibs/crawler/src/lib.rs",
+      "line": 34,
+      "summary": "SitemapUrl and SitemapEntry are identical structs (both only loc: Vec<String>), and SitemapInstruction.count plus SitemapProcessingResult.total_count are derivable state duplicating urls.len(), with total_count never consumed by the TypeScript caller."
+    }
+  ],
+  "level": null
+}

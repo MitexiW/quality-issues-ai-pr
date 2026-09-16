@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "POST /v1/scrape with url \"http://user:pass@example.com/page?q=1\": before this change the schema returned a 400 (checkUrl's colon-count guard rejects userinfo URLs); now the preprocess returns \"http://example.com/page?q=1\", passes validation, and the scraper fetches the URL without credentials, returning a 401/login page while the caller believes the authenticated resource was scraped.",
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 34,
+      "summary": "Rebuilding URLs that have a query string from urlObj.origin silently strips embedded credentials (user:pass@), so authenticated URLs are accepted but scraped without auth instead of being rejected."
+    },
+    {
+      "failure_scenario": "url.parse('https://example.com/docs?page=2#section-3') returns 'https://example.com/docs?page=2'; the scrape job payload, crawl originUrl, and the returned document's metadata.sourceURL all lose the fragment the client submitted (e.g. Chrome 'copy link to highlight' URLs with #:~:text=...), so responses reference a different URL than the one requested.",
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 34,
+      "summary": "Rebuilding the URL from origin+pathname+query silently drops the fragment (#...), altering the URL handed to the pipeline and reported back to the user."
+    },
+    {
+      "failure_scenario": "'https://example.com/path?a=1;b=2' becomes 'https://example.com/path?a=1%3Bb=2' (a server splitting params on ';' now sees one param instead of two); '?q=50%' becomes '?q=50%25'; '?q=%41' becomes '?q=A'; '?flag' becomes '?flag='. Signature verification, exact-byte cache keys (CDN cache policies), and legacy semicolon-separated parsers receive different input than the caller sent, even though the URL was already valid.",
+      "file": "apps/api/src/controllers/v1/types.ts",
+      "line": 33,
+      "summary": "Running every query through URLSearchParams parse/re-serialize rewrites the raw query bytes of already-valid URLs, which is not semantics-preserving for servers that consume the query without form-decoding."
+    },
+    {
+      "failure_scenario": "Running 'yarn test:snips' (apps/api/package.json) does not execute special-characters.test.ts because the glob's '*' does not cross directory separators; the suite that exists specifically to run these snippet tests reports green without exercising the new URL-validation regression tests (they only run under the default jest testMatch).",
+      "file": "apps/api/src/__tests__/snips/url-validation/special-characters.test.ts",
+      "line": 1,
+      "summary": "The new test is placed in a nested subdirectory that the dedicated 'test:snips' script glob (src/__tests__/snips/*.test.ts) does not match, so the snips suite silently skips this regression coverage."
+    }
+  ],
+  "level": null
+}

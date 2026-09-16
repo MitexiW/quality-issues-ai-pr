@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Agent(role=\"R\", goal=\"G\", backstory=\"B\", system_template=\"You are a pirate\") with default use_system_prompt=True: kickoff() calls create_agent_executor → task_execution() (line 30 condition false because system_template is truthy) returns only {\"prompt\": _build_prompt(...)}; _build_prompt (line 57) falls back to the default i18n prompt because prompt_template is None, discarding \"You are a pirate\". CrewAgentExecutor.invoke (crew_agent_executor.py:98) finds no \"system\" key and sends the default role-playing prompt as the user message — the agent runs without any system message and the user's custom template is silently ignored. Previously this configuration raised AttributeError, a loud failure; now it silently produces default behavior.",
+      "file": "src/crewai/utilities/prompts.py",
+      "line": 57,
+      "summary": "With only one custom template provided, the user's template is silently discarded: _build_prompt's new `or`-fallback returns the default prompt, while task_execution's unchanged `and`-condition (lines 29-33) routes to the branch that omits the \"system\"/\"user\" keys, so the configured template never reaches the LLM."
+    },
+    {
+      "failure_scenario": "The old bug lived in Prompts._build_prompt, which is only reached via execute_task → create_agent_executor (agent.py:271, 427); the tests only construct Agent and assert role/goal/backstory, which never invoked prompt building even before the fix. Running these tests on the baseline (crashing) code passes, giving false confidence that the fix is covered while a regression of the exact crash or of the silent-template-drop would go undetected.",
+      "file": "tests/agent_test.py",
+      "line": 76,
+      "summary": "The three new tests (test_agent_with_only_system_template, test_agent_with_only_prompt_template, test_agent_with_missing_response_template) never exercise the changed code path, so they pass against the pre-fix code that crashed with AttributeError."
+    },
+    {
+      "failure_scenario": "Agent.tools defaults via default_factory=list (base_agent.py:111-113) and create_agent_executor does `tools or self.tools or []` (agent.py:416); no other test asserts an agent's tools defaults to an empty list (only task.tools is checked at crew_test.py:1688). If the default were changed to None or a shared list, `len(agent.tools)`, delegation logic, and has_tools prompt selection would silently misbehave with no test failing.",
+      "file": "tests/agent_test.py",
+      "line": 75,
+      "summary": "Removal of `assert agent.tools == []` from test_agent_creation drops the only coverage of the Agent.tools default without re-establishing it in the replacement tests."
+    },
+    {
+      "failure_scenario": "CrewAgentExecutor._format_prompt (crew_agent_executor.py:370) replaces `{input}` (along with `{tool_names}` and `{tools}`) in system, user, and combined prompts at execution time, so `{input}` remains valid in custom templates. A user following the revised note can no longer learn that `{input}` (the task description) is available, and any doc-generation or validation based on the note would treat a still-working `{input}` placeholder as unsupported.",
+      "file": "docs/concepts/agents.mdx",
+      "line": 262,
+      "summary": "The docs no longer mention `{input}` as an available template variable even though it is still populated during execution, understating the supported variables users can use."
+    },
+    {
+      "failure_scenario": "The docstring and comment misdescribe the test's setup (a prompt_template with no system_template), so a reader debugging a failure or auditing template-matrix coverage will conclude the wrong configuration is being tested; the comment is actively inverted relative to the code on line 98.",
+      "file": "tests/agent_test.py",
+      "line": 92,
+      "summary": "Copy-paste docstring error: test_agent_with_only_prompt_template's docstring says \"only system_template\", and its inline comment says \"prompt_template is intentionally missing\" when it is system_template that is missing."
+    }
+  ],
+  "level": null
+}

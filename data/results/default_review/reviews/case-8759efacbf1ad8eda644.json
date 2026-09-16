@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "file": "apps/web/client/src/server/api/routers/settings.ts",
+      "line": 37,
+      "summary": "`.values(input)` passes a nested wrapper object `{ projectId, settings: {...} }` instead of flattened column values, causing the insert to only set projectId and drop the settings data on first insert",
+      "failure_scenario": "User edits project commands in settings UI, saves → client calls upsert with `{projectId: \"abc\", settings: {projectId: \"abc\", runCommand: \"yarn dev\", ...}}` → Drizzle's `.values(input)` sees only `projectId` as a matching column, ignores the `settings` key entirely → first insert creates a row with `run_command='', build_command='', install_command=''` (all defaults) → `returning()` returns this broken row → on next page load, `restoreProjectSettings` fetches the broken row → user's saved commands are overwritten with empty strings",
+      "finding_id": "mf-1637ed90193560c30b38"
+    },
+    {
+      "file": "apps/web/client/src/components/store/project/version.ts",
+      "line": 54,
+      "summary": "`createCommit` sets `this.isSaving = true` then falls through the try block without any commit logic and without returning a result, causing the function to return `undefined` — all callers interpret `undefined` as a failure",
+      "failure_scenario": "User clicks 'New backup' button → `createCommit()` runs → `isSaving` guard passes → `isSaving = true` → no actual commit creation happens → try block ends → finally sets `isSaving = false` → function returns `undefined` → caller checks `!res?.success` → `!undefined?.success` is `true` → caller logs error and shows failure toast 'Failed to create commit'",
+      "finding_id": "mf-27dccdbc3f9228973956"
+    },
+    {
+      "file": "apps/web/client/src/components/ui/settings-modal/site/page.tsx",
+      "line": 15,
+      "summary": "Fallback chain duplicates `domainsManager.domains.preview?.url` twice instead of falling through to `domainsManager.domains.custom?.url`; custom domain URL is never used as a fallback",
+      "failure_scenario": "Project has a published custom domain with no preview domain → `baseUrl` resolves to `project?.sandbox.url` (the sandbox URL) since both preview references are null → page metadata saves the sandbox URL instead of the user-visible custom domain → OpenGraph metadata points visitors to the sandbox URL instead of the published custom domain",
+      "finding_id": "mf-773ef97fe2dd3031c1c8"
+    },
+    {
+      "file": "apps/web/client/src/components/ui/settings-modal/site/index.tsx",
+      "line": 54,
+      "summary": "When `baseUrl` is `undefined`, `baseUrl?.startsWith('http')` returns `undefined` (falsy), constructing `\"https://undefined\"` which is truthy, so `new URL(\"https://undefined\")` creates a URL with hostname \"undefined\"",
+      "failure_scenario": "New project with no domains configured (no preview, no custom, no sandbox) → `baseUrl` is `undefined` → url becomes `\"https://undefined\"` → `new URL(\"https://undefined\")` succeeds with hostname \"undefined\" → `metadataBase` saved as `new URL('https://undefined')` → generated code exports `metadataBase: new URL(\"https://undefined\")` which is a corrupt metadata value",
+      "finding_id": "mf-398b098f939e79261d23"
+    },
+    {
+      "file": "apps/web/client/src/components/ui/settings-modal/site/page.tsx",
+      "line": 50,
+      "summary": "Same URL-from-undefined pattern as site/index.tsx: when `baseUrl` is `undefined`, produces `new URL(\"https://undefined\")`",
+      "failure_scenario": "Same as site/index.tsx — corrupt `metadataBase` when no domain URL is available for a page's metadata",
+      "finding_id": "mf-e53ba25ef76e2a7aa6f2"
+    },
+    {
+      "file": "apps/web/client/src/components/ui/settings-modal/site/use-metadata-form.ts",
+      "line": 43,
+      "summary": "`useEffect` resets `title` and `description` to `initialMetadata` values whenever `initialMetadata` reference changes, silently overwriting in-progress user edits regardless of the `isDirty` flag",
+      "failure_scenario": "User types a new title into the metadata form → parent component re-renders, creating a new `initialMetadata` object reference (with the same values) → `useEffect` fires → `setTitle` and `setDescription` are called with the original values → user's unsaved edit is silently discarded → user sees their typed text replaced with the old value mid-typing",
+      "finding_id": "mf-a60a4039d07c17c66015"
+    },
+    {
+      "file": "apps/web/client/src/components/store/project/version.ts",
+      "line": 94,
+      "summary": "`checkoutCommit` shows toast.success('Restored to backup!') and returns `true` after `createCommit` succeeds, but never actually checks out or restores any commit — the restore functionality is marked `// TODO: Implement`",
+      "failure_scenario": "User selects a backup to restore → `checkoutCommit` is called → `createCommit` returns success (once fixed) → toast shows 'Restored to backup!' → method returns `true` → no actual checkout or file restoration occurs → user believes their project was restored but nothing changed",
+      "finding_id": "mf-1281f467c91dac834c10"
+    },
+    {
+      "file": "apps/web/client/src/app/project/[id]/_components/top-bar/publish/dropdown/custom-domain-section.tsx",
+      "line": 46,
+      "summary": "`skipBuild: false` was removed from custom domain deployment options but remains in preview domain section — if the deploy service defaults `skipBuild` to `true`, custom domain deployments would skip the build step",
+      "failure_scenario": "User clicks 'Publish to custom domain' with a hosting provider where `skipBuild` defaults to `true` → build step is skipped for custom domain deployment → stale previously-built files are deployed to the live custom domain → meanwhile preview domain deploys fresh content (since `skipBuild: false` is still present there) → production site runs old content while preview shows new content",
+      "finding_id": "mf-f9d1c741682385cccc31"
+    }
+  ]
+}

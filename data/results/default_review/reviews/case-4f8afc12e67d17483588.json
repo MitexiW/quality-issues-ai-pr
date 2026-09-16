@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "src/evaluator.ts",
+      "line": 188,
+      "summary": "The includeLogProbs option was dropped from the callApi invocation; perplexity assertions will fail because providers no longer receive the flag to request log probabilities",
+      "failure_scenario": "An eval with a config like 'assert: [{ type: perplexity, threshold: 5 }]' triggers callApi on the openai/azure/adaline provider. Without the third argument { includeLogProbs: true }, the provider never sends logprobs to the API, the response lacks logProbs, and the perplexity assertion handler throws 'does not support providers that do not return logProbs'.",
+      "finding_id": "mf-b12315f863cd5256e126"
+    },
+    {
+      "file": "test/providers/pythonCompletion.test.ts",
+      "line": 133,
+      "summary": "Test expectation changed to an error message ('Cannot use in operator') that the production code never throws for string results because typeof check short-circuits the in-expression",
+      "failure_scenario": "The test mockRunPython.mockResolvedValue('string result') causes result to be the string 'string result'. The validation check '!result || typeof result !== \"object\" || (!(\"output\" in result) && !(\"error\" in result))' short-circuits at 'typeof result !== \"object\"' (true), so the in operator is never evaluated. The actual error thrown is 'The Python script call_api must return a dict...\"string result\"', not 'Cannot use in operator'. The test will fail when run.",
+      "finding_id": "mf-df1141432c41037146c7"
+    }
+  ]
+}

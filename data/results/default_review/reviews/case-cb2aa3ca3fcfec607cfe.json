@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "apps/api/sharedLibs/crawler/src/lib.rs",
+      "line": 329,
+      "summary": "URLs in urlset entries that fail Url::parse() are silently dropped, while the original JS code unconditionally passed all non-file, non-xml URLs to the urlsHandler callback.",
+      "failure_scenario": "A sitemap contains <url><loc>https://example.com/path with spaces</loc></url>. The unencoded spaces cause Url::parse to fail. The URL is silently dropped — it falls into neither xml_sitemaps nor valid_urls. The _process_sitemap function returns Ok without error, so the JS caller never knows the URL was lost and never triggers the JS fallback logic that would have handled it.",
+      "finding_id": "mf-2ce57fafebe10a783b82"
+    },
+    {
+      "file": "apps/api/src/lib/crawler.ts",
+      "line": 91,
+      "summary": "The new parseSitemapXml and processSitemap methods duplicate the exact same promise/error-handling/RUSTFC:ERROR block pattern from filterLinks, creating a maintenance burden where any fix must be replicated across three nearly identical code blocks.",
+      "failure_scenario": "A future developer fixing a bug in the RUSTFC:ERROR prefix parsing logic (e.g., edge cases in the res.split call) fixes filterLinks but misses parseSitemapXml or processSitemap, leaving inconsistent error handling across the three FFI wrappers.",
+      "finding_id": "mf-4f63699456dbffda8ef4"
+    }
+  ]
+}

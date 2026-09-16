@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "SPMD GPU hist training with bootstrap=false (the new 'df cls/reg base check with default params bootstrap disabled' tests run exactly this): gen_initial_tree_order submits the ind_lrc-write kernel (line 437) and then overwrites last_event with initialize_tree_order's event when row_count>0 (line 447), dropping the first kernel's event. oneDAL creates out-of-order SYCL queues (no in_order property anywhere in cpp/oneapi/dal), so compute_initial_histogram (deps {last_event}) can read node_list's ind_lrc (train_service_kernels_dpc.cpp:185) before the write lands, reading the stale 0 from the to_device copy, which yields node_block_count=1 and histograms computed over zero rows — a silently wrong model; get_oob_row_list reads the same un-ordered node_list. The old code wrote ind_lrc on the host synchronously before the device copy, so this race is introduced by the change.",
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 447,
+      "summary": "In the non-bootstrap distributed path, the event of the kernel that writes node_list ind_lrc is overwritten by the initialize_tree_order event, so all downstream kernels reading ind_lrc are unordered against that write."
+    },
+    {
+      "failure_scenario": "On a device whose name contains 'Data Center GPU Max' (Ponte Vecchio), indexed_features::operator() (train_feature_type_dpc.cpp:444-449) passes {last_event} (extract_column's event) as deps, but the function drops deps and calls DPL radix_sort_by_key with no dependency; on the out-of-order queue the sort kernel can read values_nd/indices_nd before extract_column finishes writing them, producing unsorted values and wrong per-column bins that corrupt the binned training data (full_data_nd_) and the trained model. The same deps-ignoring call happens in sort_inplace (train_feature_type_dpc.cpp:284).",
+      "file": "cpp/oneapi/dal/backend/primitives/sort/sort_dpc.cpp",
+      "line": 549,
+      "summary": "radix_sort_indices_inplace_dpl ignores its deps parameter, so the DPL radix sort is not ordered after extract_column and races with it."
+    },
+    {
+      "failure_scenario": "SPMD training with set_engine_type(engine_type::mt2203) — a public enum value and the engine oneDAL previously used — calls engine_gpu.skip_ahead(skip_value): skip_ahead_cpu advances the DAAL host engine but gen_mt2203::skip_ahead_gpu does nothing, so each rank's oneMKL device engine starts from the same seed and produces identical random row indices for every tree on every rank. All ranks then bootstrap the same rows, silently biasing the distributed forest and diverging from single-process results; the old host_engine_collection path performed per-tree skips on the host for mt2203, so this regression is introduced by the switch to device_engine.",
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 1834,
+      "summary": "skip_ahead on the device engine is a no-op for mt2203 (device_engine.hpp:75-77), so SPMD training with the mt2203 engine advances only the host engine and every rank generates the identical bootstrap tree order."
+    },
+    {
+      "failure_scenario": "A CPU user calls set_engine_type(engine_type::mt19937) and get_engine_type() then returns mt19937, but training still runs with daal mt2203 (backend/cpu/train_kernel_cls.cpp:107 and train_kernel_reg.cpp:82 hardcode mt2203 and never read the descriptor field); likewise the default get_engine_type() reports philox4x32x10 on CPU where mt2203 is actually used. The documented 'Engine method for the random numbers generator used by the algorithm' contract is silently broken on the CPU backend.",
+      "file": "cpp/oneapi/dal/algo/decision_forest/common.hpp",
+      "line": 607,
+      "summary": "The new set_engine_type/get_engine_type descriptor API is honored only by the GPU hist backend; the CPU backend hardcodes mt2203, so the API silently has no effect and misreports the engine on CPU."
+    },
+    {
+      "failure_scenario": "A caller submits radix_sort_dpl with non-empty deps (e.g., waiting for the kernels producing val_in) and then waits on the returned event: on oneDAL's out-of-order queues, the returned event covers only the final row's kernel, so rows sorted earlier may still be running — or racing with the producers of val_in, since the deps are never attached to any DPL call — when the caller reads val_out. The 3-arg overload forwards deps only to be discarded. Currently uncalled in-repo, but it is exported library API (ONEDAL_EXPORT instantiations).",
+      "file": "cpp/oneapi/dal/backend/primitives/sort/sort_dpc.cpp",
+      "line": 579,
+      "summary": "radix_sort_dpl ignores its deps parameter and returns only the last row's event, so waiting on the returned event does not cover the earlier rows' sort kernels."
+    },
+    {
+      "failure_scenario": "Every tree level of every block now performs node_vs_tree_map.to_host(queue_) — a device-to-host copy of node_count elements whose result is discarded (the per-tree engine selection that used tree_map_ptr was removed) — and ndarray::to_host waits on the copy event, stalling the host pipeline per level; the copy is also submitted with no dependency on the kernels that produced node_vs_tree_map. Removing the statement eliminates the per-level transfer and sync.",
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_kernel_hist_impl_dpc.cpp",
+      "line": 510,
+      "summary": "gen_random_thresholds still copies node_vs_tree_map from device to host even though the result is no longer used, adding a per-level device-to-host transfer and a synchronization."
+    },
+    {
+      "failure_scenario": "Any device whose name does not contain 'Data Center GPU Max' (future generations, renamed SKUs, other vendors) silently skips the DPL path even if it supports ESIMD, while any device whose name contains the substring gets the ESIMD path regardless of actual support (e.g., through non-Level-Zero backends where ESIMD is unavailable). The magic string must be maintained by hand as Intel product names change, and the check is duplicated in two places instead of probing device capability once.",
+      "file": "cpp/oneapi/dal/algo/decision_forest/backend/gpu/train_feature_type_dpc.cpp",
+      "line": 442,
+      "summary": "The DPL radix-sort path is selected by substring-matching the device name 'Data Center GPU Max' instead of a capability probe, a fragile bandaid duplicated in sort_inplace and indexed_features::operator()."
+    }
+  ],
+  "level": null
+}

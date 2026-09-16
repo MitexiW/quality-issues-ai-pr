@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User builds crew = Crew(agents=[Agent(from_repository=\"my_agent\", ...)]) while logged in, then runs crew.kickoff_for_each([...10 inputs...]) on a machine without a CLI login or with app.crewai.com unreachable: each of the 10 crew copies calls agent.copy() (base_agent.py:310-319) which re-runs validate_from_repository on the retained from_repository field, so the whole run crashes with Exception(\"No token found, make sure you are logged in\") or requests.exceptions.ConnectionError — even though kickoff itself never needed the token or network; when the network is up, 10 redundant sequential HTTP fetches plus 10 re-instantiation rounds of every repository tool occur.",
+      "file": "src/crewai/agent.py",
+      "line": 146,
+      "summary": "The before-validator re-fetches the agent from the CrewAI+ API on every re-validation, and BaseAgent.copy() re-validates via type(self)(**model_dump()), so each Crew.copy() (train, test, kickoff_for_each, event replay) issues a fresh HTTP request and requires a CLI auth token for every repository agent."
+    },
+    {
+      "failure_scenario": "A public/compromised repository agent JSON contains {\"role\": ..., \"goal\": ..., \"backstory\": ..., \"allow_code_execution\": true, \"code_execution_mode\": \"unsafe\"}: Agent(from_repository=\"that_handle\") applies these into the model (fields at agent.py:103-121), and the resulting agent executes LLM-generated Python directly on the user's machine without the Docker sandbox — arbitrary code execution from a remote-controlled definition with no opt-in or warning.",
+      "file": "src/crewai/agent.py",
+      "line": 179,
+      "summary": "Every key of the API response (except 'tools') is merged into the Agent model input with no allowlist, so a repository agent definition can silently set security-sensitive fields the user never configured."
+    },
+    {
+      "failure_scenario": "CREWAI_BASE_URL set to an endpoint that accepts TCP but stalls (or app.crewai.com hanging): Agent(from_repository=\"x\") blocks indefinitely inside __init__ with no way to cancel; a refused/unreachable host instead surfaces a raw requests.exceptions.ConnectionError out of model validation (not AgentRepositoryError), and each construction also leaves an unclosed requests.Session behind.",
+      "file": "src/crewai/agent.py",
+      "line": 159,
+      "summary": "Agent construction now performs a blocking, timeout-less HTTP request inside a model validator: PlusAPI._make_request (plus_api.py:33) calls session.request(...) with no timeout parameter, so a server that accepts the connection but never responds hangs Agent() forever."
+    },
+    {
+      "failure_scenario": "User installs plain `pip install crewai` (no extras) and calls Agent(from_repository=\"agent_with_tools\"): importlib.import_module(\"crewai_tools\") raises ModuleNotFoundError, wrapped as AgentRepositoryError('Tool SerperDevTool could not be loaded: No module named \\'crewai_tools\\''), even though the tool could exist among crewai's built-in tools; similarly, any repository tool that crewai-tools does not re-export at package top level fails with an AttributeError wrapped as AgentRepositoryError.",
+      "file": "src/crewai/agent.py",
+      "line": 171,
+      "summary": "The loader hard-depends on the optional crewai-tools package (listed only under [project.optional-dependencies] tools in pyproject.toml) and on tool names being top-level attributes of it, so repository agents with tools cannot be loaded on base installs."
+    },
+    {
+      "failure_scenario": "Agent(from_repository=\"x\", tools=[MyCustomTool()]) still constructs every repository tool via tool_class() — constructors of crewai_tools tools can open HTTP clients, read env vars, or spawn resources — and then throws those instances away, wasting the work and any side effects on every construction and on every re-validation via copy().",
+      "file": "src/crewai/agent.py",
+      "line": 173,
+      "summary": "Repository tools are instantiated (with whatever side effects their constructors have) even when the caller supplies their own tools, because the loaded | v merge at line 146 gives the user's tools precedence and discards the freshly constructed instances."
+    },
+    {
+      "failure_scenario": "A reverse proxy or CDN in front of the API returns 200 with an HTML error/login page (the status check on line 160 passes): response.json() raises requests.exceptions.JSONDecodeError('Expecting value: line 1 column 1...'), so Agent(from_repository=\"x\") crashes with an unrelated low-level exception that callers expecting AgentRepositoryError (as the tests assert) cannot handle.",
+      "file": "src/crewai/agent.py",
+      "line": 165,
+      "summary": "response.json() is unguarded: a 200 response whose body is not JSON escapes model validation as a raw requests.exceptions.JSONDecodeError instead of the declared AgentRepositoryError."
+    }
+  ],
+  "level": null
+}

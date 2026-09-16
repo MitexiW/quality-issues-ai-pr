@@ -1,0 +1,41 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Client POSTs /v2/batch/scrape with a blocklisted URL and no ignoreInvalidURLs flag. Before: parsed default false -> the `else` branch's isUrlBlocked check returns 403 BLOCKLISTED_URL_MESSAGE. After: parsed default true -> the filter loop moves the blocked URL into `invalidURLs` and the request returns 200, so the 403 branch in batch-scrape.ts (lines 83-90) is dead code for default requests and callers lose the rejection signal; meanwhile an invalid (non-blocklisted) URL still 400s at schema parse, so the flipped default contradicts both the openapi.json description ('default: false', 'they will fail the entire request') and the identical v1 option, which still defaults to false (line 637 has the same flip in the NoURLValidation schema).",
+      "file": "apps/api/src/controllers/v2/types.ts",
+      "line": 620,
+      "summary": "Flipping ignoreInvalidURLs' default from false to true silently changes /v2/batch/scrape blocklist handling from a 403 rejection to silently dropping blocked URLs, and it does not even deliver the option's documented semantics because the raw-body check (`=== true`) still routes flag-omitting requests through the strict schema."
+    },
+    {
+      "failure_scenario": "Client POSTs /v2/batch/scrape with appendToId set to a UUID whose crawl key has expired (saveCrawl sets a 24h TTL) or that never existed. getCrawl returns null, `sc` is null, and line 154 (`internalOptions: sc.internalOptions`) throws 'Cannot read properties of null (reading internalOptions)' during jobs.map, returning a 500 for a user-input error.",
+      "file": "apps/api/src/controllers/v2/batch-scrape.ts",
+      "line": 104,
+      "summary": "getCrawl(appendToId) is cast to StoredCrawl without a null check, so appending to a crawl that is not in Redis crashes the request with a TypeError instead of a 4xx response."
+    },
+    {
+      "failure_scenario": "Client POSTs /v2/batch/scrape with `x-idempotency-key: K`; the request times out and the client retries with the same key. On /v1/batch/scrape the second attempt returns 409 'Idempotency key already used'; on /v2/batch/scrape no key validation runs (validateIdempotencyKey/createIdempotencyKey are never invoked), so a second full batch of scrape jobs is enqueued, duplicating scraping work and billing for the same logical request.",
+      "file": "apps/api/src/routes/v2.ts",
+      "line": 24,
+      "summary": "The v2 batch scrape route omits idempotencyMiddleware that the v1 route (routes/v1.ts lines 55-62) applies, so x-idempotency-key headers are silently ignored and retried requests create duplicate batches."
+    },
+    {
+      "failure_scenario": "A team submits a 5000-URL batch. getJobPriority performs its Redis SCARD and ACUC lookups and returns e.g. 23, and the controller logs 'Using job priority 23', but all 5000 BullMQ jobs are added with opts.priority: 20 (addScrapeJobs reads job.opts.priority). The large batch therefore floods the queue at standard priority instead of the lower team-adjusted priority, defeating the anti-burst mechanism, and every large request pays the extra getJobPriority round trips for nothing.",
+      "file": "apps/api/src/controllers/v2/batch-scrape.ts",
+      "line": 159,
+      "summary": "The computed jobPriority (getJobPriority with basePriority 21 for >1000-URL batches) is only used in a log line, while every job is enqueued with a hardcoded priority of 20, so the priority-throttling mechanism is silently ineffective for the new endpoint."
+    },
+    {
+      "failure_scenario": "Any caller of the exported v2 getJob that invokes `(await getJob(id)).getState()` on a BullMQ-backed job gets `TypeError: Cannot read properties of undefined (reading 'client')` because `this` is the PseudoJob object without a `queue` field. Latent today only because nothing in v2 imports getJob yet (v1's counterpart is used by v1 scrape-status and the diff transformer), but the defect ships in the new file's exported API with the correct pattern sitting right beside it.",
+      "file": "apps/api/src/controllers/v2/crawl-status.ts",
+      "line": 61,
+      "summary": "In getJob (singular), bullJob.getState is stored as an unbound method reference, so invoking it on the PseudoJob throws because BullMQ Job.getState dereferences this.queue, which the PseudoJob does not have (the sibling getJobs correctly wraps it in an arrow function at line 116)."
+    },
+    {
+      "failure_scenario": "Concrete maintenance cost: every future fix to the shared logic (blocklist 403 handling, job-state reconciliation, expiry/credits computation) must be re-applied manually to both copies; the copies already diverge (URL paths, v1 flag, ignoreInvalidURLs defaults), and this PR itself demonstrates the failure mode — the v2 types default flip was applied without touching the v1 controller, leaving the two endpoints with contradictory blocklist behavior for the same option.",
+      "file": "apps/api/src/controllers/v2/crawl-status.ts",
+      "line": 1,
+      "summary": "The PR duplicates the 449-line v1 crawl-status controller and the 203-line v1 batch-scrape controller wholesale into v2 with only version-string differences, creating two divergent copies of the same logic that must be maintained in lockstep."
+    }
+  ],
+  "level": null
+}

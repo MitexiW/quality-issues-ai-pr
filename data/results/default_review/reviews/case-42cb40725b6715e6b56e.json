@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 66,
+      "summary": "Early unconditional return makes all newly added pricing UI (lines 68-106) unreachable dead code",
+      "failure_scenario": "The return on line 66 exits the component immediately, so the JSX on lines 68-106 (including TopBar, PricingCard grid, TierPricingTable, and Footer) never renders. The page always displays 'Coming soon'. When the gate is later removed, the untested dead code — including the Select component with token tier logic and the new layout — will be exposed to users for the first time with no prior validation.",
+      "finding_id": "mf-f76ab379582a5b38426f"
+    },
+    {
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 52,
+      "summary": "Pro plan features statically claim '10M tokens per month' regardless of which token tier (10M/26M/55M/120M/180M/240M) the user selects",
+      "failure_scenario": "A user selects the 240M tokens tier ($400/month) in the dropdown. The features list below still reads '10M tokens per month' — a direct contradiction. The user may believe they are only getting 10M tokens despite paying for 240M.",
+      "finding_id": "mf-19f8cec751191666f8b0"
+    },
+    {
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 60,
+      "summary": "Teams plan features statically claim '10M / month' regardless of token tier selection",
+      "failure_scenario": "Same contradiction as Pro: a team admin selects 55M tokens ($100/member/month) but the features list still shows '10M / month', creating confusion about what the team is actually purchasing.",
+      "finding_id": "mf-9a6fd6bd4da8e67291c3"
+    },
+    {
+      "file": "apps/web/client/src/app/pricing/page.tsx",
+      "line": 83,
+      "summary": "Annual billing toggle switch is purely decorative with no onClick handler, no state, and no effect",
+      "failure_scenario": "When the pricing page goes live, a user clicks the toggle switch to see annual pricing. Nothing happens — no price update, no state change. The 'Save 10%' badge and toggle are misleading interactive elements that do not function.",
+      "finding_id": "mf-03493138acbd7201fe49"
+    },
+    {
+      "file": "apps/web/client/src/app/pricing/pricing-card.tsx",
+      "line": 10,
+      "summary": "TokenTier interface is defined identically in two files (page.tsx line 15 and pricing-card.tsx line 10) — duplicated type definition",
+      "failure_scenario": "If the TokenTier interface changes (e.g., adding a new field), one copy may be updated while the other is missed, causing type mismatches. The interface should be defined once and imported by both files.",
+      "finding_id": "mf-d4dbb27d8bf714f6b9dd"
+    },
+    {
+      "file": "apps/web/client/src/app/pricing/tier-pricing.tsx",
+      "line": 44,
+      "summary": "Hardcoded dark background color 'bg-gray-900/50' on TableFooter will look wrong in light mode",
+      "failure_scenario": "When the pricing page goes live and a user switches to light mode, the tier pricing table footer row renders with a dark gray background against a light theme, making text unreadable. The code should use a theme token like 'bg-background' or 'bg-muted' instead.",
+      "finding_id": "mf-9576a7c55cdc3a884b12"
+    }
+  ]
+}

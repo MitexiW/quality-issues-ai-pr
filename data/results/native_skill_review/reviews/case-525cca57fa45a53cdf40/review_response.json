@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "npm run build invokes tsc (package.json), which compiles every file under src/ including getURLIndex.ts; tsc reports TS2558 \"Expected 2 type arguments, but got 3\" on Record<string, SearchResult['url'], QueryResult['query']> and the build exits non-zero, producing no dist output. Before this change the signature was Record<string, string> and compiled cleanly. (ts-node only type-checks files in the import graph and getURLIndex.ts is imported by nothing, so npm run dev can mask this until the first build.)",
+      "file": "src/tools/getURLIndex.ts",
+      "line": 3,
+      "summary": "buildURLMap's return type passes three type arguments to Record, which accepts exactly two, producing a TypeScript compile error that breaks the build"
+    },
+    {
+      "failure_scenario": "Previously the module exported interface StepData alongside buildURLMap (whose signature references it); any consumer that does `import { StepData } from './tools/getURLIndex'` now fails to compile with TS2305 \"Module has no exported member 'StepData'\". No in-repo importer exists today, but this is the one type in the refactor whose export was dropped (all other relocated types were module-local), so any external user of the exported buildURLMap API breaks on upgrade.",
+      "file": "src/tools/getURLIndex.ts",
+      "line": 1,
+      "summary": "The refactor removed the module's exported StepData interface without re-exporting the moved type from ../types, narrowing the module's public API"
+    },
+    {
+      "failure_scenario": "SchemaType is referenced only as `type: SchemaType`, so `import type { SchemaType }` would suffice. With the value import, every module importing ../types (all ten source modules) carries a runtime edge to @google/generative-ai; under verbatimModuleSyntax or a bundler that cannot elide type-only specifiers (esbuild/swc), loading any of these modules executes a require of the SDK, and a consumer of only the shared types or buildURLMap in an environment without the SDK installed crashes at import time with \"Cannot find module '@google/generative-ai'\". With the current tsconfig tsc elides the specifier, so the cost today is a gratuitous runtime dependency rather than a present crash.",
+      "file": "src/types.ts",
+      "line": 1,
+      "summary": "types.ts uses a value import of SchemaType from @google/generative-ai even though it is only used in type positions, coupling the shared types module to the Gemini SDK at runtime"
+    }
+  ],
+  "level": null
+}

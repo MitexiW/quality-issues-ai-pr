@@ -1,0 +1,46 @@
+{
+  "findings": [
+    {
+      "file": "tests/anthropic/test_anthropic_autolog.py",
+      "line": 221,
+      "summary": "Image file path changed from file-relative (Path(__file__).parent.parent) to cwd-relative string 'tests/resources/images/test.png', breaking test when pytest is not invoked from repo root",
+      "failure_scenario": "Run `cd tests/anthropic && pytest test_anthropic_autolog.py::test_messages_autolog_multi_modal` — open() looks for tests/anthropic/tests/resources/images/test.png (does not exist) instead of the repo-root-relative path. FileNotFoundError.",
+      "finding_id": "mf-e31c0f771720a0bbfc75"
+    },
+    {
+      "file": "tests/bedrock/test_bedrock_autolog.py",
+      "line": 635,
+      "summary": "Image file path changed from file-relative (Path(__file__).parent.parent) to cwd-relative string 'tests/resources/images/test.png', breaking test when pytest is not invoked from repo root",
+      "failure_scenario": "Run `cd tests/bedrock && pytest test_bedrock_autolog.py -k 'test_converse_multi_modal'` — open() looks for tests/bedrock/tests/resources/images/test.png (does not exist). FileNotFoundError.",
+      "finding_id": "mf-9a205bc4af9cf209e505"
+    },
+    {
+      "file": "tests/pydantic_ai/test_pydanticai_fluent_tracing.py",
+      "line": 36,
+      "summary": "reset_mlflow_autolog_and_traces fixture uses get_traces().clear() which only clears a local list, not the backend trace store — dead code masquerading as cleanup (former conftest called purge_traces() which actually deleted traces)",
+      "failure_scenario": "While the root tracking_uri_mock fixture provides per-test database isolation today, get_traces().clear() is a no-op on the backend. If the isolation mechanism is ever changed or removed, traces will leak between tests, causing len(get_traces()) == 1 assertions to fail when stale traces from prior tests accumulate.",
+      "finding_id": "mf-c7ed00226aebee386cea"
+    },
+    {
+      "file": "tests/pydantic_ai/test_pydanticai_tracing.py",
+      "line": 35,
+      "summary": "Same get_traces().clear() dead code in reset_mlflow_autolog_and_traces fixture — does not purge traces from the backend",
+      "failure_scenario": "Same latent trace-leakage risk as the fluent test file above. The deleted conftest.py correctly imported and called purge_traces().",
+      "finding_id": "mf-186d9143625aa97f999f"
+    },
+    {
+      "file": "tests/pydantic_ai/test_pydanticai_mcp_tracing.py",
+      "line": 34,
+      "summary": "Same get_traces().clear() dead code in reset_mlflow_autolog_and_traces fixture — does not purge traces from the backend",
+      "failure_scenario": "Same latent trace-leakage risk. All three pydantic_ai test files share this defective cleanup pattern.",
+      "finding_id": "mf-2dab483d5800b65289a3"
+    },
+    {
+      "file": "tests/tracing/helper.py",
+      "line": 221,
+      "summary": "skip_when_testing_trace_sdk changed from pytest.mark.skipif (collection-time skip, fixtures do not run) to runtime pytest.skip() in a wrapper (fixtures execute before skip), causing autouse fixture side-effects to fire unnecessarily for skipped tests",
+      "failure_scenario": "When IS_TRACING_SDK_ONLY is True, any test decorated with @skip_when_testing_trace_sdk will now run its autouse fixtures (e.g. tracking_uri_mock creating temp databases, reset_autolog_state mutating globals) before the skip fires — wasting CI time and risking fixture side-effects that the old skipif mark avoided by skipping at collection time.",
+      "finding_id": "mf-4b2f41fdb1b9ac571330"
+    }
+  ]
+}

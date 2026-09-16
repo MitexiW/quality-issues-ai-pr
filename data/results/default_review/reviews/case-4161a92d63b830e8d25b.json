@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/features/chat/handlers.ts",
+      "line": 110,
+      "summary": "speakMessageHandler never updates assistantMessage state; the UI shows no assistant response text during non-streaming message processing",
+      "failure_scenario": "A message arrives via direct_send (e.g. from messageReceiver.tsx or a timed event). speakMessageHandler processes it, calls handleSpeakAndStateUpdate which invokes speakCharacter — but neither handleSpeakAndStateUpdate nor any code in speakMessageHandler ever calls homeStore.setState({ assistantMessage: ... }). The assistantMessage store field stays empty or stale, so the UI component bound to assistantMessage shows nothing (or a previous response). In the old code, the speakCharacter onStart callback set assistantMessage: assistantMessage.join(' ') on every sentence; this was removed during the refactor.",
+      "finding_id": "mf-014ffb097c662078a9ac"
+    },
+    {
+      "file": "src/features/chat/handlers.ts",
+      "line": 782,
+      "summary": "handleReceiveTextFromWsFn reads stale hs snapshot in speakCharacter's onStart callback; assistantMessage displays wrong content",
+      "failure_scenario": "In external linkage mode, a WebSocket assistant response chunk arrives. upsertMessage at line 765 adds/updates the store's chatLog with the assistant message. Then speakCharacter's onStart callback (line 782) reads hs.chatLog[hs.chatLog.length - 1] — but hs was captured at line 731 before upsertMessage, so hs.chatLog is the old snapshot. For the first assistant chunk after a user message, the old last message is the user message, so assistantMessage gets set to the user's content instead of the assistant's response. For subsequent appending chunks (line 758), assistantMessage shows the pre-append content (stale by one chunk). In the old code, a local mutable updateLog was used, whose latest state was correctly read in the callback.",
+      "finding_id": "mf-5ac5dfa61c0e1364af3a"
+    },
+    {
+      "file": "src/pages/api/save-chat-log.ts",
+      "line": 25,
+      "summary": "isNewFile parameter is deserialized from the request body but never used; all chat sessions append to the same log file",
+      "failure_scenario": "A user starts a new chat session. The client sends isNewFile: true (since lastSavedLogLength is 0 after rehydration). The API handler destructures isNewFile on line 25 but never references it again — it always uses getLatestLogFile() on line 42, which returns the newest existing log file. New session messages are appended to the previous session's log file instead of creating a new timestamped file. Over multiple sessions, a single log file accumulates messages from unrelated conversations, making session separation impossible.",
+      "finding_id": "mf-29f5e76ecc4486a8fad1"
+    },
+    {
+      "file": "src/features/messages/messageSelectors.ts",
+      "line": 87,
+      "summary": "normalizeMessages now merges only messages with matching IDs, not just matching roles; old ID-less messages display as unmerged separate entries",
+      "failure_scenario": "The app rehydrates chat history persisted before this change — those messages have no id field (the id property was just added to the Message type). When normalizeMessages processes consecutive same-role messages without IDs (e.g. two assistant messages), the condition lastItem.id !== undefined fails, so they fall to the 'else' branch and are inserted as separate entries instead of being merged. Users see duplicated-looking content in the chat log display, whereas previously these were combined into a single continuous message.",
+      "finding_id": "mf-6ac8ddaddcb6019f25b8"
+    }
+  ]
+}

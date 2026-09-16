@@ -1,0 +1,29 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "Open `marimo/_smoke_tests/app_fn.py` (it declares `app = marimo.App(_toplevel_fn=True)`), edit a cell and save: the file is rewritten with `app = marimo.App()` but still contains `@app.function` defs. Reloading that file yields `_toplevel_fn=False` (from_untrusted_dict sees no key), so the next save takes the `to_functiondef` branch and rewrites each top-level function as a nested cell (`@app.cell\\ndef self_ref_fib():\\n    def self_ref_fib(n): ...\\n    return (self_ref_fib,)`). The in-memory config kept the flag (`update()` uses the unfiltered module-level `asdict`), which is why the setting looks honored until the write; the same drop happens on the HTML/Pyodide export path.",
+      "file": "marimo/_ast/app.py",
+      "line": 108,
+      "summary": "The new `_AppConfig.asdict()` filter drops `_`-prefixed fields, so `_toplevel_fn` is never emitted by `codegen.generate_app_constructor` (marimo/_ast/codegen.py:153, which builds the `marimo.App(...)` line from `config.asdict()`), while codegen.py:175 still reads the flag and writes `@app.function` decorators — the opt-in is silently lost on every save."
+    },
+    {
+      "failure_scenario": "For a notebook with `@app.function` on line 6, a blank line on 7, `def f(x, y):` on 8 and `return y / x` on 9: `lnum + decorator.end_lineno - 1` = 6, but the stripped cell code's line 2 is the file's line 9, so `compile_cell`/`fix_source_position` reports the failing `return y / x` as line 8 (the blank line) and renders the caret against the wrong source line in `python notebook.py`, `marimo run` and the editor error panel. The fixture only covers comments between the decorator and `def` (which `.strip()` does not remove), so this case is untested.",
+      "file": "marimo/_ast/compiler.py",
+      "line": 274,
+      "summary": "`toplevel_cell_factory` derives the cell's source position arithmetically from `decorator.end_lineno` while the cell code is re-derived with `code[decorator.end_lineno:]` + `.strip()`, so a whitespace-only line between `@app.function` and `def` shifts every reported line number by one."
+    },
+    {
+      "failure_scenario": "`openapi/src/api.ts` (line ~2460) still declares `app_config: { app_title?: string | null; auto_download: ...; ... }` with no `_toplevel_fn`, even though the field is now marked required in api.yaml and is actually present in the payload (`ops.serialize` uses `dataclasses.asdict`, which recurses into `_AppConfig` and keeps `_toplevel_fn`). tests/_cli/test_cli_development.py documents the update flow as `marimo development openapi > openapi/api.yaml && make fe-codegen`; only the first half was run, so any frontend use of the field cannot be type-checked and the next `make fe-codegen` produces an unrelated diff.",
+      "file": "openapi/api.yaml",
+      "line": 934,
+      "summary": "api.yaml adds `_toplevel_fn` to the KernelReady `app_config` properties and `required` list, but the checked-in generated client openapi/src/api.ts was not regenerated, so the TS contract no longer matches the schema."
+    },
+    {
+      "failure_scenario": "The only end-to-end artifact for the feature, `marimo/_smoke_tests/app_fn.py`, is a hand-edited file whose `_toplevel_fn=True` line codegen cannot reproduce, and tests/_smoke_tests/run_all.py only asserts the process exits 0 (it does, because the cells referencing the disabled `divide` cell are skipped transitively). A single assertion on `wrap_generate_filecontents(codes, names, config=_AppConfig(_toplevel_fn=True))` output would have caught the round-trip loss in finding 1; the helper's signature was even churned to `**kwargs` to accept `config`, but no test passes it.",
+      "file": "tests/_ast/test_codegen.py",
+      "line": 568,
+      "summary": "The new tests call `codegen.to_top_functiondef` directly and never drive `generate_filecontents` with `config=_AppConfig(_toplevel_fn=True)`, leaving the new flag plumbing (`toplevel_fn = config is not None and config._toplevel_fn`, `generate_app_constructor`) with no test coverage."
+    }
+  ],
+  "level": null
+}

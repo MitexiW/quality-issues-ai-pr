@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "web/src/app/home/components/home-sidebar/HomeSidebar.tsx",
+      "line": 33,
+      "summary": "Hardcoded test credentials (token and email) are set in localStorage whenever the HomeSidebar mounts without an existing token, bypassing the authentication flow.",
+      "failure_scenario": "A user navigates directly to /home without authenticating first (no middleware guards the route). The useEffect on mount detects no token and sets token='test-token' and userEmail='test@example.com'. Subsequent API requests from any home sub-page send Authorization: Bearer test-token, which is either rejected as invalid by the backend (causing a delayed 401 redirect loop) or, if the backend were to accept it in a misconfigured deployment, grants unauthenticated access. This is a debug/development artifact accidentally committed to production code — there is no environment check (e.g., process.env.NODE_ENV) gate.",
+      "finding_id": "mf-7b86d2c3eae75028743a"
+    }
+  ]
+}

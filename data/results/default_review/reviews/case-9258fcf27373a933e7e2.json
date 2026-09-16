@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "src/crewai/cli/utils.py",
+      "line": 346,
+      "summary": "get_crew_instance silently swallows all exceptions from get_type_hints, causing valid crew functions with unresolvable type annotations to be skipped without any diagnostic",
+      "failure_scenario": "A user defines `def my_crew() -> Crew: ...` in a module where `Crew` is imported inside the function body rather than at the module level. `get_type_hints()` raises `NameError` because `Crew` is not in the module's global namespace. The new bare `except Exception: return None` at line 346 silently swallows the error and returns None. The calling code in `get_crews` never sees the error, so the function is silently skipped. The user gets 'No valid Crew instance found' with zero clue about which attribute failed or why.",
+      "finding_id": "mf-3c1baffbf9d808e3fa08"
+    },
+    {
+      "file": "src/crewai/cli/utils.py",
+      "line": 307,
+      "summary": "Removed traceback printing from get_crews exec_module error handler, making it impossible to debug crew.py import failures",
+      "failure_scenario": "A `crew.py` file has a module-level runtime error such as `1/0` or an `AttributeError` on an import. The old code printed the full `traceback.format_exc()` showing the exact file path, line number, and stack trace. The new code at line 307 prints only `console.print(f'Error executing module: {exec_error}', style='bold red')` — the user sees just 'Error executing module: division by zero' with no indication of which file or line caused the failure. They cannot fix the issue without manually inspecting every crew.py file.",
+      "finding_id": "mf-7f780379c539d58b53ab"
+    },
+    {
+      "file": "src/crewai/cli/utils.py",
+      "line": 267,
+      "summary": "get_crews permanently mutates sys.path by inserting the current working directory and ./src with no cleanup, risking import shadowing in long-running processes",
+      "failure_scenario": "A test suite calls `get_crews()` from a temp directory `/tmp/test-project/`, which adds both `/tmp/test-project/` and `/tmp/test-project/src/` to `sys.path` (lines 267, 272). These entries are never removed. Subsequent code in the same process that imports modules may resolve against these stale paths. If the temp directory has been deleted, imports may fail with `ImportError`. If the temp directory persists and contains a package shadowing a real dependency, the wrong module is loaded.",
+      "finding_id": "mf-74e2ca662355f7b961be"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "node.expand(state, implementation='pure') binds state_or_impl=None, so target_implementation silently falls back to self.implementation/default while 'implementation' remains in expansion_kwargs and is forwarded as transformation.apply(state, sdfg, implementation='pure') -> expansion(...). For expansions without **kwargs (e.g. addlib ExpandAdd) this raises TypeError: unexpected keyword argument 'implementation'; for expansions with **kwargs the kwarg is swallowed and the wrong (default) implementation is silently expanded while 'pure' is returned.",
+      "file": "dace/sdfg/nodes.py",
+      "line": 1467,
+      "summary": "In the new expand(state, implementation) interface, an 'implementation' keyword argument is not intercepted and leaks into the expansion's apply() call, unlike the old interface which explicitly pops it."
+    },
+    {
+      "failure_scenario": "For a state created via sdfg.add_loop(...) region's region.add_state(), body_state.parent_graph is the LoopRegion, not the SDFG (state.sdfg is the SDFG). node.expand(body_state) then calls sdfg.append_transformation(transformation) at line 1531 -> AttributeError: 'LoopRegion' object has no attribute 'append_transformation' (append_transformation exists only on SDFG). The old interface node.expand(sdfg, body_state) worked because the caller supplied the SDFG; should use actual_state.sdfg.",
+      "file": "dace/sdfg/nodes.py",
+      "line": 1465,
+      "summary": "The new interface derives the SDFG from actual_state.parent_graph (the direct parent), which is a non-SDFG ControlFlowRegion for states nested inside add_loop/add_conditional regions, so expansion crashes."
+    },
+    {
+      "failure_scenario": "Any out-of-tree caller using the previously supported form node.expand(sdfg, state, 'extra_arg') now raises TypeError: expand() takes from 2 to 3 positional arguments but 4 were given, and the expansion never runs; previously *args were forwarded to transformation.apply(state, sdfg, *args, **kwargs).",
+      "file": "dace/sdfg/nodes.py",
+      "line": 1436,
+      "summary": "The *args component of the public expand(self, sdfg, state, *args, **kwargs) signature was dropped, so positional expansion arguments are no longer forwarded to the transformation."
+    },
+    {
+      "failure_scenario": "An old-interface caller node.expand(sdfg, state, implementation='cuda') where the expansion method legitimately declares def expansion(node, state, sdfg, implementation='default'): previously the kwarg reached the expansion; now it is popped and looked up in self.implementations, raising KeyError \"Unknown implementation\" or silently selecting a different node implementation.",
+      "file": "dace/sdfg/nodes.py",
+      "line": 1478,
+      "summary": "In the backward-compatibility branch, kwargs.pop('implementation') unconditionally hijacks an expansion keyword argument named 'implementation' and reinterprets it as the node implementation selector."
+    },
+    {
+      "failure_scenario": "SDFG.expand_library_nodes() (dace/sdfg/sdfg.py:2862) and auto_optimize.py:418 still call node.expand(sdfg, state), so each library-node expansion during every sdfg() compile emits the DeprecationWarning with stacklevel=2 pointing at dace's own sdfg.py; in environments running with -W error::DeprecationWarning (e.g. strict CI) compilation now fails, and the message misleads users into thinking their code is at fault.",
+      "file": "dace/sdfg/nodes.py",
+      "line": 1470,
+      "summary": "The deprecation warning fires on the core internal callers that were not migrated, so every SDFG compilation that expands library nodes now emits a DeprecationWarning attributed to dace internals."
+    }
+  ],
+  "level": null
+}

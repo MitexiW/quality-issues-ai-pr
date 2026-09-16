@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.cc",
+      "line": 64,
+      "summary": "Missing validation that input depth C is divisible by blocksize^2; the CPU kernel enforces this but the WebGPU kernel does not",
+      "failure_scenario": "Input with shape (N=1, C=9, H=1, W=1) and blocksize=2. C=9 is not divisible by 4. The kernel computes c' = 9/4 = 2 (integer truncation), builds a 6D override shape with 8 elements while the actual input has 9 elements. The debug-only ValidateVariable (shader_helper.cc:279, gated by #ifndef NDEBUG) is the only check that catches this element-count mismatch; in a release build this check is skipped. The shader executes reading only a subset of input elements, producing a wrong output without any error. Compare CPU kernel at space_depth_ops.h:55-58 which validates 'input_depth % (blocksize_ * blocksize_) != 0' and returns a clear INVALID_ARGUMENT Status.",
+      "finding_id": "mf-24cfffa166268d43b043"
+    },
+    {
+      "file": "onnxruntime/core/providers/webgpu/tensor/depth_to_space.cc",
+      "line": 39,
+      "summary": "AppendPermFunction generates shader perm() signature with input_indices_t parameter type instead of output_indices_t; works only by coincidence when input and output ranks are equal",
+      "failure_scenario": "The generated WGSL function is 'fn perm(i: input_indices_t) -> input_indices_t' but the call site passes output.OffsetToIndices(\"global_idx\") which produces output_indices_t. In this PR both the input and output override shapes have rank 6 so the WGSL types are identical. If this helper were reused in a context where input and output override shapes have different ranks, the WGSL compiler would reject the shader due to a type mismatch. The existing TransposeProgram (transpose.cc:85) correctly declares 'fn perm(i: output_indices_t)->a_indices_t'.",
+      "finding_id": "mf-0fc52af15eb3fee3b9e6"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "bytebot-agent/src/app/api/latest-task/route.ts",
+      "line": 12,
+      "summary": "latest-task API filters for IN_PROGRESS/NEEDS_HELP/NEEDS_REVIEW but tasks are never transitioned from PENDING to IN_PROGRESS, so the API always returns null and DB-based session restoration never works",
+      "failure_scenario": "User creates a task (status defaults to PENDING per start-task/route.ts line 24) then opens the app from a different browser with no local storage. loadTaskFromLocalStorage returns null, so fetchLatestTask is called. The API queries for tasks with status IN (IN_PROGRESS, NEEDS_HELP, NEEDS_REVIEW) but finds none because the task is still PENDING. Returns {task: null}. The user sees an empty chat and cannot resume the existing task — they must start a brand new task.",
+      "finding_id": "mf-96f500e0eb9535d21673"
+    },
+    {
+      "file": "bytebot-agent/src/agent/agentTask.ts",
+      "line": 474,
+      "summary": "completeTask() marks the task COMPLETED and then the loop breaks, but isOnAutopilot is never reset to false, deadlocking all subsequent triggerAgentWithMessage calls because setAutopilot(true) returns early when isOnAutopilot is already true",
+      "failure_scenario": "First task runs to natural completion (AI responds without tool use). completeTask() at line 474 sets DB status to COMPLETED, then line 475 breaks the while loop. isOnAutopilot remains true. A second task job arrives at the worker: triggerAgentWithMessage adds the new message to messageStore and calls setAutopilot(true), which checks isOnAutopilot === value (lines 60-62) — both are true — so it returns immediately without calling runAgent(). The second task stays PENDING forever, its message never processed.",
+      "finding_id": "mf-5bd072887c3ef2a6c332"
+    },
+    {
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 123,
+      "summary": "Initial session message from fetchLatestTask uses raw Prisma JSON content without transforming through the same format as /api/messages, so images in tool_result blocks fail to render due to source vs image shape mismatch",
+      "failure_scenario": "A task with image-bearing messages is loaded via fetchLatestTask. The raw DB content for an image block is {type:'image', source:{data:'...', media_type:'image/png', type:'base64'}} (per the Prisma schema comment at schema.prisma line 70). The MessageItem component at MessageItem.tsx line 36 checks block.type === 'image' && block.image — but raw DB content has 'source' not 'image', so block.image is undefined. The image does not render, showing a blank message instead.",
+      "finding_id": "mf-2bb6328123541aeee6d2"
+    },
+    {
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 131,
+      "summary": "loadSession sets the initial message via setMessages but fails to call setLastMessageId(initialMessage.id), leaving lastMessageId as null and bypassing the incremental-fetch optimization on every subsequent poll",
+      "failure_scenario": "Initial session loads with one message (id='abc-123'). lastMessageId stays null. Every 2-second poll sends lastMessageId=null to /api/messages, so the server returns ALL messages from the task. The client deduplicates via processedMessageIds, but the server-side createdAt > lastMessage.createdAt optimization at messages/route.ts lines 80-87 is never exercised. Every poll wastes DB bandwidth re-fetching and re-transmitting already-seen messages.",
+      "finding_id": "mf-91f3c1733b64ae6c17ea"
+    },
+    {
+      "file": "bytebot-agent/src/hooks/useChatSession.ts",
+      "line": 248,
+      "summary": "startNewConversation is exported from the useChatSession hook but never destructured or called in page.tsx; the corresponding 'New Conversation' button is commented out in Header.tsx — dead code and incomplete feature",
+      "failure_scenario": "Maintenance cost only. The hook return at line 249 includes startNewConversation but page.tsx lines 11-18 destructure only messages, input, setInput, isLoading, isLoadingSession, handleSend. Header.tsx lines 7-9 and 20-28 have commented-out props and button markup for a 'New Conversation' feature. The function exists but is unreachable, and the UI to trigger it was never un-commented — a partially implemented feature left in dead code.",
+      "finding_id": "mf-f1a0213fff2cb23eac82"
+    }
+  ]
+}

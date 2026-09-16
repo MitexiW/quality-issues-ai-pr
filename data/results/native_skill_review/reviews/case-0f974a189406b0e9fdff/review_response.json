@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User disables a network (e.g. Solana) for a provider in Swap provider settings; the app persists it in the swapConfigs simpleDb (swapConfigs has enableCache=false, so every read JSON.parses the storage string into new object references) and getSwapProviderManager() makes a fresh HTTP request to /swap/v1/providers/list returning new objects each call. On the next app launch or Swap page mount, fetchSyncSwapProviderManager runs the new merge: provider.disableNetworks?.filter((net) => findProvider?.supportSingleSwapNetworks?.includes(net)) uses reference equality, matches nothing, and returns [], which is then persisted via setSwapProviderManager. The user's disabled network silently re-enables in the ProviderManage UI, and ServiceSwap.getDenySingleSwapProvider (which builds the quote deny list from disableNetworks) no longer excludes that provider/network, so quotes are fetched through a provider-network combination the user explicitly disabled.",
+      "file": "packages/kit/src/views/Swap/hooks/useSwapGlobal.ts",
+      "line": 242,
+      "summary": "Filtering the stored provider disableNetworks with Array.includes() compares ISwapNetwork objects by reference, so the freshly fetched server-response network objects never match the stored deserialized ones and disableNetworks is wiped to [] on every sync."
+    },
+    {
+      "failure_scenario": "On the browser extension, ServiceSwap.fetchQuotesEvents uses EventSourcePolyfill whose extension branch only emits 'open'/'message'/'done'/'error' (the 'close' listener is registered only in the non-extension branch), and after emitting 'error' it immediately closes the source. The quoteEventHandler 'error' case clears swapQuoteFetchingAtom (new) but leaves swapQuoteActionLockAtom.actionLock true, and no 'done' or 'close' ever follows to release it. In useSwapQuote.ts the debounced-amount effect (lines 271-296) skips calling quoteAction whenever the lock is true and the current amount/tokens/account/address match the locked values, so after a failed quote the screen shows no quotes and no spinner (fetching was just cleared) and re-entering the same amount or refocusing the Swap tab never retriggers a quote until the user changes the amount.",
+      "file": "packages/kit/src/states/jotai/contexts/swap/actions.ts",
+      "line": 614,
+      "summary": "The 'error' case now resets swapQuoteFetchingAtom on extension but still never releases swapQuoteActionLockAtom.actionLock, and the extension event-source branch never emits a 'close' event, so the quote action lock stays stuck after a stream error (incomplete fix in the touched case)."
+    }
+  ],
+  "level": null
+}

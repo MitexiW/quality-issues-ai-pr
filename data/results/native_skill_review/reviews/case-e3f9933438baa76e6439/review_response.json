@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "On an aggregated chart (defaultAggregated=true) with a temporal date dimension on columns and a measure on rows, a user could previously create and later reopen a paint map: paintFields' aggregated branch (lines 263-299) deliberately has no temporal check, and the painter's getDomain treats temporal fields as nominal domains (values list), so creation, editing, and deletion all worked. After this change, paintInfo returns {type:'error', key:'temporal'} before the existing-paint-field branch, so visualSettings renders the painter button disabled ('painter doesn't support temporal fields now') and the dialog can never open — an existing paint map with a temporal axis can no longer be edited or deleted (the only in-app delete path, vizStore.updatePaint(null, ''), lives behind that dialog), and new paint maps with temporal axes can no longer be created.",
+      "file": "packages/graphic-walker/src/store/visualSpecStore.ts",
+      "line": 310,
+      "summary": "The new unconditional temporal check in the paintInfo getter disables the painter for aggregated charts with a temporal axis, even though the aggregated paint path supports temporal fields via nominal domains, locking existing paint maps out of editing and deletion."
+    },
+    {
+      "failure_scenario": "The validation block now exists verbatim in three places: paintFields' non-aggregated branch (lines 237-256), paintFields' aggregated branch (lines 265-281), and the new paintInfo guard (lines 304-324). The copies already disagree — paintInfo rejects temporal axes unconditionally while the aggregated paintFields branch omits the check because the aggregated painter supports temporal fields as nominal domains — and that divergence is exactly what locks aggregated temporal-axis paint maps out of the UI (the behavioral regression above). Any future change to painter eligibility must be replicated across three copies with the same drift risk; a single shared validation function consulted by both getters would remove the duplication and the divergence.",
+      "file": "packages/graphic-walker/src/store/visualSpecStore.ts",
+      "line": 304,
+      "summary": "The diff adds a third copy of the painter eligibility validation (count/expr/mea/paint checks already duplicated in both paintFields branches) instead of extracting a shared validator, and the new copy has already diverged by applying the temporal check unconditionally."
+    }
+  ],
+  "level": null
+}

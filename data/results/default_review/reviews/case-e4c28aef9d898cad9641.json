@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 260,
+      "summary": "England driving side incorrectly listed as 'right'; should be 'left' (England is part of the UK, which drives on the left)",
+      "failure_scenario": "Any downstream consumer looking up England's driving side gets 'right' instead of the correct 'left' — routing, navigation, or vehicle-configuration software would produce wrong results.",
+      "finding_id": "mf-95fb2000e4e665c10c8c"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 660,
+      "summary": "Northern Ireland driving side incorrectly listed as 'right'; should be 'left' (Northern Ireland is part of the UK, which drives on the left)",
+      "failure_scenario": "Consumer software that queries Northern Ireland's driving side receives 'right', leading to incorrect lane-assignment or vehicle-orientation decisions.",
+      "finding_id": "mf-4958143d90c048fdaf0a"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 780,
+      "summary": "Scotland driving side incorrectly listed as 'right'; should be 'left' (Scotland is part of the UK, which drives on the left)",
+      "failure_scenario": "Software relying on this dataset for Scotland produces wrong driving-side output, affecting any downstream application that uses it for routing or compliance.",
+      "finding_id": "mf-bb6a6176907acb483163"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 972,
+      "summary": "Wales driving side incorrectly listed as 'right'; should be 'left' (Wales is part of the UK, which drives on the left)",
+      "failure_scenario": "A lookup for Wales returns 'right' instead of 'left', causing incorrect behavior in any system that depends on accurate driving-side data for Wales.",
+      "finding_id": "mf-cb533faa4798030b2c9d"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 96,
+      "summary": "Bermuda driving side incorrectly listed as 'right'; should be 'left' (Bermuda is a British Overseas Territory and drives on the left)",
+      "failure_scenario": "All other British Overseas Territories in this file (Anguilla, Cayman Islands, Falkland Islands, Gibraltar, Montserrat, Pitcairn, Turks and Caicos, British Virgin Islands) are correctly listed as 'left'. Bermuda is the sole outlier, so any consumer relying on consistent territory-side rules gets wrong data.",
+      "finding_id": "mf-05c20e048bf3dd0e69af"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 968,
+      "summary": "US Virgin Islands driving side incorrectly listed as 'right'; should be 'left' (the USVI inherited left-hand driving from its Danish colonial period and never switched)",
+      "failure_scenario": "Software that looks up driving side for 'Virgin Islands, U.S.' gets 'right' instead of the correct 'left' — this is a well-known exception where a US territory does not follow the mainland US convention.",
+      "finding_id": "mf-a7846d3118cbe3c60bd2"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 628,
+      "summary": "New Caledonia driving side incorrectly listed as 'left'; should be 'right' (New Caledonia is a French overseas collectivity and all French territories drive on the right)",
+      "failure_scenario": "Every other French overseas territory in this file (French Guiana, French Polynesia, French Southern territories, Guadeloupe, Martinique, Mayotte, Reunion, Saint Pierre and Miquelon) is correctly listed as 'right'. New Caledonia is an isolated error that would cause consumers to treat it as left-driving.",
+      "finding_id": "mf-7dedf5ebbbebe2a8e902"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 976,
+      "summary": "Wallis and Futuna driving side incorrectly listed as 'left'; should be 'right' (Wallis and Futuna is a French overseas collectivity and all French territories drive on the right)",
+      "failure_scenario": "Same as New Caledonia — the only two French territories listed as 'left' in an otherwise consistently-right French block. A consumer that groups territories by sovereignty would get wrong results.",
+      "finding_id": "mf-1e12ee1f4f7b479422fa"
+    },
+    {
+      "file": "src/country-by-driving-side.json",
+      "line": 248,
+      "summary": "Duplicate country entry: 'East Timor' (line 248) and 'Timor-Leste' (line 880) refer to the same country, creating a redundant entry",
+      "failure_scenario": "Code that iterates all entries and counts or aggregates by country processes Timor-Leste twice. Code that does a first-match lookup with one name may miss the other entry, though both currently agree on 'left'. If one entry were later updated and the other missed, they would diverge.",
+      "finding_id": "mf-f7c2d63193f460aebff1"
+    }
+  ]
+}

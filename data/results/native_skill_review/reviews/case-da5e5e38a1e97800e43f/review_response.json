@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "The patched engine_step sets engine_step_event at step START (src/art/local/vllm.py:135) before awaiting the resume gate. If a training run calls train_mode while the final decode step of the last inference request is in flight, pause_engine (vllm.py:141-145) clears resume_event, sees has_unfinished_requests() == True, clears engine_step_event (wiping the set that the in-flight step already made), and awaits it. The in-flight step completes, all requests finish, and the engine loop stops stepping (it waits for new requests while idle), so engine_step_event is never set again. With no new inference request arriving while the engine is paused, `await engine_step_event.wait()` never returns, so `await self.pause_engine()` at state.py:148 hangs forever — the training HTTP endpoint blocks with no timeout (ENGINE_ITERATION_TIMEOUT_S is set to 2**31-1 at state.py:51, and the train path has no timeout either).",
+      "file": "src/art/local/state.py",
+      "line": 148,
+      "summary": "train_mode can deadlock: pause_engine waits on engine_step_event, which is never re-set when the engine's last in-flight step completes during the pause, hanging training (and the /train endpoint) indefinitely."
+    },
+    {
+      "failure_scenario": "sleep(level=1) offloads each kv_cache entry to CPU then unmaps it (patched allocator.sleep, src/art/local/vllm.py:168-208). If the offload fails partway — e.g. CPU RAM exhaustion while allocating the pin-memory backup tensors (the risk explicitly noted by the TODO at vllm.py:177) or a cudaMemcpy device error — the engine's sleep_level is already set and some handles are unmapped while others are still mapped. The finally at state.py:160-162 then runs wake_up(); the patched allocator.wake_up (vllm.py:216-220) unconditionally calls create_and_map(data.handle) for every kv_cache entry, including the ones never unmapped, so cudaMemMap fails on an already-mapped virtual-address range. The resulting CUDA error is raised inside the finally, replacing the original exception, and since wake_up did not complete, the engine is left with sleep_level inconsistent with its actual cache state, corrupting subsequent resume behavior.",
+      "file": "src/art/local/state.py",
+      "line": 162,
+      "summary": "The finally block calls wake_up() unconditionally, so a partially completed sleep(level=1) leaves still-mapped KV-cache handles that the patched allocator wake_up re-maps with cudaMemMap, raising a secondary CUDA error that masks the original failure and leaves the engine half-asleep."
+    }
+  ],
+  "level": null
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "First visit from a browser with navigator.language 'zh-CN' and no langbot_language in localStorage: the detector converts 'zh-CN' to 'zh_CN', the check at line 64 fails, the page flips to English and writes 'en-US' into langbot_language, permanently overriding the Chinese preference. The old code compared navigator.language === 'zh-CN' directly and produced 'zh-Hans'. The else branch (lines 77-90) that was supposed to detect the browser language is dead code: lines 65-69 unconditionally setItem, so the getItem at line 72 always returns a truthy value and the 'check if the language is already set' comment describes a check that can never fail.",
+      "file": "web/src/app/login/page.tsx",
+      "line": 64,
+      "summary": "judgeLanguage branches on i18n.language ('zh_CN'/'en_US' after the language detector's default convertDetectedLanguage), which never equals 'zh-CN'/'zh-Hans' for first-time visitors, so zh-CN-browser users are switched to English and 'en-US' is persisted to localStorage; the browser-detection fallback below is also unreachable because the key was just unconditionally written, so the read-back is always truthy."
+    },
+    {
+      "failure_scenario": "A zh-CN browser reaches /register with no stored preference: i18n.language is 'zh_CN' (detector converts '-' to '_'), so the page — previously always Chinese — renders in English and stores 'en-US' in langbot_language. The else branch that would have detected zh-CN from navigator.language can never run because lines 65-68 just wrote the key, making the getItem at line 71 always truthy. The initial useState(i18n.language) value 'zh_CN' also matches no SelectItem, so the dropdown transiently shows the placeholder instead of the actual language.",
+      "file": "web/src/app/register/page.tsx",
+      "line": 63,
+      "summary": "The new judgeLanguage on the register page has the same broken condition: it compares detector-converted i18n.language against 'zh-CN'/'zh-Hans' and unconditionally writes localStorage before reading it, so the navigator.language fallback (lines 76-90) is unreachable and first-time Chinese users get an English register page with 'en-US' persisted."
+    },
+    {
+      "failure_scenario": "The register page mounts with English strings baked into the zod schema via t('common.invalidEmail'). The user then selects 简体中文 in the new language dropdown; all page text switches to Chinese, but submitting an invalid email shows the English 'Please enter a valid email address' because the resolver (and the t captured inside it) was fixed at first render and react-hook-form ignores option updates on subsequent renders.",
+      "file": "web/src/app/register/page.tsx",
+      "line": 50,
+      "summary": "Form validation messages are frozen at the mount-time language: react-hook-form captures zodResolver(formSchema(t)) on the first render and never updates the resolver on re-render, even though formSchema(t) is rebuilt every render when the language changes."
+    },
+    {
+      "failure_scenario": "Maintainability: language selection logic now lives in three places (the detector config plus two divergent copies), so any future language change (adding zh-TW, fixing the zh_CN mismatch) must be applied in each copy, and the redundant re-implementation is exactly what introduced the zh_CN misclassification. The duplicated code also performs a pointless setItem/getItem round-trip on every page load. No runtime crash; the cost is duplicated, contradictory logic.",
+      "file": "web/src/app/register/page.tsx",
+      "line": 62,
+      "summary": "judgeLanguage/handleLanguageChange duplicate the i18next-browser-languagedetector detection already configured in web/src/i18n/index.ts (same 'langbot_language' key, same localStorage→navigator order, same caching), and the two hand-rolled copies in login and register have already diverged (register has console.logs and no return; login has a return and no logs)."
+    },
+    {
+      "failure_scenario": "Every visit to /register and every language change writes debug output to the browser console; the logs print intermediate variable values and are clearly temporary instrumentation that should have been removed before the change shipped. Maintainability issue, not a runtime failure.",
+      "file": "web/src/app/register/page.tsx",
+      "line": 72,
+      "summary": "Leftover debug console.log statements ('lang: ', 'language: ', 'handleLanguageChange: ') added to the register page's mount and change paths run on every page load in production."
+    }
+  ],
+  "level": null
+}

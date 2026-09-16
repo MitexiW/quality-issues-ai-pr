@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "file": "tests/tracing/test_fluent.py",
+      "line": 1306,
+      "summary": "Test test_search_traces_raises_for_v3_format does not verify V3 exception behavior — the V3 artifact mock returns {'spans': []} so Span.from_dict never processes V3-format span data, and there is no pytest.raises assertion despite the test name",
+      "failure_scenario": "If _get_trace_id_if_v3_format were broken (e.g. missing base64 import, logic error, or encode_trace_id regression), this test would still pass because empty spans never trigger the detection. A regression in V3 format detection would ship unnoticed.",
+      "finding_id": "mf-2434a59c5d8ee6bf0009"
+    },
+    {
+      "file": "mlflow/entities/span.py",
+      "line": 329,
+      "summary": "Bare `except Exception: pass` in _get_trace_id_if_v3_format swallows all exception types including MemoryError and unexpected failures from encode_trace_id or int.from_bytes",
+      "failure_scenario": "If encode_trace_id raises an unexpected ValueError for an edge-case OTEL trace_id (e.g. an integer that format_trace_id cannot format), the exception is silently caught, the function returns None, and the V3-format span falls through to V2 parsing which produces a generic 'Failed to create a Span object' error instead of the informative 'upgrade to MLflow 3.x' message. The user gets a cryptic error and no upgrade guidance.",
+      "finding_id": "mf-0b57109851bbfa62a11e"
+    },
+    {
+      "file": "mlflow/tracking/_tracking_service/client.py",
+      "line": 332,
+      "summary": "Databricks get_trace_info RPC is executed inside download_trace_extra_fields before the `if not include_spans` early-return guard, causing an unnecessary per-trace API call when include_spans=False",
+      "failure_scenario": "On Databricks, a caller using search_traces(include_spans=False) for 100 traces will make 100 get_trace_info RPCs that the old code (which bypassed download_trace_extra_fields entirely when include_spans was False) never made. Each call adds latency and load with no benefit since the downloaded assessments are discarded when the function returns an empty TraceData.",
+      "finding_id": "mf-9324ce38422d0ac8ba20"
+    }
+  ]
+}

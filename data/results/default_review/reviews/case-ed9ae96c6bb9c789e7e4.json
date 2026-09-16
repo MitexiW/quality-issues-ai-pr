@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "lib/nnc/ccv_cnnp_model_addons.c",
+      "line": 585,
+      "summary": "Multiple -1 dimensions silently produce wrong output: loop resolves only the last -1, leaving earlier -1 values unmodified in dim, corrupting stride computation and data layout",
+      "failure_scenario": "ccv_cnnp_reshape(0, DIM_ALLOC(-1, -1, 4), ...) with 24-element input → auto_idx=1, known=4, dim becomes {-1, 6, 4, ...}. The surviving -1 at index 0 passes into ccv_nnc_tensor_get_stride(dim, ...) which computes stride[0]=24 from a product of -1*6*4 (as int, producing -24), corrupting the output tensor vias ccv_nnc_tensor_symbol_alias_new.",
+      "finding_id": "mf-07406908a2ae0ef03f46"
+    },
+    {
+      "file": "lib/nnc/ccv_cnnp_model_addons.c",
+      "line": 592,
+      "summary": "Divisibility validation (tensor_count % known == 0) guarded by assert() is removed in release builds, allowing impossible reshapes to silently produce truncated dimensions",
+      "failure_scenario": "Release build (NDEBUG defined): reshape a 10-element input via DIM_ALLOC(-1, 4). known=4, tensor_count=10, but assert() is compiled out. dim[auto_idx] = 10/4 = 2 (integer truncation). Result is a 2x4 output tensor whose element count (8) mismatches the input (10), silently producing wrong results.",
+      "finding_id": "mf-5a95627e3134bc6cb036"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "static/app/views/replays/detail/ai/ai.tsx",
+      "line": 61,
+      "summary": "Seer setup check loading/error states not handled: orgHasAcknowledged defaults to false, indistinguishable from 'not acknowledged', causing misleading CTA during loading and deadlocked feature on API error",
+      "failure_scenario": "User visits replay detail page. The seer setup check API is loading or returns an error (network failure, 503). setupAcknowledgement.orgHasAcknowledged stays false. The component shows the 'View Seer Settings' CTA instead of a loading/error indicator, and the summary query (useFetchReplaySummary) stays permanently disabled because its enabled condition requires orgHasAcknowledged===true. Even though the org already acknowledged Seer, the feature appears broken with a misleading CTA. The component should destructure and check isPending/isError from useOrganizationSeerSetup to differentiate 'still loading' and 'API errored' from 'genuinely not acknowledged'.",
+      "finding_id": "mf-13801105e50bcb09f499"
+    },
+    {
+      "file": "static/app/views/replays/detail/layout/focusTabs.tsx",
+      "line": 57,
+      "summary": "useOrganizationSeerSetup() fires an unnecessary API request to /organizations/{slug}/seer/setup-check/ when only the synchronously-computed areAiFeaturesAllowed value is used",
+      "failure_scenario": "FocusTabs component mounts and calls useOrganizationSeerSetup(), which triggers an API query with staleTime:0. The component only destructures areAiFeaturesAllowed (computed synchronously as !organization.hideAiFeatures && organization.features.includes('gen-ai-features')). The API response (billing, setupAcknowledgement) is never read. This causes an unnecessary network request on every mount and window refocus, and triggers an unnecessary re-render when the API resolves. The value could be computed locally: areAiFeaturesAllowed = !organization.hideAiFeatures && organization.features.includes('gen-ai-features'). If the API call is intentionally desired (e.g., to warm the cache for ai.tsx), pass {enabled: false} to useOrganizationSeerSetup to make intent explicit and avoid the wasted fetch.",
+      "finding_id": "mf-c1816aad0ac7a28c8203"
+    }
+  ]
+}

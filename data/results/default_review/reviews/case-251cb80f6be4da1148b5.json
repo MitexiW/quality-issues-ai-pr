@@ -1,0 +1,39 @@
+{
+  "findings": [
+    {
+      "file": "modules/microadBidAdapter.js",
+      "line": 2,
+      "summary": "Empty import `import { } from '../src/polyfill.js'` — dead code left from incomplete removal of the `find` import",
+      "failure_scenario": "The import line has no runtime effect (the polyfill module has no side effects) but it is dead code that should have been fully removed during the migration. This creates a misleading module dependency and is inconsistent with the other 40+ files that removed the import entirely.",
+      "finding_id": "mf-9bf7b1b61ecbe8ec3526"
+    },
+    {
+      "file": "modules/onetagBidAdapter.js",
+      "line": 6,
+      "summary": "Empty import `import { } from '../src/polyfill.js'` — dead code left from incomplete removal of the `find` import",
+      "failure_scenario": "Same dead-code pattern as microadBidAdapter.js. The import was reduced to an empty destructuring instead of being removed entirely, leaving a residual reference to the polyfill module.",
+      "finding_id": "mf-092fe9abe0094300bda7"
+    },
+    {
+      "file": "modules/videoModule/index.js",
+      "line": 2,
+      "summary": "Empty import `import { } from '../../src/polyfill.js'` — dead code left from incomplete removal of the `find` import",
+      "failure_scenario": "Same dead-code pattern. The `find` import was emptied but not removed, leaving a dead import line.",
+      "finding_id": "mf-0dc550631651f5112e62"
+    },
+    {
+      "file": "modules/videoModule/videoImpressionVerifier.js",
+      "line": 1,
+      "summary": "Empty import `import { } from '../../src/polyfill.js'` — dead code left from incomplete removal of the `find` import",
+      "failure_scenario": "Same dead-code pattern. Empty destructured import serves no purpose and should be removed entirely.",
+      "finding_id": "mf-28f49fef550f1ff744fe"
+    },
+    {
+      "file": "modules/yieldlabBidAdapter.js",
+      "line": 3,
+      "summary": "Empty import `import { } from '../src/polyfill.js'` — dead code left from incomplete removal of the `find` import",
+      "failure_scenario": "Same dead-code pattern. The import statement was reduced to an empty destructuring instead of being removed.",
+      "finding_id": "mf-38822110cf36dea53a81"
+    }
+  ]
+}

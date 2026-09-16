@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 173,
+      "summary": "New template prefix '以下是{chat_target}:' duplicates the prefix already embedded in chat_talking_prompt at lines 75/78, causing duplicate introductory text in the LLM prompt.",
+      "failure_scenario": "For a private chat (chat_in_group=False), chat_talking_prompt already begins with '以下是你正在和user私聊的内容：\\n...' (line 78), and the template at line 173 adds '以下是你正在和user私聊的内容:' — the LLM receives two nearly-identical introductory sentences back-to-back before seeing the actual chat messages. For group chats, the prefixes differ slightly ('正在进行的聊天' vs '正在聊天的内容') but are still semantically duplicated. This pollutes the prompt with redundant text and degrades LLM response quality.",
+      "finding_id": "mf-77cdf944b0813ae2ed3f"
+    },
+    {
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 203,
+      "summary": "prompt_check_if_response hardcoded to '' loses diagnostic data previously stored in MongoDB for debugging and prompt auditing.",
+      "failure_scenario": "The caller llm_generator.py (line 79, 115, 148) expects a prompt_check value and stores it in db.reasoning_logs under the 'prompt_check' field. The old code constructed a full check prompt string; the new code returns ''. All future log entries will have an empty prompt_check field, breaking any downstream analysis or debugging tools that inspect stored check prompts.",
+      "finding_id": "mf-e6cb18da07dec79aa940"
+    },
+    {
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 128,
+      "summary": "Dead code: prompt_in_group is computed but never used in the function; accessing chat_stream.platform when stream_id is None causes a NameError crash.",
+      "failure_scenario": "At line 67 chat_in_group is True. When stream_id is None (allowed by the type annotation), the 'if stream_id:' block at line 69 is skipped, so chat_stream is never assigned. Execution reaches line 128, enters the 'if chat_in_group:' branch, and line 129 attempts to read chat_stream.platform — raising NameError: name 'chat_stream' is not defined. The assigned value is never used anywhere in the function body, making this dead code with a crash risk. This is pre-existing but should be removed while restructuring this function.",
+      "finding_id": "mf-24c11992bdf14af43a4d"
+    },
+    {
+      "file": "src/plugins/chat/prompt_builder.py",
+      "line": 125,
+      "summary": "Dead variable: probability_3 is assigned from global_config.PERSONALITY_3 but never read or used anywhere in the function.",
+      "failure_scenario": "Wasted computation and misleading code — the personality selection logic at lines 132-137 only branches on probability_1 and probability_1+probability_2, never probability_3. A reader may assume there is a three-way personality split, but the third branch is the final 'else' catch-all regardless of probability_3's value. Pre-existing but should be cleaned up.",
+      "finding_id": "mf-d4b140605db257b628e1"
+    }
+  ]
+}

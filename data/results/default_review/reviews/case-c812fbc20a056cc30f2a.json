@@ -1,0 +1,67 @@
+{
+  "findings": [
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/samples/red_team_samples.py",
+      "line": 87,
+      "summary": "Stale attribute reference: `results.redteaming_data` renamed to `attack_details` — 8 occurrences across the sample file will raise AttributeError",
+      "failure_scenario": "User runs any red team sample script (e.g. basic callback example). The `scan()` method returns a `RedTeamResult` instance whose old attribute `redteaming_data` no longer exists — it was renamed to `attack_details`. The samples access `results.redteaming_data` and crash with `AttributeError: 'RedTeamResult' object has no attribute 'redteaming_data'`. Same bug at lines 151, 199, 242, 292, 338, 471, 523.",
+      "finding_id": "mf-da1837357df66a9a84aa"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1504,
+      "summary": "Log filter pattern `'RedTeamOutput object at'` not updated to `'RedTeamResult object at'` after class rename",
+      "failure_scenario": "During a red team scan, MLFlow or the evaluate framework logs messages containing `'<...RedTeamResult object at 0x...>'`. The LogFilter inside `scan()` was designed to suppress these by matching `'RedTeamOutput object at'` (the old class name). After the rename, the pattern no longer matches, so unfiltered object repr spam appears in the user's console output, degrading the scan experience.",
+      "finding_id": "mf-b43b33bf82d1d061068d"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1817,
+      "summary": "Dead code: `scan_result` TypedDict constructed from `red_team_result` fields but only consumed in the `data_only` branch; in the normal path the computation is wasted",
+      "failure_scenario": "Every non-data-only scan run constructs a full duplicate `ScanResult` TypedDict (lines 1817-1822) by extracting all four fields from `red_team_result` and re-wrapping them, but then discards the result when the `else` branch (line 1829) uses `red_team_result` directly. In scans with many conversations this copies large lists unnecessarily.",
+      "finding_id": "mf-26bb93e6c6102caa9013"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1829,
+      "summary": "Redundant state: `RedTeamResult` constructor receives `attack_details` explicitly while the same data already lives inside `scan_result[\"attack_details\"]`",
+      "failure_scenario": "External code constructing `RedTeamResult` could pass `scan_result` (which holds `attack_details` inside it) and a different `attack_details` kwarg, creating divergent state. Methods like `to_eval_qr_json_lines` read `self.attack_details` while other paths access `self.scan_result[\"attack_details\"]`. Currently the production constructor always passes the same data for both, but the API invites inconsistency.",
+      "finding_id": "mf-2a97ac0521553fb7cddc"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1472,
+      "summary": "Docstring `:rtype: RedTeamOutput` stale — class renamed to `RedTeamResult`",
+      "failure_scenario": "IDE autocomplete, generated API docs, and type-checked callers will see the wrong return type `RedTeamOutput` which no longer exists. No runtime crash but causes confusion and broken type-checking for external consumers of the `scan()` method.",
+      "finding_id": "mf-e59837108b6d1882e412"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 214,
+      "summary": "Docstring `:type redteam_output: ~azure.ai.evaluation.RedTeamOutput` stale — class renamed to `RedTeamResult`",
+      "failure_scenario": "Same as above: `_log_redteam_results_to_mlflow` docstring references the old class name, confusing IDEs and type checkers.",
+      "finding_id": "mf-3129e4bc379c5916257c"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_red_team.py",
+      "line": 1171,
+      "summary": "Type annotation mismatch: `_to_scorecard` parameter typed as `RedTeamResult` (class) but callers pass `output.scan_result` which is a `ScanResult` TypedDict",
+      "failure_scenario": "If any code path calls `_to_scorecard` with an actual `RedTeamResult` instance, `format_scorecard` will try `redteam_result[\"scorecard\"]` on a class object (not subscriptable by default), raising `TypeError`. Currently protected because the only caller passes `output.scan_result` (a dict).",
+      "finding_id": "mf-04fa01cafbf8f218dc5f"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/_utils/formatting_utils.py",
+      "line": 101,
+      "summary": "Type annotation mismatch: `format_scorecard` parameter typed as `RedTeamResult` (class) but accesses `redteam_result[\"scorecard\"]` requiring a `ScanResult` dict",
+      "failure_scenario": "Same root cause as above. The import at line 11 pulls `RedTeamResult` (the wrapper class) but the function treats its argument as a dict with string keys. If any new caller passes a `RedTeamResult` instance directly, it crashes with `TypeError`.",
+      "finding_id": "mf-b705682322e46446eb30"
+    },
+    {
+      "file": "sdk/evaluation/azure-ai-evaluation/azure/ai/evaluation/red_team/__init__.py",
+      "line": 5,
+      "summary": "Overly broad try/except: if any of the four imports fail, ALL four names become undefined and the error message always says 'Could not import Pyrit' regardless of actual cause",
+      "failure_scenario": "If `_red_team_result.py` fails to import (e.g. due to a missing non-Pyrit dependency like a corrupt `json` module or a bug in `_common._experimental`), users see a misleading message about installing Pyrit. Meanwhile `AttackStrategy`, `RiskCategory`, and `RedTeamResult` — which don't need Pyrit at all — become unavailable because they share the same try block as `RedTeam`.",
+      "finding_id": "mf-a8f63113127eec066cd5"
+    }
+  ]
+}

@@ -57,6 +57,12 @@ def main() -> None:
     root_cause_compiled = output / "rq1-root-cause-compiled"
     commands = [
         [python, "scripts/verify_artifact.py"],
+        [python, "scripts/analyze_default_review.py",
+         "--results", str(reports / "default_review"),
+         "--output", str(output / "rq3-default")],
+        [python, "scripts/analyze_native_skill_recovery.py",
+         "--results", str(reports / "native_skill_review"),
+         "--output", str(output / "rq3-guided")],
         [python, "scripts/analysis/build_validated_issue_snapshot.py",
          "--raw-snapshot-dir", str(reports / "rq_analysis_final_20260727_v3"),
          "--adjudication-dir", str(root / "data/inputs/alert_assessment"),
@@ -123,13 +129,13 @@ def main() -> None:
         ],
         [
             python, "scripts/analysis/recompute_public_rq3_metrics.py",
-            "--joined-references", str(reports / "final_human_confirmed_rq3_20260817_v1/reference_adjudication_join_public.csv"),
+            "--joined-references", str(output / "rq3-default/reference_inputs.csv"),
             "--output-dir", str(output / "rq3-metrics"),
             "--bootstrap-draws", rq3_draws, "--seed", "20260623",
         ],
         [
             python, "scripts/analysis/map_all_rq3_references_to_rq1_mechanisms.py",
-            "--references", str(reports / "final_human_confirmed_rq3_20260817_v1/reference_adjudication_join_public.csv"),
+            "--references", str(output / "rq3-default/reference_inputs.csv"),
             "--strict-mapping", str(reports / "rq3_reference_mechanism_mapping_20260901_v1/reference_mechanism_mapping.csv"),
             "--strict-manifest", str(reports / "rq3_reference_mechanism_mapping_20260901_v1/manifest.json"),
             "--alert-links", str(root_cause / "full_compiled_v1/alert_cluster_links.csv"),
@@ -140,7 +146,7 @@ def main() -> None:
          "--analysis-pr-level", str(analysis / "analysis_pr_level.csv"),
          "--ai-alerts", str(analysis / "validated_alerts.csv"),
          "--human-alerts", str(analysis / "validated_alerts.csv"),
-         "--rq3-reference-recovery", str(reports / "final_human_confirmed_rq3_20260817_v1/reference_adjudication_join_public.csv"),
+         "--rq3-reference-recovery", str(output / "rq3-default/reference_inputs.csv"),
          "--rq3-finding-relations", str(reports / "rq3_semantic_results_20260729_v1/semantic_finding_relations_public.csv"),
          "--rq3-summary", str(reports / "rq3_semantic_results_20260729_v1/summary.json"),
          "--bootstrap-draws", rq1_bootstrap, "--output-dir", str(output / "insights")],

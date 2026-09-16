@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "failure_scenario": "User tags a commenter whose HN username contains uppercase letters (e.g. \"PaulHoule\") from a comment; Utils.setUserTag stores the key lowercased (\"paulhoule\"). Later the user opens Settings > Manage user tags, where the row displays \"paulhoule (tag)\", and taps it. UserDialogFragment requests hacker-news.firebaseio.com/v0/user/paulhoule.json, HN returns null because \"paulhoule\" is a different (nonexistent) account, new JSONObject(\"null\") throws, and the dialog shows the \"Loading failed\" error layout instead of the profile. Existing callers (CommentsFragment.java:1466, 1633) pass original-case names from the API and work correctly; only this new path uses the lowercased key.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/ManageUserTagsDialogFragment.java",
+      "line": 42,
+      "summary": "The manage-tags dialog feeds the lowercased storage key back as the username to UserDialogFragment, whose HN API request is case-sensitive, so profiles of users with uppercase letters in their HN username fail to load."
+    },
+    {
+      "failure_scenario": "User opens Manage user tags and taps a user, then removes that user's tag (empty tag) in the user dialog; the accepted callback runs adapter.setItems(...) + notifyDataSetChanged() (ManageUserTagsDialogFragment.java:44-45), shrinking the list while old row views are still visible during rebind. Clicking a row in that window yields getAbsoluteAdapterPosition() == NO_POSITION (-1) or an index into the shortened list: users.get(-1) throws IndexOutOfBoundsException (app crash), or a stale index silently opens the dialog for a different user.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/adapters/UserTagsAdapter.java",
+      "line": 45,
+      "summary": "Click handler indexes the list with getAbsoluteAdapterPosition() without guarding NO_POSITION or stale positions, so a click after the list refreshes can open the wrong user's dialog or crash with IndexOutOfBoundsException."
+    },
+    {
+      "failure_scenario": "Settings shows the summary \"2 users with tags\". The user opens Manage user tags from the same screen, removes both tags via the per-user dialog, and presses Done. Because a DialogFragment window never triggers the activity's pause/resume cycle, SettingsFragment.onResume is not called again, and the summary still reads \"2 users with tags\" even though reopening the manage dialog shows an empty list. The count stays wrong until the user leaves Settings and re-enters.",
+      "file": "app/src/main/java/com/simon/harmonichackernews/SettingsActivity.java",
+      "line": 319,
+      "summary": "The 'N users with tags' preference summary is only refreshed in onCreatePreferences and onResume, but editing tags through the new dialog neither pauses nor resumes the activity, leaving the summary stale after edits made in the dialog."
+    }
+  ],
+  "level": null
+}

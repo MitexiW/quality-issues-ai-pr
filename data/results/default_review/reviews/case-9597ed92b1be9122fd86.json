@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "file": "reflex/app.py",
+      "line": 1848,
+      "summary": "Starlette's default HTTPException handler returns PlainTextResponse (plain text) whereas FastAPI would return JSON {\"detail\": \"...\"}; clients parsing error responses as JSON will fail at parse time.",
+      "failure_scenario": "The Reflex frontend sends an upload request without the required `reflex-client-token` or `reflex-event-handler` headers. The server raises `HTTPException(status_code=400, detail=\"Missing reflex-client-token or reflex-event-handler header.\")`. Starlette catches this and returns `PlainTextResponse` with body `Missing reflex-client-token or reflex-event-handler header.` and content-type `text/plain`. If the frontend calls `response.json()` to parse the error body (which was correct behavior under FastAPI), the JSON parse fails with a SyntaxError. This only applies to the direct-Starlette path (when the deprecated `app.api` property has not been accessed); the FastAPI backward-compat path still returns JSON errors.",
+      "finding_id": "mf-59f4e9d4eb46d7bf939a"
+    },
+    {
+      "file": "reflex/app.py",
+      "line": 646,
+      "summary": "`isinstance(self.api_transformer, Sequence)` matches Python strings, which can lead to character-level iteration and a crash if a string value bypasses type checking.",
+      "failure_scenario": "If `app.api_transformer` is dynamically set to a string value such as `\"some_mistake\"` (e.g. via a misconfigured YAML loader or a monkey-patching bug), `isinstance(\"some_mistake\", Sequence)` evaluates to `True`, the value is NOT wrapped in a list, and the `for` loop iterates over individual characters. The first iteration tries `'s'(asgi_app)` which raises `TypeError: 'str' object is not callable`. The type annotation would catch this under a type checker, but dynamic assignment bypasses it.",
+      "finding_id": "mf-f210a7b607a99ebaedcc"
+    }
+  ]
+}
