@@ -1,6 +1,6 @@
 # Licensing
 
-Copyright (c) 2026 Qihang Wan, Jie Lu, Haofeng Li, and Lian Li.
+Copyright (c) 2026 Qihang Wan, Jie Lu, Huashan Chen, Haofeng Li, and Lian Li.
 
 Unless a file states otherwise:
 

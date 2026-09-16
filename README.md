@@ -24,6 +24,7 @@ The comparison is exploratory: review scope and execution handling differed.
 - Qihang Wan — SKLP, Institute of Computing Technology, Chinese Academy of
   Sciences; University of Chinese Academy of Sciences
 - Jie Lu — SKLP, Institute of Computing Technology, Chinese Academy of Sciences
+- Huashan Chen — Institute of Information Engineering, Chinese Academy of Sciences
 - Haofeng Li — SKLP, Institute of Computing Technology, Chinese Academy of Sciences
 - Lian Li — SKLP, Institute of Computing Technology, Chinese Academy of
   Sciences; University of Chinese Academy of Sciences

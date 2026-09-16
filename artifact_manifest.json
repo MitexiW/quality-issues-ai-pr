@@ -6,7 +6,7 @@
   "source_workspace_modified": true,
   "source_git_head": "f3a0dacb1c59348f833ba7eaa8aaf64af7d6b834",
   "file_n": 1118,
-  "byte_n": 46604276,
+  "byte_n": 46604522,
   "privacy_blocker_n": 0,
   "privacy_warning_n": 0,
   "license_selected": true,
@@ -30,16 +30,16 @@
     },
     {
       "path": "CITATION.cff",
-      "size": 1009,
-      "sha256": "3716d8d678904a88074b1d2563508c1c64703ff0988a30014dcfbe53a3b2ddc7",
+      "size": 1142,
+      "sha256": "05374f9e6078967f06451313535b06ec1f3d53ba7142ecc0c21ddad8bb3e5e0c",
       "source_sha256": "1677863a83b2c27f94f62f4e12c71c9152abdea6b1b1321cdd3b8ea9a64f4e0f",
       "transformation": "public_reproduction_repair_20260908",
       "local_path_replacement_n": 0
     },
     {
       "path": "LICENSE.md",
-      "size": 997,
-      "sha256": "a3350adc4fedaa0b710b25aed295bf2694d2ad9b08e01e62787ba4f7fc7fca95",
+      "size": 1011,
+      "sha256": "19961156103ac0f8b35c618286b7c164449044184e23bb95f38caf9297919327",
       "source_sha256": "generated",
       "transformation": "generated_release_metadata",
       "local_path_replacement_n": 0
@@ -54,8 +54,8 @@
     },
     {
       "path": "LICENSES/MIT.txt",
-      "size": 1100,
-      "sha256": "d08a0c678002eb9597339fdee38e16f167a41e8ac94478fe5e84ada1a93fd611",
+      "size": 1114,
+      "sha256": "eab13a12b4152752270a08925386952588904dc000342848429a84d370e933f2",
       "source_sha256": "generated",
       "transformation": "generated_release_metadata",
       "local_path_replacement_n": 0
@@ -70,8 +70,8 @@
     },
     {
       "path": "README.md",
-      "size": 8579,
-      "sha256": "7edae60aa0399aff8bd9ddacff56c753b90a4bbce79f092d71c951c4519a2712",
+      "size": 8664,
+      "sha256": "aca9bcc11b56e48df21cf2a8e23a00087867d83155345c7309da288438304d0a",
       "source_sha256": "48e4d7b185253b05de5d16f0620ee22db92e81c50fb3b093c618b7f85d9dcb98",
       "transformation": "default_review_combined_release",
       "local_path_replacement_n": 0
